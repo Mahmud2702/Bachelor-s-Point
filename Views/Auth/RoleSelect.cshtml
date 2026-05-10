@@ -1,0 +1,36 @@
+@{
+    ViewData["Title"] = "Welcome";
+}
+
+<div class="hero-welcome">
+    <div class="container">
+        <h1 class="display-4">Welcome to Bachelor's Point</h1>
+        <p class="lead mt-2 mb-0">Find a bachelor room, or list one for others.</p>
+    </div>
+</div>
+
+<div class="container">
+    <h3 class="text-center mb-4">Login as</h3>
+
+    <div class="row justify-content-center g-4">
+        <div class="col-md-5 col-lg-4">
+            <a asp-action="Login" asp-route-as="admin" class="role-card p-4 text-center">
+                <div class="icon-wrap icon-admin mb-3">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <h4 class="mb-2">Admin</h4>
+                <p class="text-muted mb-0">Manage users, roles, and all rooms.</p>
+            </a>
+        </div>
+
+        <div class="col-md-5 col-lg-4">
+            <a asp-action="Login" asp-route-as="user" class="role-card p-4 text-center">
+                <div class="icon-wrap icon-user mb-3">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <h4 class="mb-2">User</h4>
+                <p class="text-muted mb-0">Browse rooms or post your own listing.</p>
+            </a>
+        </div>
+    </div>
+</div>

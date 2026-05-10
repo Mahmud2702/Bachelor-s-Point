@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Bachelor's Point</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+
+    <style>
+        body {
+            background: #f6f8fb;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        main { flex: 1; }
+        .navbar-brand-bp {
+            font-weight: 700;
+            font-size: 1.35rem;
+            color: #fff !important;
+            letter-spacing: 0.3px;
+        }
+        .navbar-bp {
+            background: linear-gradient(90deg, #2c3e50 0%, #4a6075 100%);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .navbar-bp .nav-link { color: rgba(255,255,255,0.85) !important; }
+        .navbar-bp .nav-link:hover { color: #fff !important; }
+        .role-card {
+            border: 1px solid #e3e8ef;
+            border-radius: 14px;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+            cursor: pointer;
+            background: #fff;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+        .role-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(44, 62, 80, 0.12);
+            border-color: #c9d3e0;
+            color: inherit;
+            text-decoration: none;
+        }
+        .role-card .icon-wrap {
+            width: 86px;
+            height: 86px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.4rem;
+        }
+        .icon-admin { background: #e7f0ff; color: #2563eb; }
+        .icon-user  { background: #e7f9ee; color: #15803d; }
+        .hero-welcome {
+            background: linear-gradient(135deg, #2c3e50 0%, #4a6075 100%);
+            color: #fff;
+            padding: 3rem 1rem;
+            border-radius: 0 0 24px 24px;
+            margin-bottom: 2.5rem;
+            text-align: center;
+        }
+        .hero-welcome h1 { font-weight: 700; }
+        .hero-welcome .lead { opacity: 0.92; }
+        .footer-bp {
+            background: #fff;
+            border-top: 1px solid #e3e8ef;
+            padding: 1rem 0;
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+        .auth-card {
+            max-width: 460px;
+            margin: 2rem auto;
+            background: #fff;
+            border-radius: 14px;
+            padding: 2rem;
+            box-shadow: 0 6px 20px rgba(44, 62, 80, 0.08);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-md navbar-bp">
+            <div class="container">
+                <a class="navbar-brand navbar-brand-bp" asp-controller="Home" asp-action="Index">
+                    <i class="bi bi-house-door-fill me-1"></i> Bachelor's Point
+                </a>
+                @if (User.Identity != null && User.Identity.IsAuthenticated)
+                {
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navMain">
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Home" asp-action="Index">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Room" asp-action="Index">Browse Rooms</a>
+                            </li>
+                            @if (User.IsInRole("RoomOwner") || User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Room" asp-action="MyListings">My Listings</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Room" asp-action="Create">Post a Room</a>
+                                </li>
+                            }
+                            @if (User.IsInRole("Admin"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="User" asp-action="Index">Users</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Role" asp-action="Index">Roles</a>
+                                </li>
+                            }
+                        </ul>
+                        <ul class="navbar-nav">
+                            <li class="nav-item">
+                                <span class="nav-link"><i class="bi bi-person-circle me-1"></i>@User.Identity.Name</span>
+                            </li>
+                            <li class="nav-item">
+                                <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-link nav-link">Logout</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </nav>
+    </header>
+
+    <main role="main">
+        <div class="container mt-3">
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @TempData["Success"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @TempData["Error"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+        </div>
+        @RenderBody()
+    </main>
+
+    <footer class="footer-bp mt-5">
+        <div class="container text-center">
+            &copy; 2026 - Bachelor's Point - <a asp-controller="Home" asp-action="Privacy" class="text-decoration-none">Privacy</a>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

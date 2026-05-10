@@ -1,0 +1,15 @@
+using Bachelor_s_Point.Application.Interfaces.Repositories;
+
+namespace Bachelor_s_Point.Application.Interfaces.UnitOfWork
+{
+    public interface IUnitOfWork
+    {
+        IUserRepository UserRepo { get; }
+
+        IRoleRepository RoleRepo { get; }
+
+        IRoomRepository RoomRepo { get; }
+
+        Task<int> SaveAsync();
+    }
+}

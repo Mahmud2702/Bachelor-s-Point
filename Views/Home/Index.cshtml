@@ -1,0 +1,52 @@
+@model IEnumerable<Room>
+@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="hero-welcome">
+    <div class="container">
+        <h1 class="display-5">Welcome to Bachelor's Point</h1>
+        <p class="lead mt-2 mb-3">Find a bachelor room, or list one for others.</p>
+        <a asp-controller="Room" asp-action="Index" class="btn btn-light">
+            <i class="bi bi-search me-1"></i> Browse all rooms
+        </a>
+    </div>
+</div>
+
+<div class="container">
+    <h3 class="mb-3">Latest Available Rooms</h3>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-1"></i> No rooms have been posted yet.
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var room in Model.Take(6))
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">@room.Title</h5>
+                            <h6 class="card-subtitle text-muted mb-2">
+                                <i class="bi bi-geo-alt"></i> @room.Location
+                            </h6>
+                            <p class="card-text">
+                                @(room.Description?.Length > 100 ? room.Description.Substring(0, 100) + "..." : room.Description)
+                            </p>
+                            <p class="mb-0"><strong class="text-success">BDT @room.Price</strong></p>
+                        </div>
+                        <div class="card-footer bg-white border-0">
+                            <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-primary">
+                                View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

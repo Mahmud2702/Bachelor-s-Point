@@ -1,0 +1,22 @@
+@model User
+@{
+    ViewData["Title"] = "User Details";
+}
+
+<h2>User Details</h2>
+<dl class="row">
+    <dt class="col-sm-3">Id</dt>
+    <dd class="col-sm-9">@Model.Id</dd>
+    <dt class="col-sm-3">User Name</dt>
+    <dd class="col-sm-9">@Model.UserName</dd>
+    <dt class="col-sm-3">Email</dt>
+    <dd class="col-sm-9">@Model.Email</dd>
+    <dt class="col-sm-3">Address</dt>
+    <dd class="col-sm-9">@Model.Address</dd>
+    <dt class="col-sm-3">Role</dt>
+    <dd class="col-sm-9">@Model.Role?.RoleName</dd>
+    <dt class="col-sm-3">Last Login</dt>
+    <dd class="col-sm-9">@(Model.LastLogin?.ToString("dd-MMM-yyyy hh:mm tt") ?? "Never")</dd>
+</dl>
+<a asp-action="Index" class="btn btn-secondary">Back</a>
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Edit</a>

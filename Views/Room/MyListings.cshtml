@@ -1,0 +1,46 @@
+@model IEnumerable<Room>
+@{
+    ViewData["Title"] = "My Listings";
+}
+
+<h2>My Listings</h2>
+<p>
+    <a asp-action="Create" class="btn btn-primary">Post a New Room</a>
+</p>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">You have not posted any rooms yet.</div>
+}
+else
+{
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Location</th>
+                <th>Price</th>
+                <th>Available</th>
+                <th>Posted</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var room in Model)
+            {
+                <tr>
+                    <td>@room.Title</td>
+                    <td>@room.Location</td>
+                    <td>BDT @room.Price</td>
+                    <td>@(room.IsAvailable ? "Yes" : "No")</td>
+                    <td>@room.CreatedAt.ToString("dd-MMM-yyyy")</td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@room.Id" class="btn btn-info btn-sm">Details</a>
+                        <a asp-action="Edit" asp-route-id="@room.Id" class="btn btn-warning btn-sm">Edit</a>
+                        <a asp-action="Delete" asp-route-id="@room.Id" class="btn btn-danger btn-sm">Delete</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

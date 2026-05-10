@@ -1,0 +1,15 @@
+@model Role
+@{
+    ViewData["Title"] = "Role Details";
+}
+<h2>Role Details</h2>
+<dl class="row">
+    <dt class="col-sm-3">Id</dt>
+    <dd class="col-sm-9">@Model.Id</dd>
+    <dt class="col-sm-3">Role Name</dt>
+    <dd class="col-sm-9">@Model.RoleName</dd>
+    <dt class="col-sm-3">Description</dt>
+    <dd class="col-sm-9">@Model.RoleDescription</dd>
+</dl>
+<a asp-action="Index" class="btn btn-secondary">Back</a>
+<a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">Edit</a>

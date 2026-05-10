@@ -1,0 +1,30 @@
+@model Room
+@{
+    ViewData["Title"] = "Select Room";
+    var dto = ViewBag.SelectionDto as SelectRoomDto ?? new SelectRoomDto { RoomId = Model.Id };
+}
+
+<h2>Select Room</h2>
+<p>Confirm your interest in this room. The owner will receive a notification email with your contact details.</p>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">@Model.Title</h5>
+        <p class="text-muted mb-1">@Model.Location</p>
+        <p><strong>BDT @Model.Price</strong></p>
+        <p>@Model.Description</p>
+    </div>
+</div>
+
+<form asp-action="Select" method="post">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="RoomId" value="@dto.RoomId" />
+
+    <div class="form-group mb-3">
+        <label class="control-label">Optional message to the owner</label>
+        <textarea name="Message" class="form-control" rows="3" placeholder="Hi! I'm interested in this room..."></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-success">Confirm Selection</button>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-secondary">Cancel</a>
+</form>

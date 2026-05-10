@@ -1,0 +1,53 @@
+@model IEnumerable<Room>
+@{
+    ViewData["Title"] = "Browse Rooms";
+    var searchText = ViewBag.SearchText as string;
+}
+
+<h2>Browse Available Rooms</h2>
+
+<form asp-action="Index" method="get" class="row g-3 mb-3">
+    <div class="col-md-6">
+        <input type="text" name="searchText" value="@searchText" class="form-control" placeholder="Search by title, description, or location" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Search</button>
+        @if (!string.IsNullOrEmpty(searchText))
+        {
+            <a asp-action="Index" class="btn btn-link">Clear</a>
+        }
+    </div>
+</form>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">No rooms found.</div>
+}
+else
+{
+    <div class="row">
+        @foreach (var room in Model)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">@room.Title</h5>
+                        <h6 class="card-subtitle text-muted mb-2">@room.Location</h6>
+                        <p class="card-text">
+                            @(room.Description?.Length > 120 ? room.Description.Substring(0, 120) + "..." : room.Description)
+                        </p>
+                        <p class="mb-1"><strong>BDT @room.Price</strong></p>
+                        <p class="text-muted small">Posted by @(room.Owner?.UserName ?? "Unknown")</p>
+                    </div>
+                    <div class="card-footer bg-white">
+                        <a asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-primary">Details</a>
+                        @if (User.Identity != null && User.Identity.IsAuthenticated && (User.IsInRole("RoomSeeker") || User.IsInRole("Admin")))
+                        {
+                            <a asp-action="Select" asp-route-id="@room.Id" class="btn btn-sm btn-success">Select</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}

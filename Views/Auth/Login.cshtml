@@ -1,0 +1,64 @@
+@model LoginDto
+@{
+    string loginType = (ViewBag.LoginType as string) ?? "";
+    string title = loginType == "admin" ? "Admin Login"
+                 : loginType == "user"  ? "User Login"
+                 : "Login";
+    string iconClass = loginType == "admin" ? "bi-shield-lock-fill text-primary"
+                     : loginType == "user"  ? "bi-person-fill text-success"
+                     : "bi-box-arrow-in-right text-secondary";
+    ViewData["Title"] = title;
+}
+
+<div class="container">
+    <div class="auth-card">
+        <div class="text-center mb-4">
+            <i class="bi @iconClass" style="font-size: 2.6rem;"></i>
+            <h3 class="mt-2 mb-0">@title</h3>
+            <p class="text-muted small mb-0">Sign in to continue</p>
+        </div>
+
+        <form asp-action="Login" asp-route-as="@(string.IsNullOrEmpty(loginType) ? null : loginType)" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label">Email</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                    <input asp-for="Email" class="form-control" placeholder="you@example.com" />
+                </div>
+                <span asp-validation-for="Email" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input asp-for="Password" type="password" class="form-control" placeholder="Enter password" />
+                </div>
+                <span asp-validation-for="Password" class="text-danger small"></span>
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                </button>
+                <a asp-action="RoleSelect" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Back
+                </a>
+            </div>
+
+            <div class="text-center mt-3">
+                <small class="text-muted">
+                    Don't have an account?
+                    <a asp-action="Register" asp-route-as="@(string.IsNullOrEmpty(loginType) ? null : loginType)">Register</a>
+                </small>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}
