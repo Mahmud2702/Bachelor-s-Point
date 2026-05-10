@@ -23,8 +23,13 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
 
         /// <summary>
         /// Triggered when a Room Seeker selects a room.
-        /// Loads the room, identifies the owner, fires email notification.
+        /// Persists a RoomSelection record AND sends owner notification email.
         /// </summary>
         Task<string> SelectRoomAsync(SelectRoomDto selection);
+
+        /// <summary>
+        /// Get all rooms the user has selected (for booking history).
+        /// </summary>
+        Task<List<RoomSelection>> GetMySelectionsAsync(int seekerUserId);
     }
 }

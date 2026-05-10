@@ -1,0 +1,160 @@
+@model User
+@{
+    ViewData["Title"] = "My Profile";
+    var postedRooms = ViewBag.PostedRooms as List<Room> ?? new List<Room>();
+    var selections = ViewBag.Selections as List<RoomSelection> ?? new List<RoomSelection>();
+}
+
+<div class="container">
+
+    <!-- Profile header -->
+    <div class="card stat-card mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-center flex-wrap">
+                <div class="icon-wrap icon-user me-3" style="width:72px;height:72px;font-size:2rem;">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h3 class="mb-1">@Model.UserName</h3>
+                    <p class="text-muted mb-1">
+                        <i class="bi bi-envelope me-1"></i>@Model.Email
+                    </p>
+                    @if (!string.IsNullOrWhiteSpace(Model.Address))
+                    {
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-geo-alt me-1"></i>@Model.Address
+                        </p>
+                    }
+                </div>
+                <div class="text-end small text-muted">
+                    Role: <strong>@Model.Role?.RoleName</strong><br />
+                    @if (Model.LastLogin.HasValue)
+                    {
+                        <span>Last login: @Model.LastLogin.Value.ToString("dd-MMM-yyyy")</span>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card stat-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-house-add-fill text-primary" style="font-size:2.2rem;"></i>
+                    <h2 class="mt-2 mb-0">@postedRooms.Count</h2>
+                    <p class="text-muted mb-0">Rooms Posted</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card stat-card">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-bookmark-check-fill text-success" style="font-size:2.2rem;"></i>
+                    <h2 class="mt-2 mb-0">@selections.Count</h2>
+                    <p class="text-muted mb-0">Rooms Booked</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Posted Rooms -->
+    <h4 class="mb-3"><i class="bi bi-house-add-fill me-2"></i>My Posted Rooms</h4>
+    @if (postedRooms.Any())
+    {
+        <div class="card stat-card mb-4">
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Title</th>
+                            <th>Location</th>
+                            <th>Price</th>
+                            <th>Posted</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var room in postedRooms)
+                        {
+                            <tr>
+                                <td>@room.Title</td>
+                                <td>@room.Location</td>
+                                <td>BDT @room.Price</td>
+                                <td>@room.CreatedAt.ToString("dd-MMM-yyyy")</td>
+                                <td>
+                                    @if (room.IsAvailable)
+                                    {
+                                        <span class="badge bg-success">Available</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Closed</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-primary">View</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-1"></i> You haven't posted any rooms yet.
+            <a asp-controller="Room" asp-action="Create" class="alert-link">Post your first room</a>.
+        </div>
+    }
+
+    <!-- Booked Rooms (selections) -->
+    <h4 class="mb-3 mt-4"><i class="bi bi-bookmark-check-fill me-2"></i>My Booked Rooms</h4>
+    @if (selections.Any())
+    {
+        <div class="card stat-card mb-4">
+            <div class="table-responsive">
+                <table class="table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Room</th>
+                            <th>Owner</th>
+                            <th>Location</th>
+                            <th>Booked On</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in selections)
+                        {
+                            <tr>
+                                <td>@s.Room?.Title</td>
+                                <td>@s.Room?.Owner?.UserName</td>
+                                <td>@s.Room?.Location</td>
+                                <td>@s.SelectedAt.ToString("dd-MMM-yyyy hh:mm tt")</td>
+                                <td>
+                                    @if (s.Room != null)
+                                    {
+                                        <a asp-controller="Room" asp-action="Details" asp-route-id="@s.RoomId" class="btn btn-sm btn-outline-primary">View</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-1"></i> You haven't booked any rooms yet.
+            <a asp-controller="Room" asp-action="Index" class="alert-link">Browse rooms</a>.
+        </div>
+    }
+
+</div>

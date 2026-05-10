@@ -1,9 +1,8 @@
 @model RegisterDto
 @{
     string regType = (ViewBag.RegisterType as string) ?? "user";
-    string title = regType == "admin" ? "Admin Registration" : "User Registration";
-    string iconClass = regType == "admin" ? "bi-shield-lock-fill text-primary"
-                                          : "bi-person-plus-fill text-success";
+    string title = regType == "admin" ? "Admin Registration" : "Create an Account";
+    string iconClass = regType == "admin" ? "bi-shield-lock-fill text-primary" : "bi-person-plus-fill text-success";
     ViewData["Title"] = title;
 }
 
@@ -41,16 +40,6 @@
                 <label asp-for="Address" class="form-label">Address</label>
                 <textarea asp-for="Address" class="form-control" rows="2" placeholder="Your address"></textarea>
                 <span asp-validation-for="Address" class="text-danger small"></span>
-            </div>
-
-            <div class="mb-3">
-                <label asp-for="RoleId" class="form-label">
-                    @(regType == "admin" ? "Role" : "I want to register as")
-                </label>
-                <select asp-for="RoleId" class="form-select" asp-items="ViewBag.RoleList">
-                    <option value="">-- Select Role --</option>
-                </select>
-                <span asp-validation-for="RoleId" class="text-danger small"></span>
             </div>
 
             <div class="d-grid gap-2">

@@ -14,16 +14,20 @@ namespace Bachelor_s_Point.UnitOfWork
 
         public IRoomRepository RoomRepo { get; private set; }
 
+        public IRoomSelectionRepository SelectionRepo { get; private set; }
+
         public UnitOfWork(
             AppDbContext context,
             IUserRepository userRepo,
             IRoleRepository roleRepo,
-            IRoomRepository roomRepo)
+            IRoomRepository roomRepo,
+            IRoomSelectionRepository selectionRepo)
         {
             _context = context;
             UserRepo = userRepo;
             RoleRepo = roleRepo;
             RoomRepo = roomRepo;
+            SelectionRepo = selectionRepo;
         }
 
         public async Task<int> SaveAsync()

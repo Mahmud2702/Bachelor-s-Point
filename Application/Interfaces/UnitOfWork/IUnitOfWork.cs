@@ -10,6 +10,8 @@ namespace Bachelor_s_Point.Application.Interfaces.UnitOfWork
 
         IRoomRepository RoomRepo { get; }
 
+        IRoomSelectionRepository SelectionRepo { get; }
+
         Task<int> SaveAsync();
     }
 }

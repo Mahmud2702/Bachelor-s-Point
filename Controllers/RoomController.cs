@@ -18,7 +18,6 @@ namespace Bachelor_s_Point.Controllers
 
         // ---------------- Public browsing ----------------
 
-        // GET: /Room
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> Index(string? searchText)
@@ -31,7 +30,6 @@ namespace Bachelor_s_Point.Controllers
             return View(rooms);
         }
 
-        // GET: /Room/Details/5
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> Details(int? id)
@@ -45,20 +43,18 @@ namespace Bachelor_s_Point.Controllers
             return View(room);
         }
 
-        // ---------------- Owner management ----------------
+        // ---------------- Owner management — any logged-in user ----------------
 
-        // GET: /Room/Create
         [HttpGet]
-        [Authorize(Roles = "RoomOwner,Admin")]
+        [Authorize]
         public IActionResult Create()
         {
             return View();
         }
 
-        // POST: /Room/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "RoomOwner,Admin")]
+        [Authorize]
         public async Task<IActionResult> Create(CreateRoomDto dto)
         {
             if (!ModelState.IsValid)
@@ -80,9 +76,8 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(MyListings));
         }
 
-        // GET: /Room/MyListings
         [HttpGet]
-        [Authorize(Roles = "RoomOwner,Admin")]
+        [Authorize]
         public async Task<IActionResult> MyListings()
         {
             int currentUserId = GetCurrentUserId();
@@ -90,9 +85,8 @@ namespace Bachelor_s_Point.Controllers
             return View(rooms);
         }
 
-        // GET: /Room/Edit/5
         [HttpGet]
-        [Authorize(Roles = "RoomOwner,Admin")]
+        [Authorize]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
@@ -112,10 +106,9 @@ namespace Bachelor_s_Point.Controllers
             return View(room);
         }
 
-        // POST: /Room/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "RoomOwner,Admin")]
+        [Authorize]
         public async Task<IActionResult> Edit(int id, Room room)
         {
             if (id != room.Id) return NotFound();
@@ -142,9 +135,8 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(MyListings));
         }
 
-        // GET: /Room/Delete/5
         [HttpGet]
-        [Authorize(Roles = "RoomOwner,Admin")]
+        [Authorize]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
@@ -164,10 +156,9 @@ namespace Bachelor_s_Point.Controllers
             return View(room);
         }
 
-        // POST: /Room/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "RoomOwner,Admin")]
+        [Authorize]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             int currentUserId = GetCurrentUserId();
@@ -187,11 +178,10 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(MyListings));
         }
 
-        // ---------------- The "Select Room" workflow ----------------
+        // ---------------- Select Room workflow — any logged-in user ----------------
 
-        // GET: /Room/Select/5
         [HttpGet]
-        [Authorize(Roles = "RoomSeeker,Admin")]
+        [Authorize]
         public async Task<IActionResult> Select(int? id)
         {
             if (id == null) return NotFound();
@@ -200,14 +190,21 @@ namespace Bachelor_s_Point.Controllers
 
             if (room == null) return NotFound();
 
+            // Prevent users from selecting their own rooms in the UI
+            int currentUserId = GetCurrentUserId();
+            if (room.UserId == currentUserId)
+            {
+                TempData["Error"] = "You cannot select your own room.";
+                return RedirectToAction(nameof(Details), new { id = room.Id });
+            }
+
             ViewBag.SelectionDto = new SelectRoomDto { RoomId = room.Id };
             return View(room);
         }
 
-        // POST: /Room/Select
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "RoomSeeker,Admin")]
+        [Authorize]
         public async Task<IActionResult> Select(SelectRoomDto dto)
         {
             dto.SeekerUserId = GetCurrentUserId();

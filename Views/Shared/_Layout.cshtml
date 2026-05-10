@@ -82,6 +82,22 @@
             padding: 2rem;
             box-shadow: 0 6px 20px rgba(44, 62, 80, 0.08);
         }
+        .mode-pill {
+            background: rgba(255,255,255,0.15);
+            border-radius: 999px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.85rem;
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .mode-pill i { font-size: 0.95rem; }
+        .stat-card {
+            border: 0;
+            border-radius: 14px;
+            box-shadow: 0 4px 14px rgba(44, 62, 80, 0.06);
+        }
     </style>
 </head>
 <body>
@@ -93,6 +109,10 @@
                 </a>
                 @if (User.Identity != null && User.Identity.IsAuthenticated)
                 {
+                    string currentMode = Context.Request.Cookies["UserMode"] ?? "owner";
+                    bool isAdmin = User.IsInRole("Admin");
+                    bool ownerMode = currentMode == "owner";
+
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button>
@@ -104,7 +124,23 @@
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="Room" asp-action="Index">Browse Rooms</a>
                             </li>
-                            @if (User.IsInRole("RoomOwner") || User.IsInRole("Admin"))
+
+                            @if (isAdmin)
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Room" asp-action="MyListings">My Listings</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Room" asp-action="Create">Post a Room</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="User" asp-action="Index">Users</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" asp-controller="Role" asp-action="Index">Roles</a>
+                                </li>
+                            }
+                            else if (ownerMode)
                             {
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="Room" asp-action="MyListings">My Listings</a>
@@ -113,19 +149,55 @@
                                     <a class="nav-link" asp-controller="Room" asp-action="Create">Post a Room</a>
                                 </li>
                             }
-                            @if (User.IsInRole("Admin"))
+                            else
                             {
                                 <li class="nav-item">
-                                    <a class="nav-link" asp-controller="User" asp-action="Index">Users</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Role" asp-action="Index">Roles</a>
+                                    <a class="nav-link" asp-controller="Auth" asp-action="Profile">My Bookings</a>
                                 </li>
                             }
                         </ul>
-                        <ul class="navbar-nav">
+
+                        <ul class="navbar-nav align-items-center">
+                            @if (!isAdmin)
+                            {
+                                <li class="nav-item dropdown me-2">
+                                    <a class="nav-link p-0" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="mode-pill">
+                                            <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-search")"></i>
+                                            @(ownerMode ? "RoomOwner" : "RoomSeeker")
+                                            <i class="bi bi-caret-down-fill" style="font-size:0.7rem;"></i>
+                                        </span>
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li class="dropdown-header small">Switch mode</li>
+                                        <li>
+                                            <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="mode" value="owner" />
+                                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                                <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")">
+                                                    <i class="bi bi-house-add-fill me-1"></i> RoomOwner
+                                                </button>
+                                            </form>
+                                        </li>
+                                        <li>
+                                            <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="mode" value="seeker" />
+                                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                                <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")">
+                                                    <i class="bi bi-search me-1"></i> RoomSeeker
+                                                </button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </li>
+                            }
+
                             <li class="nav-item">
-                                <span class="nav-link"><i class="bi bi-person-circle me-1"></i>@User.Identity.Name</span>
+                                <a class="nav-link" asp-controller="Auth" asp-action="Profile" title="View profile and history">
+                                    <i class="bi bi-person-circle me-1"></i>@User.Identity.Name
+                                </a>
                             </li>
                             <li class="nav-item">
                                 <form asp-controller="Auth" asp-action="Logout" method="post" class="d-inline">

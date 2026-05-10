@@ -9,11 +9,13 @@ namespace Bachelor_s_Point.Data
         {
         }
 
-        public DbSet<User> Users { get; set; } = null!;
+        public DbSet<User> Users { get; set; }
 
-        public DbSet<Role> Roles { get; set; } = null!;
+        public DbSet<Role> Roles { get; set; }
 
-        public DbSet<Room> Rooms { get; set; } = null!;
+        public DbSet<Room> Rooms { get; set; }
+
+        public DbSet<RoomSelection> RoomSelections { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,6 +40,21 @@ namespace Bachelor_s_Point.Data
                 .HasIndex(u => u.Email)
                 .IsUnique();
 
+            // RoomSelection -> Room (many to one)
+            modelBuilder.Entity<RoomSelection>()
+                .HasOne(s => s.Room)
+                .WithMany()
+                .HasForeignKey(s => s.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // RoomSelection -> User (Seeker) (many to one)
+            // NoAction to prevent multiple cascade paths (User -> Rooms -> Selection AND User -> Selection)
+            modelBuilder.Entity<RoomSelection>()
+                .HasOne(s => s.Seeker)
+                .WithMany()
+                .HasForeignKey(s => s.SeekerUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             // Seed default roles
             modelBuilder.Entity<Role>().HasData(
                 new Role
@@ -50,13 +67,13 @@ namespace Bachelor_s_Point.Data
                 {
                     Id = 2,
                     RoleName = "RoomOwner",
-                    RoleDescription = "Can post available bachelor rooms"
+                    RoleDescription = "Default user role — can post rooms and select rooms"
                 },
                 new Role
                 {
                     Id = 3,
                     RoleName = "RoomSeeker",
-                    RoleDescription = "Can search and rent bachelor rooms"
+                    RoleDescription = "Legacy role, kept for backward compatibility"
                 }
             );
         }

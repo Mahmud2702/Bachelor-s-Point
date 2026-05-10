@@ -86,7 +86,6 @@ namespace Bachelor_s_Point.Services
                 return "Room not found";
             }
 
-            // Authorization: only the owner of the room or an admin can edit it
             if (!isAdmin && existing.UserId != currentUserId)
             {
                 return "You are not allowed to edit this room";
@@ -125,11 +124,8 @@ namespace Bachelor_s_Point.Services
         }
 
         // ---------------------------------------------------------------
-        // The core "Select Room" workflow per the project documentation.
-        //   1. Repository fetches the room (with owner).
-        //   2. Owner is identified using room.UserId.
-        //   3. UnitOfWork commits anything that changed.
-        //   4. EmailService is triggered to notify the owner.
+        // The "Select Room" workflow — persists a RoomSelection record AND
+        // notifies the owner by email.
         // ---------------------------------------------------------------
         public async Task<string> SelectRoomAsync(SelectRoomDto selection)
         {
@@ -138,7 +134,6 @@ namespace Bachelor_s_Point.Services
                 return "Invalid selection";
             }
 
-            // Step 1: Repository Layer — fetch the room with its owner
             var room = await _unitOfWork.RoomRepo.GetRoomWithOwnerByIdAsync(selection.RoomId);
 
             if (room == null)
@@ -151,7 +146,6 @@ namespace Bachelor_s_Point.Services
                 return "This room is no longer available";
             }
 
-            // Step 2: identify the owner from room.UserId
             var owner = room.Owner;
 
             if (owner == null || string.IsNullOrWhiteSpace(owner.Email))
@@ -159,7 +153,6 @@ namespace Bachelor_s_Point.Services
                 return "Room owner has no contactable email";
             }
 
-            // Step 3: get the seeker
             var seeker = await _unitOfWork.UserRepo.GetByIdAsync(selection.SeekerUserId);
 
             if (seeker == null)
@@ -172,11 +165,18 @@ namespace Bachelor_s_Point.Services
                 return "You cannot select your own room";
             }
 
-            // Step 4: UnitOfWork commit — even if we don't change DB rows here,
-            // the pattern keeps every workflow under a single transaction boundary.
+            // Persist the selection record (booking history)
+            var selectionRecord = new RoomSelection
+            {
+                RoomId = room.Id,
+                SeekerUserId = seeker.Id,
+                Message = selection.Message,
+                SelectedAt = DateTime.Now
+            };
+            await _unitOfWork.SelectionRepo.AddAsync(selectionRecord);
             await _unitOfWork.SaveAsync();
 
-            // Step 5: Email Service Trigger (don't fail the operation if email fails)
+            // Email Service Trigger (don't fail the operation if email fails)
             try
             {
                 await _emailService.SendRoomSelectedNotificationAsync(
@@ -189,6 +189,11 @@ namespace Bachelor_s_Point.Services
             }
 
             return "Success";
+        }
+
+        public async Task<List<RoomSelection>> GetMySelectionsAsync(int seekerUserId)
+        {
+            return await _unitOfWork.SelectionRepo.GetBySeekerIdAsync(seekerUserId);
         }
     }
 }

@@ -2,8 +2,8 @@ using Bachelor_s_Point.Application.DTOs;
 using Bachelor_s_Point.Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Security.Claims;
 
 namespace Bachelor_s_Point.Controllers
@@ -12,11 +12,19 @@ namespace Bachelor_s_Point.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IRoleService _roleService;
+        private readonly IUserService _userService;
+        private readonly IRoomService _roomService;
 
-        public AuthController(IAuthService authService, IRoleService roleService)
+        public AuthController(
+            IAuthService authService,
+            IRoleService roleService,
+            IUserService userService,
+            IRoomService roomService)
         {
             _authService = authService;
             _roleService = roleService;
+            _userService = userService;
+            _roomService = roomService;
         }
 
         // GET: /Auth/RoleSelect — landing page when not logged in
@@ -30,18 +38,15 @@ namespace Bachelor_s_Point.Controllers
             return View();
         }
 
-        // GET: /Auth/Register?as=admin|user
+        // GET: /Auth/Register?as=admin|user — no role dropdown anymore
         [HttpGet]
-        public async Task<IActionResult> Register(string? @as = null)
+        public IActionResult Register(string? @as = null)
         {
-            // Default to "user" if not specified — never default to admin for safety
             if (string.IsNullOrEmpty(@as))
             {
                 @as = "user";
             }
-
             ViewBag.RegisterType = @as;
-            await LoadRolesDropdown(@as, null);
             return View();
         }
 
@@ -54,37 +59,24 @@ namespace Bachelor_s_Point.Controllers
             {
                 @as = "user";
             }
-
             ViewBag.RegisterType = @as;
+
+            // Auto-assign role based on registration type — user does NOT pick
+            var roles = await _roleService.GetAllRolesAsync();
+            string targetRoleName = @as == "admin" ? "Admin" : "RoomOwner";
+            var targetRole = roles.FirstOrDefault(r => r.RoleName == targetRoleName);
+
+            if (targetRole == null)
+            {
+                ModelState.AddModelError("", $"The {targetRoleName} role is missing from the database. Run the migration first.");
+                return View(dto);
+            }
+
+            dto.RoleId = targetRole.Id;
+            ModelState.Remove(nameof(dto.RoleId)); // we set it ourselves; skip its validation
 
             if (!ModelState.IsValid)
             {
-                await LoadRolesDropdown(@as, dto.RoleId);
-                return View(dto);
-            }
-
-            // Validate the chosen role matches the registration type
-            var role = await _roleService.GetRoleByIdAsync(dto.RoleId);
-            if (role == null)
-            {
-                ModelState.AddModelError("", "Invalid role selected.");
-                await LoadRolesDropdown(@as, dto.RoleId);
-                return View(dto);
-            }
-
-            bool isAdminRole = role.RoleName == "Admin";
-
-            if (@as == "admin" && !isAdminRole)
-            {
-                ModelState.AddModelError("", "Admin registration requires the Admin role.");
-                await LoadRolesDropdown(@as, dto.RoleId);
-                return View(dto);
-            }
-
-            if (@as == "user" && isAdminRole)
-            {
-                ModelState.AddModelError("", "Admin role is not allowed for user registration.");
-                await LoadRolesDropdown(@as, dto.RoleId);
                 return View(dto);
             }
 
@@ -93,7 +85,6 @@ namespace Bachelor_s_Point.Controllers
             if (result != "Success")
             {
                 ModelState.AddModelError("", result);
-                await LoadRolesDropdown(@as, dto.RoleId);
                 return View(dto);
             }
 
@@ -167,6 +158,17 @@ namespace Bachelor_s_Point.Controllers
                     ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
                 });
 
+            // Default mode = owner for non-admin users
+            if (userRoleName != "Admin")
+            {
+                Response.Cookies.Append("UserMode", "owner", new CookieOptions
+                {
+                    Expires = DateTimeOffset.UtcNow.AddHours(8),
+                    HttpOnly = false,
+                    SameSite = SameSiteMode.Lax
+                });
+            }
+
             TempData["Success"] = $"Welcome back, {user.UserName}!";
             return RedirectToAction("Index", "Home");
         }
@@ -177,6 +179,7 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            Response.Cookies.Delete("UserMode");
             return RedirectToAction(nameof(RoleSelect));
         }
 
@@ -187,26 +190,59 @@ namespace Bachelor_s_Point.Controllers
             return View();
         }
 
-        /// <summary>
-        /// Load the role dropdown filtered by registration type:
-        ///   "admin" → only Admin role
-        ///   "user"  → RoomOwner + RoomSeeker (no Admin)
-        /// </summary>
-        private async Task LoadRolesDropdown(string registerType, int? selectedRoleId)
+        // POST: /Auth/SetMode — toggle RoomOwner / RoomSeeker mode for current session
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public IActionResult SetMode(string mode, string? returnUrl = null)
         {
-            var roles = await _roleService.GetAllRolesAsync();
-
-            IEnumerable<Bachelor_s_Point.Models.Role> filtered;
-            if (registerType == "admin")
+            if (mode != "owner" && mode != "seeker")
             {
-                filtered = roles.Where(r => r.RoleName == "Admin");
-            }
-            else
-            {
-                filtered = roles.Where(r => r.RoleName != "Admin");
+                mode = "owner";
             }
 
-            ViewBag.RoleList = new SelectList(filtered, "Id", "RoleName", selectedRoleId);
+            Response.Cookies.Append("UserMode", mode, new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddHours(8),
+                HttpOnly = false,
+                SameSite = SameSiteMode.Lax
+            });
+
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            {
+                return Redirect(returnUrl);
+            }
+
+            return RedirectToAction("Index", "Home");
+        }
+
+        // GET: /Auth/Profile — user's history page
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> Profile()
+        {
+            int userId = GetCurrentUserId();
+            if (userId == 0)
+            {
+                return RedirectToAction(nameof(Login));
+            }
+
+            var user = await _userService.GetUserByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            ViewBag.PostedRooms = await _roomService.GetMyRoomsAsync(userId);
+            ViewBag.Selections = await _roomService.GetMySelectionsAsync(userId);
+
+            return View(user);
+        }
+
+        private int GetCurrentUserId()
+        {
+            var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(idClaim, out int id) ? id : 0;
         }
     }
 }
