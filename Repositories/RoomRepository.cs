@@ -15,7 +15,7 @@ namespace Bachelor_s_Point.Repositories
         {
             return await _context.Rooms
                 .Include(r => r.Owner)
-                .Where(r => r.IsAvailable)
+                .Where(r => r.IsAvailable && r.IsApproved)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
         }
@@ -53,10 +53,47 @@ namespace Bachelor_s_Point.Repositories
 
             return await _context.Rooms
                 .Include(r => r.Owner)
-                .Where(r => r.IsAvailable && (
+                .Where(r => r.IsAvailable && r.IsApproved && (
                     (r.Title != null && r.Title.Contains(searchText)) ||
                     (r.Description != null && r.Description.Contains(searchText)) ||
                     (r.Location != null && r.Location.Contains(searchText))))
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<(List<Room> Items, int TotalCount)> GetApprovedAvailablePagedAsync(string? searchText, int page, int pageSize)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            var query = _context.Rooms
+                .Include(r => r.Owner)
+                .Where(r => r.IsAvailable && r.IsApproved);
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                query = query.Where(r =>
+                    (r.Title != null && r.Title.Contains(searchText)) ||
+                    (r.Description != null && r.Description.Contains(searchText)) ||
+                    (r.Location != null && r.Location.Contains(searchText)));
+            }
+
+            int total = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(r => r.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, total);
+        }
+
+        public async Task<List<Room>> GetPendingApprovalAsync()
+        {
+            return await _context.Rooms
+                .Include(r => r.Owner)
+                .Where(r => !r.IsApproved)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
         }

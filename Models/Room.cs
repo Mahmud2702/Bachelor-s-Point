@@ -24,7 +24,6 @@ namespace Bachelor_s_Point.Models
         [MaxLength(200)]
         public string? Location { get; set; }
 
-        // FK to the User who posted (owner) of this room
         [Required]
         public int UserId { get; set; }
 
@@ -34,5 +33,13 @@ namespace Bachelor_s_Point.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         public bool IsAvailable { get; set; } = true;
+
+        /// <summary>
+        /// Posts go to admin's pending panel first. Only approved rooms appear on
+        /// the home page and Browse Rooms list. Admin's own posts are auto-approved.
+        /// </summary>
+        public bool IsApproved { get; set; } = false;
+
+        public DateTime? ApprovedAt { get; set; }
     }
 }

@@ -18,12 +18,12 @@ namespace Bachelor_s_Point.Controllers
 
         public async Task<IActionResult> Index()
         {
-            // Anonymous users see the login chooser first
             if (User.Identity == null || !User.Identity.IsAuthenticated)
             {
                 return RedirectToAction("RoleSelect", "Auth");
             }
 
+            // Home page shows all approved + available rooms in a scrollable grid
             var rooms = await _roomService.GetAllAvailableRoomsAsync();
             return View(rooms);
         }

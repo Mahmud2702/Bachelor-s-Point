@@ -11,10 +11,7 @@ namespace Bachelor_s_Point.Services
         private readonly IEmailService _emailService;
         private readonly ILogger<RoomService> _logger;
 
-        public RoomService(
-            IUnitOfWork unitOfWork,
-            IEmailService emailService,
-            ILogger<RoomService> logger)
+        public RoomService(IUnitOfWork unitOfWork, IEmailService emailService, ILogger<RoomService> logger)
         {
             _unitOfWork = unitOfWork;
             _emailService = emailService;
@@ -46,7 +43,7 @@ namespace Bachelor_s_Point.Services
             return await _unitOfWork.RoomRepo.SearchAsync(searchText);
         }
 
-        public async Task<string> CreateRoomAsync(CreateRoomDto dto, int ownerUserId)
+        public async Task<string> CreateRoomAsync(CreateRoomDto dto, int ownerUserId, bool autoApprove)
         {
             if (dto == null)
             {
@@ -54,7 +51,6 @@ namespace Bachelor_s_Point.Services
             }
 
             var owner = await _unitOfWork.UserRepo.GetByIdAsync(ownerUserId);
-
             if (owner == null)
             {
                 return "Owner user not found";
@@ -68,7 +64,9 @@ namespace Bachelor_s_Point.Services
                 Location = dto.Location,
                 UserId = ownerUserId,
                 CreatedAt = DateTime.Now,
-                IsAvailable = true
+                IsAvailable = true,
+                IsApproved = autoApprove,
+                ApprovedAt = autoApprove ? DateTime.Now : null
             };
 
             await _unitOfWork.RoomRepo.AddAsync(room);
@@ -80,16 +78,10 @@ namespace Bachelor_s_Point.Services
         public async Task<string> UpdateRoomAsync(Room room, int currentUserId, bool isAdmin)
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(room.Id);
-
-            if (existing == null)
-            {
-                return "Room not found";
-            }
+            if (existing == null) return "Room not found";
 
             if (!isAdmin && existing.UserId != currentUserId)
-            {
                 return "You are not allowed to edit this room";
-            }
 
             existing.Title = room.Title;
             existing.Description = room.Description;
@@ -99,88 +91,52 @@ namespace Bachelor_s_Point.Services
 
             _unitOfWork.RoomRepo.Update(existing);
             await _unitOfWork.SaveAsync();
-
             return "Success";
         }
 
         public async Task<string> DeleteRoomAsync(int roomId, int currentUserId, bool isAdmin)
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(roomId);
-
-            if (existing == null)
-            {
-                return "Room not found";
-            }
+            if (existing == null) return "Room not found";
 
             if (!isAdmin && existing.UserId != currentUserId)
-            {
                 return "You are not allowed to delete this room";
-            }
 
             _unitOfWork.RoomRepo.Delete(existing);
             await _unitOfWork.SaveAsync();
-
             return "Success";
         }
 
-        // ---------------------------------------------------------------
-        // The "Select Room" workflow — persists a RoomSelection record AND
-        // notifies the owner by email.
-        // ---------------------------------------------------------------
         public async Task<string> SelectRoomAsync(SelectRoomDto selection)
         {
-            if (selection == null)
-            {
-                return "Invalid selection";
-            }
+            if (selection == null) return "Invalid selection";
 
             var room = await _unitOfWork.RoomRepo.GetRoomWithOwnerByIdAsync(selection.RoomId);
-
-            if (room == null)
-            {
-                return "Room not found";
-            }
-
-            if (!room.IsAvailable)
-            {
-                return "This room is no longer available";
-            }
+            if (room == null) return "Room not found";
+            if (!room.IsApproved) return "This room has not been approved yet";
+            if (!room.IsAvailable) return "This room is no longer available";
 
             var owner = room.Owner;
-
             if (owner == null || string.IsNullOrWhiteSpace(owner.Email))
-            {
                 return "Room owner has no contactable email";
-            }
 
             var seeker = await _unitOfWork.UserRepo.GetByIdAsync(selection.SeekerUserId);
+            if (seeker == null) return "Seeker user not found";
+            if (seeker.Id == owner.Id) return "You cannot select your own room";
 
-            if (seeker == null)
-            {
-                return "Seeker user not found";
-            }
-
-            if (seeker.Id == owner.Id)
-            {
-                return "You cannot select your own room";
-            }
-
-            // Persist the selection record (booking history)
-            var selectionRecord = new RoomSelection
+            var record = new RoomSelection
             {
                 RoomId = room.Id,
                 SeekerUserId = seeker.Id,
                 Message = selection.Message,
                 SelectedAt = DateTime.Now
             };
-            await _unitOfWork.SelectionRepo.AddAsync(selectionRecord);
+            await _unitOfWork.SelectionRepo.AddAsync(record);
             await _unitOfWork.SaveAsync();
 
-            // Email Service Trigger (don't fail the operation if email fails)
             try
             {
-                await _emailService.SendRoomSelectedNotificationAsync(
-                    room, owner, seeker, selection.Message);
+                await _emailService.SendRoomSelectedNotificationAsync(room, owner, seeker, selection.Message);
             }
             catch (Exception ex)
             {
@@ -194,6 +150,36 @@ namespace Bachelor_s_Point.Services
         public async Task<List<RoomSelection>> GetMySelectionsAsync(int seekerUserId)
         {
             return await _unitOfWork.SelectionRepo.GetBySeekerIdAsync(seekerUserId);
+        }
+
+        public async Task<List<Room>> GetPendingApprovalAsync()
+        {
+            return await _unitOfWork.RoomRepo.GetPendingApprovalAsync();
+        }
+
+        public async Task<string> ApproveRoomAsync(int roomId)
+        {
+            var room = await _unitOfWork.RoomRepo.GetByIdAsync(roomId);
+            if (room == null) return "Room not found";
+            if (room.IsApproved) return "Room is already approved";
+
+            room.IsApproved = true;
+            room.ApprovedAt = DateTime.Now;
+            _unitOfWork.RoomRepo.Update(room);
+            await _unitOfWork.SaveAsync();
+            return "Success";
+        }
+
+        public async Task<PagedResult<Room>> GetApprovedPagedAsync(string? searchText, int page, int pageSize)
+        {
+            var (items, total) = await _unitOfWork.RoomRepo.GetApprovedAvailablePagedAsync(searchText, page, pageSize);
+            return new PagedResult<Room>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total
+            };
         }
     }
 }

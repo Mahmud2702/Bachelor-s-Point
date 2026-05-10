@@ -9,6 +9,7 @@ namespace Bachelor_s_Point.Controllers
 {
     public class RoomController : Controller
     {
+        private const int PageSize = 10;
         private readonly IRoomService _roomService;
 
         public RoomController(IRoomService roomService)
@@ -16,18 +17,15 @@ namespace Bachelor_s_Point.Controllers
             _roomService = roomService;
         }
 
-        // ---------------- Public browsing ----------------
+        // ---------------- Public browsing (paginated, 10/page) ----------------
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> Index(string? searchText)
+        public async Task<IActionResult> Index(string? searchText, int page = 1)
         {
-            var rooms = string.IsNullOrWhiteSpace(searchText)
-                ? await _roomService.GetAllAvailableRoomsAsync()
-                : await _roomService.SearchAsync(searchText);
-
+            var paged = await _roomService.GetApprovedPagedAsync(searchText, page, PageSize);
             ViewBag.SearchText = searchText;
-            return View(rooms);
+            return View(paged);
         }
 
         [HttpGet]
@@ -35,15 +33,12 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null) return NotFound();
-
             var room = await _roomService.GetRoomByIdAsync(id.Value);
-
             if (room == null) return NotFound();
-
             return View(room);
         }
 
-        // ---------------- Owner management — any logged-in user ----------------
+        // ---------------- Post a Room — any logged-in user ----------------
 
         [HttpGet]
         [Authorize]
@@ -63,8 +58,10 @@ namespace Bachelor_s_Point.Controllers
             }
 
             int currentUserId = GetCurrentUserId();
+            bool isAdmin = User.IsInRole("Admin");
 
-            string result = await _roomService.CreateRoomAsync(dto, currentUserId);
+            // Admin's own posts are auto-approved. Regular user posts go to pending queue.
+            string result = await _roomService.CreateRoomAsync(dto, currentUserId, autoApprove: isAdmin);
 
             if (result != "Success")
             {
@@ -72,8 +69,16 @@ namespace Bachelor_s_Point.Controllers
                 return View(dto);
             }
 
-            TempData["Success"] = "Room posted successfully";
-            return RedirectToAction(nameof(MyListings));
+            if (isAdmin)
+            {
+                TempData["Success"] = "Room posted and published.";
+            }
+            else
+            {
+                TempData["Success"] = "Room submitted. It will appear on the home page once an admin approves it.";
+            }
+
+            return RedirectToAction("Profile", "Auth");
         }
 
         [HttpGet]
@@ -90,18 +95,12 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null) return NotFound();
-
             var room = await _roomService.GetRoomByIdAsync(id.Value);
-
             if (room == null) return NotFound();
 
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
-
-            if (!isAdmin && room.UserId != currentUserId)
-            {
-                return Forbid();
-            }
+            if (!isAdmin && room.UserId != currentUserId) return Forbid();
 
             return View(room);
         }
@@ -112,19 +111,14 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Edit(int id, Room room)
         {
             if (id != room.Id) return NotFound();
-
             ModelState.Remove("Owner");
 
-            if (!ModelState.IsValid)
-            {
-                return View(room);
-            }
+            if (!ModelState.IsValid) return View(room);
 
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
 
             string result = await _roomService.UpdateRoomAsync(room, currentUserId, isAdmin);
-
             if (result != "Success")
             {
                 ModelState.AddModelError("", result);
@@ -132,7 +126,7 @@ namespace Bachelor_s_Point.Controllers
             }
 
             TempData["Success"] = "Room updated";
-            return RedirectToAction(nameof(MyListings));
+            return RedirectToAction("Profile", "Auth");
         }
 
         [HttpGet]
@@ -140,18 +134,12 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null) return NotFound();
-
             var room = await _roomService.GetRoomByIdAsync(id.Value);
-
             if (room == null) return NotFound();
 
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
-
-            if (!isAdmin && room.UserId != currentUserId)
-            {
-                return Forbid();
-            }
+            if (!isAdmin && room.UserId != currentUserId) return Forbid();
 
             return View(room);
         }
@@ -175,10 +163,15 @@ namespace Bachelor_s_Point.Controllers
                 TempData["Success"] = "Room deleted";
             }
 
-            return RedirectToAction(nameof(MyListings));
+            // Admin goes back to Pending, regular users go to profile
+            if (isAdmin)
+            {
+                return RedirectToAction(nameof(Pending));
+            }
+            return RedirectToAction("Profile", "Auth");
         }
 
-        // ---------------- Select Room workflow — any logged-in user ----------------
+        // ---------------- Select Room — non-admin only ----------------
 
         [HttpGet]
         [Authorize]
@@ -186,11 +179,16 @@ namespace Bachelor_s_Point.Controllers
         {
             if (id == null) return NotFound();
 
-            var room = await _roomService.GetRoomByIdAsync(id.Value);
+            // Admin cannot select rooms
+            if (User.IsInRole("Admin"))
+            {
+                TempData["Error"] = "Admin cannot select rooms.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
 
+            var room = await _roomService.GetRoomByIdAsync(id.Value);
             if (room == null) return NotFound();
 
-            // Prevent users from selecting their own rooms in the UI
             int currentUserId = GetCurrentUserId();
             if (room.UserId == currentUserId)
             {
@@ -207,8 +205,13 @@ namespace Bachelor_s_Point.Controllers
         [Authorize]
         public async Task<IActionResult> Select(SelectRoomDto dto)
         {
-            dto.SeekerUserId = GetCurrentUserId();
+            if (User.IsInRole("Admin"))
+            {
+                TempData["Error"] = "Admin cannot select rooms.";
+                return RedirectToAction(nameof(Details), new { id = dto.RoomId });
+            }
 
+            dto.SeekerUserId = GetCurrentUserId();
             string result = await _roomService.SelectRoomAsync(dto);
 
             if (result != "Success" && !result.StartsWith("Room selected"))
@@ -222,6 +225,33 @@ namespace Bachelor_s_Point.Controllers
                 : result;
 
             return RedirectToAction(nameof(Index));
+        }
+
+        // ---------------- Admin approval workflow ----------------
+
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Pending()
+        {
+            var rooms = await _roomService.GetPendingApprovalAsync();
+            return View(rooms);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Approve(int id)
+        {
+            string result = await _roomService.ApproveRoomAsync(id);
+            if (result != "Success")
+            {
+                TempData["Error"] = result;
+            }
+            else
+            {
+                TempData["Success"] = "Room approved and published.";
+            }
+            return RedirectToAction(nameof(Pending));
         }
 
         private int GetCurrentUserId()

@@ -65,7 +65,7 @@
     {
         <div class="card stat-card mb-4">
             <div class="table-responsive">
-                <table class="table mb-0">
+                <table class="table mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>Title</th>
@@ -85,9 +85,13 @@
                                 <td>BDT @room.Price</td>
                                 <td>@room.CreatedAt.ToString("dd-MMM-yyyy")</td>
                                 <td>
-                                    @if (room.IsAvailable)
+                                    @if (!room.IsApproved)
                                     {
-                                        <span class="badge bg-success">Available</span>
+                                        <span class="badge-pending"><i class="bi bi-clock"></i> Pending</span>
+                                    }
+                                    else if (room.IsAvailable)
+                                    {
+                                        <span class="badge bg-success">Approved</span>
                                     }
                                     else
                                     {
@@ -112,13 +116,13 @@
         </div>
     }
 
-    <!-- Booked Rooms (selections) -->
+    <!-- Booked Rooms -->
     <h4 class="mb-3 mt-4"><i class="bi bi-bookmark-check-fill me-2"></i>My Booked Rooms</h4>
     @if (selections.Any())
     {
         <div class="card stat-card mb-4">
             <div class="table-responsive">
-                <table class="table mb-0">
+                <table class="table mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
                             <th>Room</th>
