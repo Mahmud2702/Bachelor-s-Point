@@ -8,31 +8,28 @@ namespace Bachelor_s_Point.UnitOfWork
     {
         private readonly AppDbContext _context;
 
-        public IUserRepository UserRepo { get; private set; }
-
-        public IRoleRepository RoleRepo { get; private set; }
-
-        public IRoomRepository RoomRepo { get; private set; }
-
-        public IRoomSelectionRepository SelectionRepo { get; private set; }
+        public IUserRepository UserRepo { get; }
+        public IRoleRepository RoleRepo { get; }
+        public IRoomRepository RoomRepo { get; }
+        public IRoomSelectionRepository SelectionRepo { get; }
+        public IRoomImageRepository RoomImageRepo { get; }
 
         public UnitOfWork(
             AppDbContext context,
             IUserRepository userRepo,
             IRoleRepository roleRepo,
             IRoomRepository roomRepo,
-            IRoomSelectionRepository selectionRepo)
+            IRoomSelectionRepository selectionRepo,
+            IRoomImageRepository roomImageRepo)
         {
             _context = context;
             UserRepo = userRepo;
             RoleRepo = roleRepo;
             RoomRepo = roomRepo;
             SelectionRepo = selectionRepo;
+            RoomImageRepo = roomImageRepo;
         }
 
-        public async Task<int> SaveAsync()
-        {
-            return await _context.SaveChangesAsync();
-        }
+        public async Task<int> SaveAsync() => await _context.SaveChangesAsync();
     }
 }

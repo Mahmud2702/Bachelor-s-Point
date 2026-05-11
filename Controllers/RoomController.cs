@@ -10,11 +10,17 @@ namespace Bachelor_s_Point.Controllers
     public class RoomController : Controller
     {
         private const int PageSize = 10;
-        private readonly IRoomService _roomService;
+        private const long MaxImageBytes = 5 * 1024 * 1024; // 5MB per image
+        private const int MaxImageCount = 10;               // up to 10 per room
+        private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
 
-        public RoomController(IRoomService roomService)
+        private readonly IRoomService _roomService;
+        private readonly IWebHostEnvironment _env;
+
+        public RoomController(IRoomService roomService, IWebHostEnvironment env)
         {
             _roomService = roomService;
+            _env = env;
         }
 
         [HttpGet]
@@ -34,8 +40,6 @@ namespace Bachelor_s_Point.Controllers
             var room = await _roomService.GetRoomByIdAsync(id.Value);
             if (room == null) return NotFound();
 
-            // If the current user is the room owner, load all selections on this room
-            // so they can see who's interested + the messages.
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
                 int currentUserId = GetCurrentUserId();
@@ -55,24 +59,61 @@ namespace Bachelor_s_Point.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
-        public async Task<IActionResult> Create(CreateRoomDto dto)
+        [RequestSizeLimit(60 * 1024 * 1024)]  // 10 images x 5MB + overhead
+        public async Task<IActionResult> Create(CreateRoomDto dto, List<IFormFile>? roomImages)
         {
             if (!ModelState.IsValid) return View(dto);
 
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
 
-            string result = await _roomService.CreateRoomAsync(dto, currentUserId, autoApprove: isAdmin);
-
+            var (result, roomId) = await _roomService.CreateRoomAsync(dto, currentUserId, autoApprove: isAdmin);
             if (result != "Success")
             {
                 ModelState.AddModelError("", result);
                 return View(dto);
             }
 
-            TempData["Success"] = isAdmin
-                ? "Room posted and published."
-                : "Room submitted. It will appear on the home page once an admin approves it.";
+            // Save uploaded images
+            if (roomImages != null && roomImages.Count > 0)
+            {
+                var valid = roomImages.Where(f => f != null && f.Length > 0).Take(MaxImageCount).ToList();
+
+                string webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                    ? _env.WebRootPath
+                    : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+                if (!Directory.Exists(webRoot)) Directory.CreateDirectory(webRoot);
+
+                string uploadsFolder = Path.Combine(webRoot, "uploads", "rooms");
+                if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+                int order = 0;
+                foreach (var file in valid)
+                {
+                    string ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                    if (!AllowedExtensions.Contains(ext)) continue;
+                    if (file.Length > MaxImageBytes) continue;
+                    if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    string fileName = $"room_{roomId}_{DateTime.UtcNow.Ticks}_{order}{ext}";
+                    string savePath = Path.Combine(uploadsFolder, fileName);
+
+                    using (var stream = new FileStream(savePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    string relativeUrl = $"/uploads/rooms/{fileName}";
+                    await _roomService.AddRoomImageAsync(roomId, relativeUrl, isPrimary: order == 0, displayOrder: order);
+                    order++;
+                }
+            }
+
+            if (isAdmin)
+                TempData["Success"] = "Room posted and published.";
+            else
+                TempData["Success"] = "Room submitted. It will appear on the home page once an admin approves it.";
 
             return RedirectToAction("Profile", "Auth");
         }
@@ -97,7 +138,6 @@ namespace Bachelor_s_Point.Controllers
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
             if (!isAdmin && room.UserId != currentUserId) return Forbid();
-
             return View(room);
         }
 
@@ -108,6 +148,7 @@ namespace Bachelor_s_Point.Controllers
         {
             if (id != room.Id) return NotFound();
             ModelState.Remove("Owner");
+            ModelState.Remove("Images");
 
             if (!ModelState.IsValid) return View(room);
 
@@ -136,7 +177,6 @@ namespace Bachelor_s_Point.Controllers
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
             if (!isAdmin && room.UserId != currentUserId) return Forbid();
-
             return View(room);
         }
 
@@ -148,12 +188,36 @@ namespace Bachelor_s_Point.Controllers
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
 
+            // Try to delete image files from disk before removing DB record
+            var room = await _roomService.GetRoomByIdAsync(id);
+            if (room != null && room.Images != null && (isAdmin || room.UserId == currentUserId))
+            {
+                string webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                    ? _env.WebRootPath
+                    : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+                foreach (var img in room.Images)
+                {
+                    if (string.IsNullOrEmpty(img.ImagePath)) continue;
+                    string relative = img.ImagePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+                    string fullPath = Path.Combine(webRoot, relative);
+                    if (System.IO.File.Exists(fullPath))
+                    {
+                        try { System.IO.File.Delete(fullPath); } catch { }
+                    }
+                }
+            }
+
             string result = await _roomService.DeleteRoomAsync(id, currentUserId, isAdmin);
 
-            if (result != "Success") TempData["Error"] = result;
-            else TempData["Success"] = "Room deleted";
+            if (result != "Success")
+                TempData["Error"] = result;
+            else
+                TempData["Success"] = "Room deleted";
 
-            return isAdmin ? RedirectToAction(nameof(Pending)) : RedirectToAction("Profile", "Auth");
+            if (isAdmin)
+                return RedirectToAction(nameof(Pending));
+            return RedirectToAction("Profile", "Auth");
         }
 
         [HttpGet]
@@ -212,7 +276,10 @@ namespace Bachelor_s_Point.Controllers
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Pending()
-            => View(await _roomService.GetPendingApprovalAsync());
+        {
+            var rooms = await _roomService.GetPendingApprovalAsync();
+            return View(rooms);
+        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -220,8 +287,10 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Approve(int id)
         {
             string result = await _roomService.ApproveRoomAsync(id);
-            if (result != "Success") TempData["Error"] = result;
-            else TempData["Success"] = "Room approved and published.";
+            if (result != "Success")
+                TempData["Error"] = result;
+            else
+                TempData["Success"] = "Room approved and published.";
             return RedirectToAction(nameof(Pending));
         }
 

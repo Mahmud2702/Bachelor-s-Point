@@ -34,12 +34,10 @@ namespace Bachelor_s_Point.Models
 
         public bool IsAvailable { get; set; } = true;
 
-        /// <summary>
-        /// Posts go to admin's pending panel first. Only approved rooms appear on
-        /// the home page and Browse Rooms list. Admin's own posts are auto-approved.
-        /// </summary>
         public bool IsApproved { get; set; } = false;
 
         public DateTime? ApprovedAt { get; set; }
+
+        public ICollection<RoomImage>? Images { get; set; }
     }
 }

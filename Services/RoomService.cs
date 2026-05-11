@@ -33,12 +33,12 @@ namespace Bachelor_s_Point.Services
         public async Task<List<Room>> SearchAsync(string searchText)
             => await _unitOfWork.RoomRepo.SearchAsync(searchText);
 
-        public async Task<string> CreateRoomAsync(CreateRoomDto dto, int ownerUserId, bool autoApprove)
+        public async Task<(string Result, int RoomId)> CreateRoomAsync(CreateRoomDto dto, int ownerUserId, bool autoApprove)
         {
-            if (dto == null) return "Invalid room data";
+            if (dto == null) return ("Invalid room data", 0);
 
             var owner = await _unitOfWork.UserRepo.GetByIdAsync(ownerUserId);
-            if (owner == null) return "Owner user not found";
+            if (owner == null) return ("Owner user not found", 0);
 
             var room = new Room
             {
@@ -55,14 +55,13 @@ namespace Bachelor_s_Point.Services
 
             await _unitOfWork.RoomRepo.AddAsync(room);
             await _unitOfWork.SaveAsync();
-            return "Success";
+            return ("Success", room.Id);
         }
 
         public async Task<string> UpdateRoomAsync(Room room, int currentUserId, bool isAdmin)
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(room.Id);
             if (existing == null) return "Room not found";
-
             if (!isAdmin && existing.UserId != currentUserId)
                 return "You are not allowed to edit this room";
 
@@ -81,7 +80,6 @@ namespace Bachelor_s_Point.Services
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(roomId);
             if (existing == null) return "Room not found";
-
             if (!isAdmin && existing.UserId != currentUserId)
                 return "You are not allowed to delete this room";
 
@@ -93,7 +91,6 @@ namespace Bachelor_s_Point.Services
         public async Task<string> SelectRoomAsync(SelectRoomDto selection)
         {
             if (selection == null) return "Invalid selection";
-
             var room = await _unitOfWork.RoomRepo.GetRoomWithOwnerByIdAsync(selection.RoomId);
             if (room == null) return "Room not found";
             if (!room.IsApproved) return "This room has not been approved yet";
@@ -126,7 +123,6 @@ namespace Bachelor_s_Point.Services
                 _logger.LogError(ex, "Failed to send room-selected email for RoomId={RoomId}", room.Id);
                 return "Room selected, but the notification email could not be sent";
             }
-
             return "Success";
         }
 
@@ -165,6 +161,20 @@ namespace Bachelor_s_Point.Services
                 PageSize = pageSize,
                 TotalCount = total
             };
+        }
+
+        public async Task AddRoomImageAsync(int roomId, string imagePath, bool isPrimary, int displayOrder)
+        {
+            var img = new RoomImage
+            {
+                RoomId = roomId,
+                ImagePath = imagePath,
+                IsPrimary = isPrimary,
+                DisplayOrder = displayOrder,
+                UploadedAt = DateTime.Now
+            };
+            await _unitOfWork.RoomImageRepo.AddAsync(img);
+            await _unitOfWork.SaveAsync();
         }
     }
 }

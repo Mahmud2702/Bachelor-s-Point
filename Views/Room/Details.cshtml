@@ -12,9 +12,108 @@
         }
     }
     var roomSelections = ViewBag.RoomSelections as List<RoomSelection>;
+
+    // Order images: primary first, then by DisplayOrder
+    var images = (Model.Images ?? new List<RoomImage>())
+        .OrderByDescending(i => i.IsPrimary)
+        .ThenBy(i => i.DisplayOrder)
+        .ToList();
 }
 
+<style>
+    .room-carousel .carousel-inner {
+        border-radius: 14px;
+        background: #2c3e50;
+    }
+
+    .room-carousel .carousel-item img {
+        width: 100%;
+        max-height: 480px;
+        object-fit: contain;
+        background: #2c3e50;
+    }
+
+    .room-carousel .carousel-control-prev,
+    .room-carousel .carousel-control-next {
+        width: 50px;
+    }
+
+    .room-carousel .carousel-control-prev-icon,
+    .room-carousel .carousel-control-next-icon {
+        background-color: rgba(0,0,0,0.45);
+        border-radius: 50%;
+        padding: 1.2rem;
+        background-size: 50% 50%;
+    }
+
+    .room-carousel .carousel-indicators [data-bs-target] {
+        background-color: rgba(255,255,255,0.7);
+        border-radius: 50%;
+        width: 10px;
+        height: 10px;
+        margin: 0 4px;
+    }
+
+    .no-image-placeholder {
+        height: 320px;
+        background: linear-gradient(135deg, #e3e8ef 0%, #c9d3e0 100%);
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        font-size: 4rem;
+    }
+</style>
+
 <div class="container">
+
+    @if (images.Any())
+    {
+        <div id="roomCarousel" class="carousel slide room-carousel mb-3" data-bs-ride="carousel">
+            @if (images.Count > 1)
+            {
+                <div class="carousel-indicators">
+                    @for (int i = 0; i < images.Count; i++)
+                    {
+                        <button type="button" data-bs-target="#roomCarousel" data-bs-slide-to="@i"
+                                class="@(i == 0 ? "active" : "")"
+                                aria-current="@(i == 0 ? "true" : "false")"
+                                aria-label="Slide @(i + 1)"></button>
+                    }
+                </div>
+            }
+            <div class="carousel-inner">
+                @for (int i = 0; i < images.Count; i++)
+                {
+                    <div class="carousel-item @(i == 0 ? "active" : "")">
+                        <img src="@images[i].ImagePath" alt="Room image @(i + 1)" />
+                    </div>
+                }
+            </div>
+            @if (images.Count > 1)
+            {
+                <button class="carousel-control-prev" type="button" data-bs-target="#roomCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#roomCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            }
+        </div>
+        <p class="text-muted small text-center mb-3">
+            <i class="bi bi-images me-1"></i>@images.Count photo@(images.Count == 1 ? "" : "s")
+        </p>
+    }
+    else
+    {
+        <div class="no-image-placeholder mb-3">
+            <i class="bi bi-image"></i>
+        </div>
+    }
+
     <div class="card stat-card mb-3">
         <div class="card-body p-4">
             <div class="d-flex justify-content-between align-items-start flex-wrap">
@@ -97,7 +196,6 @@
         }
     </div>
 
-    @* Interested Users section — only visible to the room owner *@
     @if (isOwner && roomSelections != null)
     {
         <div class="mt-4">
@@ -152,9 +250,7 @@
                                 }
                                 else
                                 {
-                                    <p class="text-muted small mb-0 mt-2 fst-italic">
-                                        No message provided.
-                                    </p>
+                                    <p class="text-muted small mb-0 mt-2 fst-italic">No message provided.</p>
                                 }
                             </div>
                         }

@@ -1,7 +1,36 @@
 @model IEnumerable<Room>
 @{
     ViewData["Title"] = "Home";
+
+    string GetCoverImage(Room r)
+    {
+        if (r.Images == null || !r.Images.Any()) return "";
+        var primary = r.Images.FirstOrDefault(i => i.IsPrimary);
+        return (primary?.ImagePath ?? r.Images.OrderBy(i => i.DisplayOrder).First().ImagePath) ?? "";
+    }
 }
+
+<style>
+    .room-card-image {
+        height: 180px;
+        background: #e3e8ef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+        .room-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .room-card-image .no-img {
+            color: #9ca3af;
+            font-size: 3rem;
+        }
+</style>
 
 <div class="hero-welcome">
     <div class="container">
@@ -32,8 +61,19 @@
         <div class="row g-3">
             @foreach (var room in Model)
             {
+                string cover = GetCoverImage(room);
                 <div class="col-md-6 col-lg-4">
                     <div class="card h-100 shadow-sm border-0">
+                        <div class="room-card-image">
+                            @if (!string.IsNullOrEmpty(cover))
+                            {
+                                <img src="@cover" alt="@room.Title" />
+                            }
+                            else
+                            {
+                                <i class="bi bi-image no-img"></i>
+                            }
+                        </div>
                         <div class="card-body">
                             <h5 class="card-title">@room.Title</h5>
                             <h6 class="card-subtitle text-muted mb-2">

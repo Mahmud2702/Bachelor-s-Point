@@ -5,13 +5,10 @@ namespace Bachelor_s_Point.Application.Interfaces.UnitOfWork
     public interface IUnitOfWork
     {
         IUserRepository UserRepo { get; }
-
         IRoleRepository RoleRepo { get; }
-
         IRoomRepository RoomRepo { get; }
-
         IRoomSelectionRepository SelectionRepo { get; }
-
+        IRoomImageRepository RoomImageRepo { get; }
         Task<int> SaveAsync();
     }
 }

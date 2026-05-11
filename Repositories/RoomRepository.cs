@@ -7,14 +7,13 @@ namespace Bachelor_s_Point.Repositories
 {
     public class RoomRepository : BaseRepository<Room>, IRoomRepository
     {
-        public RoomRepository(AppDbContext context) : base(context)
-        {
-        }
+        public RoomRepository(AppDbContext context) : base(context) { }
 
         public async Task<List<Room>> GetAllAvailableWithOwnerAsync()
         {
             return await _context.Rooms
                 .Include(r => r.Owner)
+                .Include(r => r.Images)
                 .Where(r => r.IsAvailable && r.IsApproved)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
@@ -24,6 +23,7 @@ namespace Bachelor_s_Point.Repositories
         {
             return await _context.Rooms
                 .Include(r => r.Owner)
+                .Include(r => r.Images)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
         }
@@ -33,12 +33,14 @@ namespace Bachelor_s_Point.Repositories
             return await _context.Rooms
                 .Include(r => r.Owner)
                     .ThenInclude(o => o!.Role)
+                .Include(r => r.Images)
                 .FirstOrDefaultAsync(r => r.Id == id);
         }
 
         public async Task<List<Room>> GetRoomsByOwnerIdAsync(int ownerId)
         {
             return await _context.Rooms
+                .Include(r => r.Images)
                 .Where(r => r.UserId == ownerId)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
@@ -47,12 +49,11 @@ namespace Bachelor_s_Point.Repositories
         public async Task<List<Room>> SearchAsync(string searchText)
         {
             if (string.IsNullOrWhiteSpace(searchText))
-            {
                 return await GetAllAvailableWithOwnerAsync();
-            }
 
             return await _context.Rooms
                 .Include(r => r.Owner)
+                .Include(r => r.Images)
                 .Where(r => r.IsAvailable && r.IsApproved && (
                     (r.Title != null && r.Title.Contains(searchText)) ||
                     (r.Description != null && r.Description.Contains(searchText)) ||
@@ -68,6 +69,7 @@ namespace Bachelor_s_Point.Repositories
 
             var query = _context.Rooms
                 .Include(r => r.Owner)
+                .Include(r => r.Images)
                 .Where(r => r.IsAvailable && r.IsApproved);
 
             if (!string.IsNullOrWhiteSpace(searchText))
@@ -79,7 +81,6 @@ namespace Bachelor_s_Point.Repositories
             }
 
             int total = await query.CountAsync();
-
             var items = await query
                 .OrderByDescending(r => r.CreatedAt)
                 .Skip((page - 1) * pageSize)
@@ -93,6 +94,7 @@ namespace Bachelor_s_Point.Repositories
         {
             return await _context.Rooms
                 .Include(r => r.Owner)
+                .Include(r => r.Images)
                 .Where(r => !r.IsApproved)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();

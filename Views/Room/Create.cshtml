@@ -3,47 +3,208 @@
     ViewData["Title"] = "Post a Room";
 }
 
-<h2>Post a Room</h2>
-<hr />
+<style>
+    .post-card {
+        max-width: 760px;
+        margin: 1rem auto;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 6px 24px rgba(44, 62, 80, 0.08);
+        overflow: hidden;
+    }
 
-<div class="row">
-    <div class="col-md-6">
-        <form asp-action="Create" method="post">
-            @Html.AntiForgeryToken()
-            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    .post-card-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #4a6075 100%);
+        color: #fff;
+        padding: 1.75rem 2rem;
+    }
 
-            <div class="form-group mb-3">
-                <label asp-for="Title" class="control-label"></label>
-                <input asp-for="Title" class="form-control" />
-                <span asp-validation-for="Title" class="text-danger"></span>
-            </div>
+        .post-card-header h2 {
+            margin: 0;
+            font-weight: 700;
+        }
 
-            <div class="form-group mb-3">
-                <label asp-for="Description" class="control-label"></label>
-                <textarea asp-for="Description" class="form-control" rows="4"></textarea>
-                <span asp-validation-for="Description" class="text-danger"></span>
-            </div>
+    .post-card-body {
+        padding: 2rem;
+    }
 
-            <div class="form-group mb-3">
-                <label asp-for="Price" class="control-label">Price (BDT)</label>
-                <input asp-for="Price" type="number" class="form-control" />
-                <span asp-validation-for="Price" class="text-danger"></span>
-            </div>
+    .form-floating > .form-control,
+    .form-floating > .form-select {
+        border-radius: 10px;
+    }
 
-            <div class="form-group mb-3">
-                <label asp-for="Location" class="control-label"></label>
-                <input asp-for="Location" class="form-control" />
-                <span asp-validation-for="Location" class="text-danger"></span>
-            </div>
+    .image-drop-zone {
+        border: 2px dashed #c9d3e0;
+        border-radius: 12px;
+        padding: 2rem 1rem;
+        text-align: center;
+        background: #f8fafc;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
 
-            <div class="form-group">
-                <button type="submit" class="btn btn-success">Post Room</button>
-                <a asp-action="MyListings" class="btn btn-secondary">Back to My Listings</a>
-            </div>
-        </form>
+        .image-drop-zone:hover,
+        .image-drop-zone.dragover {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+
+        .image-drop-zone i {
+            font-size: 2.4rem;
+            color: #6b7280;
+        }
+
+    #imagePreview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 1rem;
+    }
+
+    .preview-thumb {
+        width: 90px;
+        height: 90px;
+        border-radius: 10px;
+        object-fit: cover;
+        border: 2px solid #e3e8ef;
+    }
+
+    .price-input-group .input-group-text {
+        background: #f6f8fb;
+        font-weight: 600;
+        color: #15803d;
+    }
+</style>
+
+<div class="container">
+    <div class="post-card">
+        <div class="post-card-header">
+            <h2><i class="bi bi-house-add me-2"></i>Post a Room</h2>
+            <p class="mb-0 opacity-75 mt-1 small">Share your room with the community.</p>
+        </div>
+
+        <div class="post-card-body">
+            <form asp-action="Create" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Title" class="form-label fw-semibold">
+                        <i class="bi bi-tag me-1 text-primary"></i>Title
+                    </label>
+                    <input asp-for="Title" class="form-control form-control-lg"
+                           placeholder="e.g. Spacious 2-bed room near campus" />
+                    <span asp-validation-for="Title" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Description" class="form-label fw-semibold">
+                        <i class="bi bi-card-text me-1 text-primary"></i>Description
+                    </label>
+                    <textarea asp-for="Description" class="form-control" rows="4"
+                              placeholder="Describe the room: facilities, rules, what's nearby..."></textarea>
+                    <span asp-validation-for="Description" class="text-danger small"></span>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label asp-for="Price" class="form-label fw-semibold">
+                            <i class="bi bi-cash-coin me-1 text-success"></i>Price (per month)
+                        </label>
+                        <div class="input-group input-group-lg price-input-group">
+                            <span class="input-group-text">BDT</span>
+                            <input asp-for="Price" type="number" class="form-control" placeholder="5000" min="0" />
+                        </div>
+                        <span asp-validation-for="Price" class="text-danger small"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="Location" class="form-label fw-semibold">
+                            <i class="bi bi-geo-alt me-1 text-danger"></i>Location
+                        </label>
+                        <input asp-for="Location" class="form-control form-control-lg"
+                               placeholder="e.g. Khulshi, Chittagong" />
+                        <span asp-validation-for="Location" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                        <i class="bi bi-images me-1 text-primary"></i>Room Photos
+                        <small class="text-muted fw-normal">(optional, up to 10 images, max 5 MB each)</small>
+                    </label>
+                    <label for="roomImagesInput" class="image-drop-zone d-block" id="dropZone">
+                        <i class="bi bi-cloud-arrow-up-fill"></i>
+                        <p class="mb-1 mt-2"><strong>Click to upload</strong> or drag & drop images here</p>
+                        <p class="small text-muted mb-0">JPG, PNG, GIF, or WEBP — first image will be the cover photo</p>
+                    </label>
+                    <input type="file" name="roomImages" id="roomImagesInput"
+                           accept="image/jpeg,image/png,image/gif,image/webp"
+                           multiple style="display:none;" />
+                    <div id="imagePreview"></div>
+                </div>
+
+                <div class="d-grid gap-2 d-md-flex">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-circle me-1"></i> Post Room
+                    </button>
+                    <a asp-controller="Auth" asp-action="Profile" class="btn btn-outline-secondary btn-lg">
+                        <i class="bi bi-arrow-left me-1"></i> Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
 @section Scripts {
-    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <script>
+        (function() {
+            const input = document.getElementById('roomImagesInput');
+            const preview = document.getElementById('imagePreview');
+            const dropZone = document.getElementById('dropZone');
+
+            function renderPreview(files) {
+                preview.innerHTML = '';
+                const arr = Array.from(files).slice(0, 10);
+                arr.forEach(file => {
+                    if (!file.type.startsWith('image/')) return;
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'preview-thumb';
+                        preview.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            input.addEventListener('change', () => renderPreview(input.files));
+
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropZone.addEventListener(evt, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.add('dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                dropZone.addEventListener(evt, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.remove('dragover');
+                });
+            });
+            dropZone.addEventListener('drop', e => {
+                if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                    input.files = e.dataTransfer.files;
+                    renderPreview(input.files);
+                }
+            });
+        })();
+    </script>
 }
