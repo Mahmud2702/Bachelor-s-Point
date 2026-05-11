@@ -17,8 +17,6 @@ namespace Bachelor_s_Point.Controllers
             _roomService = roomService;
         }
 
-        // ---------------- Public browsing (paginated, 10/page) ----------------
-
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> Index(string? searchText, int page = 1)
@@ -35,32 +33,35 @@ namespace Bachelor_s_Point.Controllers
             if (id == null) return NotFound();
             var room = await _roomService.GetRoomByIdAsync(id.Value);
             if (room == null) return NotFound();
+
+            // If the current user is the room owner, load all selections on this room
+            // so they can see who's interested + the messages.
+            if (User.Identity != null && User.Identity.IsAuthenticated)
+            {
+                int currentUserId = GetCurrentUserId();
+                if (currentUserId != 0 && room.UserId == currentUserId)
+                {
+                    ViewBag.RoomSelections = await _roomService.GetSelectionsForRoomAsync(room.Id);
+                }
+            }
+
             return View(room);
         }
 
-        // ---------------- Post a Room — any logged-in user ----------------
-
         [HttpGet]
         [Authorize]
-        public IActionResult Create()
-        {
-            return View();
-        }
+        public IActionResult Create() => View();
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
         public async Task<IActionResult> Create(CreateRoomDto dto)
         {
-            if (!ModelState.IsValid)
-            {
-                return View(dto);
-            }
+            if (!ModelState.IsValid) return View(dto);
 
             int currentUserId = GetCurrentUserId();
             bool isAdmin = User.IsInRole("Admin");
 
-            // Admin's own posts are auto-approved. Regular user posts go to pending queue.
             string result = await _roomService.CreateRoomAsync(dto, currentUserId, autoApprove: isAdmin);
 
             if (result != "Success")
@@ -69,14 +70,9 @@ namespace Bachelor_s_Point.Controllers
                 return View(dto);
             }
 
-            if (isAdmin)
-            {
-                TempData["Success"] = "Room posted and published.";
-            }
-            else
-            {
-                TempData["Success"] = "Room submitted. It will appear on the home page once an admin approves it.";
-            }
+            TempData["Success"] = isAdmin
+                ? "Room posted and published."
+                : "Room submitted. It will appear on the home page once an admin approves it.";
 
             return RedirectToAction("Profile", "Auth");
         }
@@ -154,24 +150,11 @@ namespace Bachelor_s_Point.Controllers
 
             string result = await _roomService.DeleteRoomAsync(id, currentUserId, isAdmin);
 
-            if (result != "Success")
-            {
-                TempData["Error"] = result;
-            }
-            else
-            {
-                TempData["Success"] = "Room deleted";
-            }
+            if (result != "Success") TempData["Error"] = result;
+            else TempData["Success"] = "Room deleted";
 
-            // Admin goes back to Pending, regular users go to profile
-            if (isAdmin)
-            {
-                return RedirectToAction(nameof(Pending));
-            }
-            return RedirectToAction("Profile", "Auth");
+            return isAdmin ? RedirectToAction(nameof(Pending)) : RedirectToAction("Profile", "Auth");
         }
-
-        // ---------------- Select Room — non-admin only ----------------
 
         [HttpGet]
         [Authorize]
@@ -179,7 +162,6 @@ namespace Bachelor_s_Point.Controllers
         {
             if (id == null) return NotFound();
 
-            // Admin cannot select rooms
             if (User.IsInRole("Admin"))
             {
                 TempData["Error"] = "Admin cannot select rooms.";
@@ -227,15 +209,10 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // ---------------- Admin approval workflow ----------------
-
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Pending()
-        {
-            var rooms = await _roomService.GetPendingApprovalAsync();
-            return View(rooms);
-        }
+            => View(await _roomService.GetPendingApprovalAsync());
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -243,14 +220,8 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Approve(int id)
         {
             string result = await _roomService.ApproveRoomAsync(id);
-            if (result != "Success")
-            {
-                TempData["Error"] = result;
-            }
-            else
-            {
-                TempData["Success"] = "Room approved and published.";
-            }
+            if (result != "Success") TempData["Error"] = result;
+            else TempData["Success"] = "Room approved and published.";
             return RedirectToAction(nameof(Pending));
         }
 

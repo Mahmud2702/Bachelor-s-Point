@@ -212,6 +212,7 @@ namespace Bachelor_s_Point.Controllers
 
             ViewBag.PostedRooms = await _roomService.GetMyRoomsAsync(userId);
             ViewBag.Selections = await _roomService.GetMySelectionsAsync(userId);
+            ViewBag.IncomingSelections = await _roomService.GetIncomingSelectionsAsync(userId);
 
             return View(user);
         }

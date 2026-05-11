@@ -62,6 +62,7 @@ namespace Bachelor_s_Point.Services
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(room.Id);
             if (existing == null) return "Room not found";
+
             if (!isAdmin && existing.UserId != currentUserId)
                 return "You are not allowed to edit this room";
 
@@ -80,6 +81,7 @@ namespace Bachelor_s_Point.Services
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(roomId);
             if (existing == null) return "Room not found";
+
             if (!isAdmin && existing.UserId != currentUserId)
                 return "You are not allowed to delete this room";
 
@@ -131,10 +133,10 @@ namespace Bachelor_s_Point.Services
         public async Task<List<RoomSelection>> GetMySelectionsAsync(int seekerUserId)
             => await _unitOfWork.SelectionRepo.GetBySeekerIdAsync(seekerUserId);
 
-        public async Task<List<RoomSelection>> GetReceivedBookingsAsync(int ownerUserId)
+        public async Task<List<RoomSelection>> GetIncomingSelectionsAsync(int ownerUserId)
             => await _unitOfWork.SelectionRepo.GetByOwnerIdAsync(ownerUserId);
 
-        public async Task<List<RoomSelection>> GetBookingsForRoomAsync(int roomId)
+        public async Task<List<RoomSelection>> GetSelectionsForRoomAsync(int roomId)
             => await _unitOfWork.SelectionRepo.GetByRoomIdAsync(roomId);
 
         public async Task<List<Room>> GetPendingApprovalAsync()

@@ -3,73 +3,39 @@
     ViewData["Title"] = "My Profile";
     var postedRooms = ViewBag.PostedRooms as List<Room> ?? new List<Room>();
     var selections = ViewBag.Selections as List<RoomSelection> ?? new List<RoomSelection>();
+    var incomingSelections = ViewBag.IncomingSelections as List<RoomSelection> ?? new List<RoomSelection>();
     bool hasPic = !string.IsNullOrEmpty(Model.ProfilePicturePath);
 }
 
 <style>
     .profile-avatar-wrapper {
-        position: relative;
-        display: inline-block;
-        width: 96px;
-        height: 96px;
+        position: relative; display: inline-block;
+        width: 96px; height: 96px;
     }
     .profile-pic {
-        width: 96px;
-        height: 96px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 3px solid #e3e8ef;
-        display: block;
+        width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+        border: 3px solid #e3e8ef; display: block;
     }
     .profile-default-avatar {
-        width: 96px;
-        height: 96px;
-        border-radius: 50%;
-        background: #e7f9ee;
-        color: #15803d;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2.6rem;
-        border: 3px solid #e3e8ef;
+        width: 96px; height: 96px; border-radius: 50%;
+        background: #e7f9ee; color: #15803d;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 2.6rem; border: 3px solid #e3e8ef;
     }
     .profile-pic-edit {
-        position: absolute;
-        bottom: 0;
-        right: 0;
-        background: #2563eb;
-        color: white;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-        font-size: 0.95rem;
-        border: 3px solid white;
+        position: absolute; bottom: 0; right: 0;
+        background: #2563eb; color: white;
+        width: 32px; height: 32px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        font-size: 0.95rem; border: 3px solid white;
         transition: background 0.15s ease;
     }
     .profile-pic-edit:hover { background: #1d4ed8; }
-    .profile-pic-remove {
-        position: absolute;
-        top: 0;
-        right: 0;
-        background: #fff;
-        color: #dc2626;
-        width: 26px;
-        height: 26px;
-        border: 2px solid #dc2626;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        font-size: 0.75rem;
-        padding: 0;
+    .request-message {
+        background:#f6f8fb; border-left:3px solid #2563eb;
+        padding: 0.5rem 0.75rem; border-radius: 6px; margin-top: 0.4rem;
     }
-    .profile-pic-remove:hover { background: #dc2626; color: #fff; }
 </style>
 
 <div class="container">
@@ -79,7 +45,6 @@
         <div class="card-body p-4">
             <div class="d-flex align-items-center flex-wrap">
 
-                <!-- Avatar with upload -->
                 <form asp-controller="Auth" asp-action="UploadProfilePicture" method="post"
                       enctype="multipart/form-data" id="profilePicForm" class="me-3">
                     @Html.AntiForgeryToken()
@@ -135,18 +100,12 @@
                     }
                 </div>
             </div>
-
-            <div class="alert alert-light border mt-3 mb-0 small">
-                <i class="bi bi-info-circle me-1 text-primary"></i>
-                Click the <i class="bi bi-camera-fill text-primary"></i> icon to upload a new profile picture.
-                JPG, PNG, GIF, or WEBP, max 5 MB.
-            </div>
         </div>
     </div>
 
-    <!-- Stats -->
+    <!-- Stats — 3 cards now -->
     <div class="row g-3 mb-4">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center p-4">
                     <i class="bi bi-house-add-fill text-primary" style="font-size:2.2rem;"></i>
@@ -155,7 +114,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card stat-card">
                 <div class="card-body text-center p-4">
                     <i class="bi bi-bookmark-check-fill text-success" style="font-size:2.2rem;"></i>
@@ -164,10 +123,80 @@
                 </div>
             </div>
         </div>
+        <div class="col-md-4">
+            <div class="card stat-card @(incomingSelections.Any() ? "border-warning" : "")">
+                <div class="card-body text-center p-4">
+                    <i class="bi bi-inbox-fill text-warning" style="font-size:2.2rem;"></i>
+                    <h2 class="mt-2 mb-0">@incomingSelections.Count</h2>
+                    <p class="text-muted mb-0">Booking Requests</p>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Booking Requests on My Rooms (NEW) -->
+    <h4 class="mb-3 mt-4">
+        <i class="bi bi-inbox me-2 text-warning"></i>Booking Requests on My Rooms
+        @if (incomingSelections.Any())
+        {
+            <span class="badge bg-warning text-dark ms-2">@incomingSelections.Count</span>
+        }
+    </h4>
+    @if (incomingSelections.Any())
+    {
+        <div class="card stat-card mb-4">
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Room</th>
+                            <th>Interested User</th>
+                            <th>Email</th>
+                            <th>When</th>
+                            <th>Message</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in incomingSelections)
+                        {
+                            <tr>
+                                <td><strong>@s.Room?.Title</strong></td>
+                                <td>@s.Seeker?.UserName</td>
+                                <td><small class="text-muted">@s.Seeker?.Email</small></td>
+                                <td><small class="text-muted">@s.SelectedAt.ToString("dd-MMM-yyyy hh:mm tt")</small></td>
+                                <td>
+                                    @if (!string.IsNullOrWhiteSpace(s.Message))
+                                    {
+                                        <span class="text-muted small">
+                                            @(s.Message.Length > 40 ? s.Message.Substring(0, 40) + "..." : s.Message)
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <em class="text-muted small">No message</em>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-controller="Room" asp-action="Details" asp-route-id="@s.RoomId"
+                                       class="btn btn-sm btn-outline-primary">View</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-1"></i> No one has selected your rooms yet.
+        </div>
+    }
+
     <!-- Posted Rooms -->
-    <h4 class="mb-3"><i class="bi bi-house-add-fill me-2"></i>My Posted Rooms</h4>
+    <h4 class="mb-3 mt-4"><i class="bi bi-house-add-fill me-2"></i>My Posted Rooms</h4>
     @if (postedRooms.Any())
     {
         <div class="card stat-card mb-4">
@@ -223,7 +252,7 @@
         </div>
     }
 
-    <!-- Booked Rooms -->
+    <!-- Booked Rooms (as seeker) -->
     <h4 class="mb-3 mt-4"><i class="bi bi-bookmark-check-fill me-2"></i>My Booked Rooms</h4>
     @if (selections.Any())
     {

@@ -11,6 +11,7 @@
             isOwner = true;
         }
     }
+    var roomSelections = ViewBag.RoomSelections as List<RoomSelection>;
 }
 
 <div class="container">
@@ -55,7 +56,7 @@
         </div>
     </div>
 
-    <div>
+    <div class="mb-3">
         <a asp-action="Index" class="btn btn-secondary">
             <i class="bi bi-arrow-left me-1"></i> Back to List
         </a>
@@ -78,7 +79,6 @@
         }
         else
         {
-            @* Non-admin: can select (if not own room and approved) or manage own room *@
             @if (isOwner)
             {
                 <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-warning">
@@ -96,4 +96,71 @@
             }
         }
     </div>
+
+    @* Interested Users section — only visible to the room owner *@
+    @if (isOwner && roomSelections != null)
+    {
+        <div class="mt-4">
+            <h4 class="mb-3">
+                <i class="bi bi-people-fill me-2 text-primary"></i>
+                Interested Users
+                @if (roomSelections.Any())
+                {
+                    <span class="badge bg-primary ms-2">@roomSelections.Count</span>
+                }
+            </h4>
+
+            @if (!roomSelections.Any())
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-1"></i> Nobody has selected this room yet.
+                </div>
+            }
+            else
+            {
+                <div class="card stat-card">
+                    <div class="card-body p-0">
+                        @foreach (var s in roomSelections)
+                        {
+                            <div class="p-3 border-bottom">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="bi bi-person-circle me-1 text-secondary"></i>
+                                            <strong>@s.Seeker?.UserName</strong>
+                                        </h6>
+                                        <p class="mb-0 small text-muted">
+                                            <i class="bi bi-envelope me-1"></i>@s.Seeker?.Email
+                                            @if (!string.IsNullOrWhiteSpace(s.Seeker?.Address))
+                                            {
+                                                <span class="ms-2"><i class="bi bi-geo-alt me-1"></i>@s.Seeker?.Address</span>
+                                            }
+                                        </p>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="bi bi-clock me-1"></i>
+                                        @s.SelectedAt.ToString("dd-MMM-yyyy hh:mm tt")
+                                    </small>
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(s.Message))
+                                {
+                                    <div class="mt-2 p-2 rounded" style="background:#f6f8fb; border-left:4px solid #2563eb;">
+                                        <i class="bi bi-chat-left-quote me-1 text-primary"></i>
+                                        <span>@s.Message</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-muted small mb-0 mt-2 fst-italic">
+                                        No message provided.
+                                    </p>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
 </div>
