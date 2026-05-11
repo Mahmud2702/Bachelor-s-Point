@@ -17,10 +17,6 @@ namespace Bachelor_s_Point.Models
         [MaxLength(150)]
         public string? Email { get; set; }
 
-        // No [Required] here intentionally. The admin Edit flow lets the form
-        // be submitted with a blank password to keep the existing hash.
-        // The service layer enforces presence on Create/Register paths.
-        // Non-nullable + default = string.Empty keeps the SQL column NOT NULL.
         public string PasswordHash { get; set; } = string.Empty;
 
         [MaxLength(250)]
@@ -33,6 +29,13 @@ namespace Bachelor_s_Point.Models
         public Role? Role { get; set; }
 
         public DateTime? LastLogin { get; set; }
+
+        /// <summary>
+        /// Relative URL of the user's uploaded profile picture (e.g. /uploads/profile-pics/user_5_xxx.jpg).
+        /// Null/empty means use the default avatar.
+        /// </summary>
+        [MaxLength(500)]
+        public string? ProfilePicturePath { get; set; }
 
         public ICollection<Room>? Rooms { get; set; }
     }

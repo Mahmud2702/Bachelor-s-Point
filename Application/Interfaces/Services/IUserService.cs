@@ -13,5 +13,7 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
         Task<string> UpdateUserAsync(User user);
 
         Task DeleteUserAsync(int id);
+
+        Task UpdateProfilePictureAsync(int userId, string? picturePath);
     }
 }

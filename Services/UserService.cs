@@ -29,11 +29,7 @@ namespace Bachelor_s_Point.Services
         public async Task<string> CreateUserAsync(User user)
         {
             var existing = await _unitOfWork.UserRepo.GetUserByEmailAsync(user.Email!);
-
-            if (existing != null)
-            {
-                return "Email already exists";
-            }
+            if (existing != null) return "Email already exists";
 
             string plainPassword = user.PasswordHash!;
             user.PasswordHash = _passwordHasher.HashPassword(user, plainPassword);
@@ -48,11 +44,7 @@ namespace Bachelor_s_Point.Services
         public async Task<string> UpdateUserAsync(User user)
         {
             var existing = await _unitOfWork.UserRepo.GetByIdAsync(user.Id);
-
-            if (existing == null)
-            {
-                return "User not found";
-            }
+            if (existing == null) return "User not found";
 
             existing.UserName = user.UserName;
             existing.Email = user.Email;
@@ -66,19 +58,27 @@ namespace Bachelor_s_Point.Services
 
             _unitOfWork.UserRepo.Update(existing);
             await _unitOfWork.SaveAsync();
-
             return "Success";
         }
 
         public async Task DeleteUserAsync(int id)
         {
             var user = await _unitOfWork.UserRepo.GetByIdAsync(id);
-
             if (user != null)
             {
                 _unitOfWork.UserRepo.Delete(user);
                 await _unitOfWork.SaveAsync();
             }
+        }
+
+        public async Task UpdateProfilePictureAsync(int userId, string? picturePath)
+        {
+            var user = await _unitOfWork.UserRepo.GetByIdAsync(userId);
+            if (user == null) return;
+
+            user.ProfilePicturePath = picturePath;
+            _unitOfWork.UserRepo.Update(user);
+            await _unitOfWork.SaveAsync();
         }
     }
 }

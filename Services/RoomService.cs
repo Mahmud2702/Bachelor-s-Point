@@ -19,42 +19,26 @@ namespace Bachelor_s_Point.Services
         }
 
         public async Task<List<Room>> GetAllAvailableRoomsAsync()
-        {
-            return await _unitOfWork.RoomRepo.GetAllAvailableWithOwnerAsync();
-        }
+            => await _unitOfWork.RoomRepo.GetAllAvailableWithOwnerAsync();
 
         public async Task<List<Room>> GetAllRoomsAsync()
-        {
-            return await _unitOfWork.RoomRepo.GetAllWithOwnerAsync();
-        }
+            => await _unitOfWork.RoomRepo.GetAllWithOwnerAsync();
 
         public async Task<Room?> GetRoomByIdAsync(int id)
-        {
-            return await _unitOfWork.RoomRepo.GetRoomWithOwnerByIdAsync(id);
-        }
+            => await _unitOfWork.RoomRepo.GetRoomWithOwnerByIdAsync(id);
 
         public async Task<List<Room>> GetMyRoomsAsync(int ownerUserId)
-        {
-            return await _unitOfWork.RoomRepo.GetRoomsByOwnerIdAsync(ownerUserId);
-        }
+            => await _unitOfWork.RoomRepo.GetRoomsByOwnerIdAsync(ownerUserId);
 
         public async Task<List<Room>> SearchAsync(string searchText)
-        {
-            return await _unitOfWork.RoomRepo.SearchAsync(searchText);
-        }
+            => await _unitOfWork.RoomRepo.SearchAsync(searchText);
 
         public async Task<string> CreateRoomAsync(CreateRoomDto dto, int ownerUserId, bool autoApprove)
         {
-            if (dto == null)
-            {
-                return "Invalid room data";
-            }
+            if (dto == null) return "Invalid room data";
 
             var owner = await _unitOfWork.UserRepo.GetByIdAsync(ownerUserId);
-            if (owner == null)
-            {
-                return "Owner user not found";
-            }
+            if (owner == null) return "Owner user not found";
 
             var room = new Room
             {
@@ -71,7 +55,6 @@ namespace Bachelor_s_Point.Services
 
             await _unitOfWork.RoomRepo.AddAsync(room);
             await _unitOfWork.SaveAsync();
-
             return "Success";
         }
 
@@ -79,7 +62,6 @@ namespace Bachelor_s_Point.Services
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(room.Id);
             if (existing == null) return "Room not found";
-
             if (!isAdmin && existing.UserId != currentUserId)
                 return "You are not allowed to edit this room";
 
@@ -98,7 +80,6 @@ namespace Bachelor_s_Point.Services
         {
             var existing = await _unitOfWork.RoomRepo.GetByIdAsync(roomId);
             if (existing == null) return "Room not found";
-
             if (!isAdmin && existing.UserId != currentUserId)
                 return "You are not allowed to delete this room";
 
@@ -148,14 +129,16 @@ namespace Bachelor_s_Point.Services
         }
 
         public async Task<List<RoomSelection>> GetMySelectionsAsync(int seekerUserId)
-        {
-            return await _unitOfWork.SelectionRepo.GetBySeekerIdAsync(seekerUserId);
-        }
+            => await _unitOfWork.SelectionRepo.GetBySeekerIdAsync(seekerUserId);
+
+        public async Task<List<RoomSelection>> GetReceivedBookingsAsync(int ownerUserId)
+            => await _unitOfWork.SelectionRepo.GetByOwnerIdAsync(ownerUserId);
+
+        public async Task<List<RoomSelection>> GetBookingsForRoomAsync(int roomId)
+            => await _unitOfWork.SelectionRepo.GetByRoomIdAsync(roomId);
 
         public async Task<List<Room>> GetPendingApprovalAsync()
-        {
-            return await _unitOfWork.RoomRepo.GetPendingApprovalAsync();
-        }
+            => await _unitOfWork.RoomRepo.GetPendingApprovalAsync();
 
         public async Task<string> ApproveRoomAsync(int roomId)
         {

@@ -3,7 +3,74 @@
     ViewData["Title"] = "My Profile";
     var postedRooms = ViewBag.PostedRooms as List<Room> ?? new List<Room>();
     var selections = ViewBag.Selections as List<RoomSelection> ?? new List<RoomSelection>();
+    bool hasPic = !string.IsNullOrEmpty(Model.ProfilePicturePath);
 }
+
+<style>
+    .profile-avatar-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 96px;
+        height: 96px;
+    }
+    .profile-pic {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #e3e8ef;
+        display: block;
+    }
+    .profile-default-avatar {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        background: #e7f9ee;
+        color: #15803d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.6rem;
+        border: 3px solid #e3e8ef;
+    }
+    .profile-pic-edit {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        background: #2563eb;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        font-size: 0.95rem;
+        border: 3px solid white;
+        transition: background 0.15s ease;
+    }
+    .profile-pic-edit:hover { background: #1d4ed8; }
+    .profile-pic-remove {
+        position: absolute;
+        top: 0;
+        right: 0;
+        background: #fff;
+        color: #dc2626;
+        width: 26px;
+        height: 26px;
+        border: 2px solid #dc2626;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 0.75rem;
+        padding: 0;
+    }
+    .profile-pic-remove:hover { background: #dc2626; color: #fff; }
+</style>
 
 <div class="container">
 
@@ -11,9 +78,32 @@
     <div class="card stat-card mb-4">
         <div class="card-body p-4">
             <div class="d-flex align-items-center flex-wrap">
-                <div class="icon-wrap icon-user me-3" style="width:72px;height:72px;font-size:2rem;">
-                    <i class="bi bi-person-fill"></i>
-                </div>
+
+                <!-- Avatar with upload -->
+                <form asp-controller="Auth" asp-action="UploadProfilePicture" method="post"
+                      enctype="multipart/form-data" id="profilePicForm" class="me-3">
+                    @Html.AntiForgeryToken()
+                    <div class="profile-avatar-wrapper">
+                        @if (hasPic)
+                        {
+                            <img src="@Model.ProfilePicturePath" alt="Profile picture" class="profile-pic" />
+                        }
+                        else
+                        {
+                            <div class="profile-default-avatar">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                        }
+                        <label for="profilePicInput" class="profile-pic-edit" title="Change profile picture">
+                            <i class="bi bi-camera-fill"></i>
+                        </label>
+                        <input type="file" name="profilePicture" id="profilePicInput"
+                               accept="image/jpeg,image/png,image/gif,image/webp"
+                               onchange="document.getElementById('profilePicForm').submit();"
+                               style="display:none;" />
+                    </div>
+                </form>
+
                 <div class="flex-grow-1">
                     <h3 class="mb-1">@Model.UserName</h3>
                     <p class="text-muted mb-1">
@@ -25,7 +115,18 @@
                             <i class="bi bi-geo-alt me-1"></i>@Model.Address
                         </p>
                     }
+                    @if (hasPic)
+                    {
+                        <form asp-controller="Auth" asp-action="RemoveProfilePicture" method="post" class="mt-2"
+                              onsubmit="return confirm('Remove your profile picture?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash me-1"></i>Remove picture
+                            </button>
+                        </form>
+                    }
                 </div>
+
                 <div class="text-end small text-muted">
                     Role: <strong>@Model.Role?.RoleName</strong><br />
                     @if (Model.LastLogin.HasValue)
@@ -33,6 +134,12 @@
                         <span>Last login: @Model.LastLogin.Value.ToString("dd-MMM-yyyy")</span>
                     }
                 </div>
+            </div>
+
+            <div class="alert alert-light border mt-3 mb-0 small">
+                <i class="bi bi-info-circle me-1 text-primary"></i>
+                Click the <i class="bi bi-camera-fill text-primary"></i> icon to upload a new profile picture.
+                JPG, PNG, GIF, or WEBP, max 5 MB.
             </div>
         </div>
     </div>

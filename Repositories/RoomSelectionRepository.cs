@@ -27,5 +27,24 @@ namespace Bachelor_s_Point.Repositories
                 .Where(s => s.SeekerUserId == seekerUserId)
                 .CountAsync();
         }
+
+        public async Task<List<RoomSelection>> GetByOwnerIdAsync(int ownerUserId)
+        {
+            return await _context.RoomSelections
+                .Include(s => s.Room)
+                .Include(s => s.Seeker)
+                .Where(s => s.Room != null && s.Room.UserId == ownerUserId)
+                .OrderByDescending(s => s.SelectedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<RoomSelection>> GetByRoomIdAsync(int roomId)
+        {
+            return await _context.RoomSelections
+                .Include(s => s.Seeker)
+                .Where(s => s.RoomId == roomId)
+                .OrderByDescending(s => s.SelectedAt)
+                .ToListAsync();
+        }
     }
 }

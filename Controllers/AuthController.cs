@@ -14,20 +14,27 @@ namespace Bachelor_s_Point.Controllers
         private readonly IRoleService _roleService;
         private readonly IUserService _userService;
         private readonly IRoomService _roomService;
+        private readonly IWebHostEnvironment _env;
+
+        // Allowed image extensions and max upload size
+        private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+        private const long MaxUploadBytes = 5 * 1024 * 1024;  // 5 MB
 
         public AuthController(
             IAuthService authService,
             IRoleService roleService,
             IUserService userService,
-            IRoomService roomService)
+            IRoomService roomService,
+            IWebHostEnvironment env)
         {
             _authService = authService;
             _roleService = roleService;
             _userService = userService;
             _roomService = roomService;
+            _env = env;
         }
 
-        // GET: /Auth/RoleSelect — landing page when not logged in
+        // GET: /Auth/RoleSelect
         [HttpGet]
         public IActionResult RoleSelect()
         {
@@ -38,14 +45,11 @@ namespace Bachelor_s_Point.Controllers
             return View();
         }
 
-        // GET: /Auth/Register?as=admin|user — no role dropdown anymore
+        // GET: /Auth/Register?as=admin|user
         [HttpGet]
         public IActionResult Register(string? @as = null)
         {
-            if (string.IsNullOrEmpty(@as))
-            {
-                @as = "user";
-            }
+            if (string.IsNullOrEmpty(@as)) @as = "user";
             ViewBag.RegisterType = @as;
             return View();
         }
@@ -55,13 +59,9 @@ namespace Bachelor_s_Point.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterDto dto, string? @as = null)
         {
-            if (string.IsNullOrEmpty(@as))
-            {
-                @as = "user";
-            }
+            if (string.IsNullOrEmpty(@as)) @as = "user";
             ViewBag.RegisterType = @as;
 
-            // Auto-assign role based on registration type — user does NOT pick
             var roles = await _roleService.GetAllRolesAsync();
             string targetRoleName = @as == "admin" ? "Admin" : "RoomOwner";
             var targetRole = roles.FirstOrDefault(r => r.RoleName == targetRoleName);
@@ -73,15 +73,11 @@ namespace Bachelor_s_Point.Controllers
             }
 
             dto.RoleId = targetRole.Id;
-            ModelState.Remove(nameof(dto.RoleId)); // we set it ourselves; skip its validation
+            ModelState.Remove(nameof(dto.RoleId));
 
-            if (!ModelState.IsValid)
-            {
-                return View(dto);
-            }
+            if (!ModelState.IsValid) return View(dto);
 
             string result = await _authService.RegisterAsync(dto);
-
             if (result != "Success")
             {
                 ModelState.AddModelError("", result);
@@ -110,14 +106,9 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Login(LoginDto dto, string? @as = null)
         {
             ViewBag.LoginType = @as;
-
-            if (!ModelState.IsValid)
-            {
-                return View(dto);
-            }
+            if (!ModelState.IsValid) return View(dto);
 
             var user = await _authService.LoginAsync(dto);
-
             if (user == null)
             {
                 ModelState.AddModelError("", "Invalid email or password");
@@ -158,7 +149,6 @@ namespace Bachelor_s_Point.Controllers
                     ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
                 });
 
-            // Default mode = owner for non-admin users
             if (userRoleName != "Admin")
             {
                 Response.Cookies.Append("UserMode", "owner", new CookieOptions
@@ -183,23 +173,16 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(RoleSelect));
         }
 
-        // GET: /Auth/AccessDenied
         [HttpGet]
-        public IActionResult AccessDenied()
-        {
-            return View();
-        }
+        public IActionResult AccessDenied() => View();
 
-        // POST: /Auth/SetMode — toggle RoomOwner / RoomSeeker mode for current session
+        // POST: /Auth/SetMode
         [HttpPost]
         [Authorize]
         [ValidateAntiForgeryToken]
         public IActionResult SetMode(string mode, string? returnUrl = null)
         {
-            if (mode != "owner" && mode != "seeker")
-            {
-                mode = "owner";
-            }
+            if (mode != "owner" && mode != "seeker") mode = "owner";
 
             Response.Cookies.Append("UserMode", mode, new CookieOptions
             {
@@ -216,27 +199,129 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction("Index", "Home");
         }
 
-        // GET: /Auth/Profile — user's history page
+        // GET: /Auth/Profile
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> Profile()
         {
             int userId = GetCurrentUserId();
-            if (userId == 0)
-            {
-                return RedirectToAction(nameof(Login));
-            }
+            if (userId == 0) return RedirectToAction(nameof(Login));
 
             var user = await _userService.GetUserByIdAsync(userId);
-            if (user == null)
-            {
-                return NotFound();
-            }
+            if (user == null) return NotFound();
 
             ViewBag.PostedRooms = await _roomService.GetMyRoomsAsync(userId);
             ViewBag.Selections = await _roomService.GetMySelectionsAsync(userId);
 
             return View(user);
+        }
+
+        // POST: /Auth/UploadProfilePicture
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(6 * 1024 * 1024)]  // a touch above MaxUploadBytes
+        public async Task<IActionResult> UploadProfilePicture(IFormFile? profilePicture)
+        {
+            int userId = GetCurrentUserId();
+            if (userId == 0) return RedirectToAction(nameof(Login));
+
+            if (profilePicture == null || profilePicture.Length == 0)
+            {
+                TempData["Error"] = "Please select an image to upload.";
+                return RedirectToAction(nameof(Profile));
+            }
+
+            if (profilePicture.Length > MaxUploadBytes)
+            {
+                TempData["Error"] = "Image size cannot exceed 5 MB.";
+                return RedirectToAction(nameof(Profile));
+            }
+
+            string extension = Path.GetExtension(profilePicture.FileName).ToLowerInvariant();
+            if (!AllowedExtensions.Contains(extension))
+            {
+                TempData["Error"] = "Only JPG, PNG, GIF, and WEBP images are allowed.";
+                return RedirectToAction(nameof(Profile));
+            }
+
+            if (!profilePicture.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["Error"] = "File must be an image.";
+                return RedirectToAction(nameof(Profile));
+            }
+
+            // Resolve wwwroot (fall back to ContentRoot/wwwroot if not set)
+            string webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                ? _env.WebRootPath
+                : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+            if (!Directory.Exists(webRoot))
+            {
+                Directory.CreateDirectory(webRoot);
+            }
+
+            string uploadsFolder = Path.Combine(webRoot, "uploads", "profile-pics");
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            string fileName = $"user_{userId}_{DateTime.UtcNow.Ticks}{extension}";
+            string savePath = Path.Combine(uploadsFolder, fileName);
+
+            using (var stream = new FileStream(savePath, FileMode.Create))
+            {
+                await profilePicture.CopyToAsync(stream);
+            }
+
+            // Delete the old picture file (if any)
+            var existing = await _userService.GetUserByIdAsync(userId);
+            if (existing != null && !string.IsNullOrEmpty(existing.ProfilePicturePath))
+            {
+                string relative = existing.ProfilePicturePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+                string oldFullPath = Path.Combine(webRoot, relative);
+                if (System.IO.File.Exists(oldFullPath))
+                {
+                    try { System.IO.File.Delete(oldFullPath); } catch { /* swallow */ }
+                }
+            }
+
+            string relativeUrl = $"/uploads/profile-pics/{fileName}";
+            await _userService.UpdateProfilePictureAsync(userId, relativeUrl);
+
+            TempData["Success"] = "Profile picture updated.";
+            return RedirectToAction(nameof(Profile));
+        }
+
+        // POST: /Auth/RemoveProfilePicture
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveProfilePicture()
+        {
+            int userId = GetCurrentUserId();
+            if (userId == 0) return RedirectToAction(nameof(Login));
+
+            var user = await _userService.GetUserByIdAsync(userId);
+            if (user != null && !string.IsNullOrEmpty(user.ProfilePicturePath))
+            {
+                string webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
+                    ? _env.WebRootPath
+                    : Path.Combine(_env.ContentRootPath, "wwwroot");
+
+                string relative = user.ProfilePicturePath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+                string oldFullPath = Path.Combine(webRoot, relative);
+                if (System.IO.File.Exists(oldFullPath))
+                {
+                    try { System.IO.File.Delete(oldFullPath); } catch { }
+                }
+
+                await _userService.UpdateProfilePictureAsync(userId, null);
+                TempData["Success"] = "Profile picture removed.";
+            }
+
+            return RedirectToAction(nameof(Profile));
         }
 
         private int GetCurrentUserId()
