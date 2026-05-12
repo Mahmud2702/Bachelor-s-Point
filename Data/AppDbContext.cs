@@ -12,6 +12,7 @@ namespace Bachelor_s_Point.Data
         public DbSet<Room> Rooms { get; set; }
         public DbSet<RoomSelection> RoomSelections { get; set; }
         public DbSet<RoomImage> RoomImages { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,12 +46,24 @@ namespace Bachelor_s_Point.Data
                 .HasForeignKey(s => s.SeekerUserId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Room -> Images (1 to many, cascade when room deleted)
             modelBuilder.Entity<Room>()
                 .HasMany(r => r.Images)
                 .WithOne(i => i.Room)
                 .HasForeignKey(i => i.RoomId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // ChatMessage: two FKs to User — use NoAction to avoid multiple cascade paths
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.Receiver)
+                .WithMany()
+                .HasForeignKey(m => m.ReceiverId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },

@@ -1,0 +1,126 @@
+@model IEnumerable<Bachelor_s_Point.Application.DTOs.ConversationSummary>
+@{
+    ViewData["Title"] = "Messages";
+}
+
+<style>
+    .chat-list-card {
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 4px 14px rgba(44, 62, 80, 0.06);
+        overflow: hidden;
+    }
+    .chat-list-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #eef1f4;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.15s ease;
+    }
+    .chat-list-item:hover {
+        background: #f6f8fb;
+        color: inherit;
+        text-decoration: none;
+    }
+    .chat-list-item:last-child { border-bottom: 0; }
+    .chat-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-right: 1rem;
+        border: 2px solid #e3e8ef;
+        flex-shrink: 0;
+    }
+    .chat-avatar-default {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #e7f9ee;
+        color: #15803d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-right: 1rem;
+        flex-shrink: 0;
+    }
+    .chat-meta {
+        flex-grow: 1;
+        min-width: 0;
+    }
+    .chat-name { font-weight: 600; margin-bottom: 0.15rem; }
+    .chat-last-msg {
+        color: #6b7280;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+    .chat-right {
+        text-align: right;
+        flex-shrink: 0;
+        margin-left: 0.5rem;
+    }
+    .chat-time { color: #9ca3af; font-size: 0.8rem; }
+    .unread-badge {
+        background: #2563eb;
+        color: white;
+        border-radius: 999px;
+        padding: 0.15rem 0.55rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-top: 0.25rem;
+        display: inline-block;
+    }
+</style>
+
+<div class="container">
+    <h2 class="mb-3"><i class="bi bi-chat-dots-fill me-2 text-primary"></i>Messages</h2>
+
+    @if (!Model.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-1"></i> You don't have any conversations yet.
+            Start chatting from a room's details page or a booking request.
+        </div>
+    }
+    else
+    {
+        <div class="chat-list-card">
+            @foreach (var convo in Model)
+            {
+                <a asp-action="Conversation" asp-route-id="@convo.OtherUser.Id" class="chat-list-item">
+                    @if (!string.IsNullOrEmpty(convo.OtherUser.ProfilePicturePath))
+                    {
+                        <img src="@convo.OtherUser.ProfilePicturePath" alt="@convo.OtherUser.UserName" class="chat-avatar" />
+                    }
+                    else
+                    {
+                        <div class="chat-avatar-default"><i class="bi bi-person-fill"></i></div>
+                    }
+                    <div class="chat-meta">
+                        <div class="chat-name">@convo.OtherUser.UserName</div>
+                        <div class="chat-last-msg">
+                            @if (convo.LastMessageFromMe)
+                            {
+                                <span class="text-muted">You:</span>
+                            }
+                            @convo.LastMessage
+                        </div>
+                    </div>
+                    <div class="chat-right">
+                        <div class="chat-time">@convo.LastSentAt.ToString("dd-MMM hh:mm tt")</div>
+                        @if (convo.UnreadCount > 0)
+                        {
+                            <span class="unread-badge">@convo.UnreadCount</span>
+                        }
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</div>

@@ -9,6 +9,7 @@ namespace Bachelor_s_Point.Application.Interfaces.UnitOfWork
         IRoomRepository RoomRepo { get; }
         IRoomSelectionRepository SelectionRepo { get; }
         IRoomImageRepository RoomImageRepo { get; }
+        IChatRepository ChatRepo { get; }
         Task<int> SaveAsync();
     }
 }

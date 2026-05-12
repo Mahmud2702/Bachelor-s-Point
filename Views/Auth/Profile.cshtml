@@ -180,6 +180,13 @@
                                 <td>
                                     <a asp-controller="Room" asp-action="Details" asp-route-id="@s.RoomId"
                                        class="btn btn-sm btn-outline-primary">View</a>
+                                    @if (s.Seeker != null)
+                                    {
+                                        <a asp-controller="Chat" asp-action="Conversation" asp-route-id="@s.SeekerUserId"
+                                           class="btn btn-sm btn-outline-success">
+                                            <i class="bi bi-chat-dots"></i> Chat
+                                        </a>
+                                    }
                                 </td>
                             </tr>
                         }
