@@ -9,7 +9,7 @@ namespace Bachelor_s_Point.Controllers
 {
     public class RoomController : Controller
     {
-        private const int PageSize = 10;
+        private const int PageSize = 9;
         private const long MaxImageBytes = 5 * 1024 * 1024; // 5MB per image
         private const int MaxImageCount = 10;               // up to 10 per room
         private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };

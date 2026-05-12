@@ -1,10 +1,15 @@
 @using Bachelor_s_Point.Application.Interfaces.Services
 @inject IUserService UserService
 @inject IChatService ChatService
+@inject IRoomService RoomService
 @{
     string? currentUserPic = null;
     int unreadCount = 0;
-    if (User.Identity != null && User.Identity.IsAuthenticated)
+    int pendingRoomCount = 0;
+    bool isAuthed = User.Identity != null && User.Identity.IsAuthenticated;
+    bool isAdminUser = isAuthed && User.IsInRole("Admin");
+
+    if (isAuthed)
     {
         var idClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (int.TryParse(idClaim, out int currentUid))
@@ -12,6 +17,12 @@
             var currentUser = await UserService.GetUserByIdAsync(currentUid);
             currentUserPic = currentUser?.ProfilePicturePath;
             unreadCount = await ChatService.GetUnreadCountAsync(currentUid);
+        }
+
+        if (isAdminUser)
+        {
+            var pending = await RoomService.GetPendingApprovalAsync();
+            pendingRoomCount = pending.Count;
         }
     }
 }
@@ -58,6 +69,21 @@
             margin-left: 0.25rem;
             vertical-align: top;
         }
+        .nav-pending-badge {
+            background: #f59e0b;
+            color: #fff;
+            border-radius: 999px;
+            padding: 0.05rem 0.45rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 0.25rem;
+            vertical-align: top;
+        }
+        @@keyframes pulse-dot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50%      { transform: scale(1.18); opacity: 0.85; }
+        }
+        .nav-pending-badge.pulse { animation: pulse-dot 1.6s ease-in-out infinite; }
     </style>
 </head>
 <body>
@@ -67,10 +93,9 @@
                 <a class="navbar-brand navbar-brand-bp" asp-controller="Home" asp-action="Index">
                     <i class="bi bi-house-door-fill me-1"></i> Bachelor's Point
                 </a>
-                @if (User.Identity != null && User.Identity.IsAuthenticated)
+                @if (isAuthed)
                 {
                     string currentMode = Context.Request.Cookies["UserMode"] ?? "owner";
-                    bool isAdmin = User.IsInRole("Admin");
                     bool ownerMode = currentMode == "owner";
 
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Toggle navigation">
@@ -85,10 +110,17 @@
                                 <a class="nav-link" asp-controller="Room" asp-action="Index">Browse Rooms</a>
                             </li>
 
-                            @if (isAdmin)
+                            @if (isAdminUser)
                             {
                                 <li class="nav-item">
-                                    <a class="nav-link" asp-controller="Room" asp-action="Pending">Pending Approval</a>
+                                    <a class="nav-link" asp-controller="Room" asp-action="Pending"
+                                       title="@(pendingRoomCount > 0 ? $"{pendingRoomCount} room(s) waiting for approval" : "No rooms pending")">
+                                        <i class="bi bi-clock-history"></i> Pending Approval
+                                        @if (pendingRoomCount > 0)
+                                        {
+                                            <span class="nav-pending-badge pulse">@pendingRoomCount</span>
+                                        }
+                                    </a>
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link" asp-controller="User" asp-action="Index">Users</a>
@@ -122,7 +154,7 @@
                         </ul>
 
                         <ul class="navbar-nav align-items-center">
-                            @if (!isAdmin)
+                            @if (!isAdminUser)
                             {
                                 <li class="nav-item dropdown me-2">
                                     <a class="nav-link p-0" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -197,6 +229,17 @@
             {
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     @TempData["Error"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (isAdminUser && pendingRoomCount > 0 && Context.Request.Path != "/Room/Pending")
+            {
+                <div class="alert alert-warning alert-dismissible fade show d-flex align-items-center" role="alert">
+                    <i class="bi bi-bell-fill me-2"></i>
+                    <div class="flex-grow-1">
+                        <strong>@pendingRoomCount new post@(pendingRoomCount == 1 ? "" : "s")</strong> waiting for your approval.
+                        <a asp-controller="Room" asp-action="Pending" class="alert-link ms-1">Review now &rarr;</a>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             }

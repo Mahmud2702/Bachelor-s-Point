@@ -7,6 +7,8 @@ namespace Bachelor_s_Point.Controllers
 {
     public class HomeController : Controller
     {
+        private const int PageSize = 9;
+
         private readonly ILogger<HomeController> _logger;
         private readonly IRoomService _roomService;
 
@@ -16,16 +18,16 @@ namespace Bachelor_s_Point.Controllers
             _roomService = roomService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int page = 1)
         {
             if (User.Identity == null || !User.Identity.IsAuthenticated)
             {
                 return RedirectToAction("RoleSelect", "Auth");
             }
 
-            // Home page shows all approved + available rooms in a scrollable grid
-            var rooms = await _roomService.GetAllAvailableRoomsAsync();
-            return View(rooms);
+            // Paginated: 10 approved+available rooms per page
+            var paged = await _roomService.GetApprovedPagedAsync(null, page, PageSize);
+            return View(paged);
         }
 
         public IActionResult Privacy()
