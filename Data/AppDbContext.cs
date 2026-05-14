@@ -13,6 +13,7 @@ namespace Bachelor_s_Point.Data
         public DbSet<RoomSelection> RoomSelections { get; set; }
         public DbSet<RoomImage> RoomImages { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<PendingRegistration> PendingRegistrations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -52,7 +53,6 @@ namespace Bachelor_s_Point.Data
                 .HasForeignKey(i => i.RoomId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // ChatMessage: two FKs to User — use NoAction to avoid multiple cascade paths
             modelBuilder.Entity<ChatMessage>()
                 .HasOne(m => m.Sender)
                 .WithMany()
@@ -64,6 +64,10 @@ namespace Bachelor_s_Point.Data
                 .WithMany()
                 .HasForeignKey(m => m.ReceiverId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // Pending registration — index email for fast lookup
+            modelBuilder.Entity<PendingRegistration>()
+                .HasIndex(p => p.Email);
 
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },

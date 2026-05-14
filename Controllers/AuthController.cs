@@ -16,7 +16,6 @@ namespace Bachelor_s_Point.Controllers
         private readonly IRoomService _roomService;
         private readonly IWebHostEnvironment _env;
 
-        // Allowed image extensions and max upload size
         private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
         private const long MaxUploadBytes = 5 * 1024 * 1024;  // 5 MB
 
@@ -54,7 +53,7 @@ namespace Bachelor_s_Point.Controllers
             return View();
         }
 
-        // POST: /Auth/Register
+        // POST: /Auth/Register — Step 1 of OTP flow: store pending + send OTP
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterDto dto, string? @as = null)
@@ -62,6 +61,7 @@ namespace Bachelor_s_Point.Controllers
             if (string.IsNullOrEmpty(@as)) @as = "user";
             ViewBag.RegisterType = @as;
 
+            // Resolve target role
             var roles = await _roleService.GetAllRolesAsync();
             string targetRoleName = @as == "admin" ? "Admin" : "RoomOwner";
             var targetRole = roles.FirstOrDefault(r => r.RoleName == targetRoleName);
@@ -77,15 +77,71 @@ namespace Bachelor_s_Point.Controllers
 
             if (!ModelState.IsValid) return View(dto);
 
-            string result = await _authService.RegisterAsync(dto);
+            string result = await _authService.StartRegistrationAsync(dto);
             if (result != "Success")
             {
                 ModelState.AddModelError("", result);
                 return View(dto);
             }
 
-            TempData["Success"] = "Registration successful. Please log in.";
-            return RedirectToAction(nameof(Login), new { @as = @as });
+            TempData["Success"] = $"We've sent a 6-digit verification code to {dto.Email}. Enter it below to complete your registration.";
+            return RedirectToAction(nameof(VerifyOtp), new { email = dto.Email });
+        }
+
+        // GET: /Auth/VerifyOtp?email=...
+        [HttpGet]
+        public IActionResult VerifyOtp(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return RedirectToAction(nameof(Register));
+            }
+
+            var dto = new VerifyOtpDto { Email = email };
+            return View(dto);
+        }
+
+        // POST: /Auth/VerifyOtp
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyOtp(VerifyOtpDto dto)
+        {
+            if (!ModelState.IsValid) return View(dto);
+
+            string result = await _authService.VerifyOtpAndCreateUserAsync(dto.Email!, dto.Otp!);
+            if (result != "Success")
+            {
+                ModelState.AddModelError("", result);
+                ViewBag.AllowResend = result.Contains("expired", StringComparison.OrdinalIgnoreCase);
+                return View(dto);
+            }
+
+            TempData["Success"] = "Registration completed! Please log in.";
+            return RedirectToAction(nameof(Login), new { @as = "user" });
+        }
+
+        // POST: /Auth/ResendOtp
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendOtp(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                TempData["Error"] = "Email is required to resend the code.";
+                return RedirectToAction(nameof(Register));
+            }
+
+            string result = await _authService.ResendOtpAsync(email);
+            if (result != "Success")
+            {
+                TempData["Error"] = result;
+            }
+            else
+            {
+                TempData["Success"] = $"A new verification code has been sent to {email}.";
+            }
+
+            return RedirectToAction(nameof(VerifyOtp), new { email });
         }
 
         // GET: /Auth/Login?as=admin|user
@@ -221,7 +277,7 @@ namespace Bachelor_s_Point.Controllers
         [HttpPost]
         [Authorize]
         [ValidateAntiForgeryToken]
-        [RequestSizeLimit(6 * 1024 * 1024)]  // a touch above MaxUploadBytes
+        [RequestSizeLimit(6 * 1024 * 1024)]
         public async Task<IActionResult> UploadProfilePicture(IFormFile? profilePicture)
         {
             int userId = GetCurrentUserId();
@@ -252,21 +308,14 @@ namespace Bachelor_s_Point.Controllers
                 return RedirectToAction(nameof(Profile));
             }
 
-            // Resolve wwwroot (fall back to ContentRoot/wwwroot if not set)
             string webRoot = !string.IsNullOrEmpty(_env.WebRootPath)
                 ? _env.WebRootPath
                 : Path.Combine(_env.ContentRootPath, "wwwroot");
 
-            if (!Directory.Exists(webRoot))
-            {
-                Directory.CreateDirectory(webRoot);
-            }
+            if (!Directory.Exists(webRoot)) Directory.CreateDirectory(webRoot);
 
             string uploadsFolder = Path.Combine(webRoot, "uploads", "profile-pics");
-            if (!Directory.Exists(uploadsFolder))
-            {
-                Directory.CreateDirectory(uploadsFolder);
-            }
+            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
 
             string fileName = $"user_{userId}_{DateTime.UtcNow.Ticks}{extension}";
             string savePath = Path.Combine(uploadsFolder, fileName);
@@ -276,7 +325,6 @@ namespace Bachelor_s_Point.Controllers
                 await profilePicture.CopyToAsync(stream);
             }
 
-            // Delete the old picture file (if any)
             var existing = await _userService.GetUserByIdAsync(userId);
             if (existing != null && !string.IsNullOrEmpty(existing.ProfilePicturePath))
             {
@@ -284,7 +332,7 @@ namespace Bachelor_s_Point.Controllers
                 string oldFullPath = Path.Combine(webRoot, relative);
                 if (System.IO.File.Exists(oldFullPath))
                 {
-                    try { System.IO.File.Delete(oldFullPath); } catch { /* swallow */ }
+                    try { System.IO.File.Delete(oldFullPath); } catch { }
                 }
             }
 

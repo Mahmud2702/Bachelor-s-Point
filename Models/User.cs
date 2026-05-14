@@ -8,14 +8,22 @@ namespace Bachelor_s_Point.Models
         [Key]
         public int Id { get; set; }
 
+        [MaxLength(150)]
+        public string? FullName { get; set; }
+
         [Required(ErrorMessage = "User name is required")]
         [MaxLength(100)]
         public string? UserName { get; set; }
+
+        public DateTime? DateOfBirth { get; set; }
 
         [Required(ErrorMessage = "Email is required")]
         [EmailAddress(ErrorMessage = "Valid email is required")]
         [MaxLength(150)]
         public string? Email { get; set; }
+
+        [MaxLength(30)]
+        public string? PhoneNumber { get; set; }
 
         public string PasswordHash { get; set; } = string.Empty;
 
@@ -30,10 +38,6 @@ namespace Bachelor_s_Point.Models
 
         public DateTime? LastLogin { get; set; }
 
-        /// <summary>
-        /// Relative URL of the user's uploaded profile picture (e.g. /uploads/profile-pics/user_5_xxx.jpg).
-        /// Null/empty means use the default avatar.
-        /// </summary>
         [MaxLength(500)]
         public string? ProfilePicturePath { get; set; }
 

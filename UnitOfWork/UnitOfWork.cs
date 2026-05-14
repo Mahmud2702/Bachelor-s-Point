@@ -14,6 +14,7 @@ namespace Bachelor_s_Point.UnitOfWork
         public IRoomSelectionRepository SelectionRepo { get; }
         public IRoomImageRepository RoomImageRepo { get; }
         public IChatRepository ChatRepo { get; }
+        public IPendingRegistrationRepository PendingRegRepo { get; }
 
         public UnitOfWork(
             AppDbContext context,
@@ -22,7 +23,8 @@ namespace Bachelor_s_Point.UnitOfWork
             IRoomRepository roomRepo,
             IRoomSelectionRepository selectionRepo,
             IRoomImageRepository roomImageRepo,
-            IChatRepository chatRepo)
+            IChatRepository chatRepo,
+            IPendingRegistrationRepository pendingRegRepo)
         {
             _context = context;
             UserRepo = userRepo;
@@ -31,6 +33,7 @@ namespace Bachelor_s_Point.UnitOfWork
             SelectionRepo = selectionRepo;
             RoomImageRepo = roomImageRepo;
             ChatRepo = chatRepo;
+            PendingRegRepo = pendingRegRepo;
         }
 
         public async Task<int> SaveAsync() => await _context.SaveChangesAsync();

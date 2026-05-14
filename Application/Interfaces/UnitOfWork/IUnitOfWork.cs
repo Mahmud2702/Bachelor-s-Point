@@ -10,6 +10,7 @@ namespace Bachelor_s_Point.Application.Interfaces.UnitOfWork
         IRoomSelectionRepository SelectionRepo { get; }
         IRoomImageRepository RoomImageRepo { get; }
         IChatRepository ChatRepo { get; }
+        IPendingRegistrationRepository PendingRegRepo { get; }
         Task<int> SaveAsync();
     }
 }
