@@ -160,7 +160,7 @@
                                     <a class="nav-link p-0" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                         <span class="mode-pill">
                                             <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-search")"></i>
-                                            @(ownerMode ? "RoomOwner" : "RoomSeeker")
+                                            @(ownerMode ? "Owner Mode" : "Seeker Mode")
                                             <i class="bi bi-caret-down-fill" style="font-size:0.7rem;"></i>
                                         </span>
                                     </a>
@@ -172,7 +172,7 @@
                                                 <input type="hidden" name="mode" value="owner" />
                                                 <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
                                                 <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")">
-                                                    <i class="bi bi-house-add-fill me-1"></i> RoomOwner
+                                                    <i class="bi bi-house-add-fill me-1"></i> Owner Mode
                                                 </button>
                                             </form>
                                         </li>
@@ -182,7 +182,7 @@
                                                 <input type="hidden" name="mode" value="seeker" />
                                                 <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
                                                 <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")">
-                                                    <i class="bi bi-search me-1"></i> RoomSeeker
+                                                    <i class="bi bi-search me-1"></i> Seeker Mode
                                                 </button>
                                             </form>
                                         </li>

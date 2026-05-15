@@ -35,7 +35,7 @@ namespace Bachelor_s_Point.Models
         [Required]
         public string PasswordHash { get; set; } = string.Empty;
 
-        /// <summary>Role to assign once verified (Admin or RoomOwner).</summary>
+        /// <summary>Role to assign once verified (Admin or User).</summary>
         public int TargetRoleId { get; set; }
 
         /// <summary>SHA-256 hash of (email + ":" + otp) — never store the plain OTP.</summary>

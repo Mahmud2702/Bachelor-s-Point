@@ -95,7 +95,9 @@ namespace Bachelor_s_Point.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send OTP email to {Email}", dto.Email);
-                return "Could not send verification email. Please check your email address or try again.";
+                // Surface the underlying error so the developer can see what's wrong
+                string innerMsg = ex.InnerException?.Message ?? ex.Message;
+                return $"Email send failed: {innerMsg}";
             }
 
             return "Success";

@@ -71,8 +71,7 @@ namespace Bachelor_s_Point.Data
 
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },
-                new Role { Id = 2, RoleName = "RoomOwner", RoleDescription = "Default user role" },
-                new Role { Id = 3, RoleName = "RoomSeeker", RoleDescription = "Legacy role" }
+                new Role { Id = 2, RoleName = "User", RoleDescription = "Regular user — can post and select rooms" }
             );
         }
     }

@@ -63,7 +63,7 @@ namespace Bachelor_s_Point.Controllers
 
             // Resolve target role
             var roles = await _roleService.GetAllRolesAsync();
-            string targetRoleName = @as == "admin" ? "Admin" : "RoomOwner";
+            string targetRoleName = @as == "admin" ? "Admin" : "User";
             var targetRole = roles.FirstOrDefault(r => r.RoleName == targetRoleName);
 
             if (targetRole == null)
