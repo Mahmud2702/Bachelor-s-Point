@@ -12,68 +12,29 @@
     }
 }
 
-<style>
-    .room-card-image {
-        height: 200px;
-        background: var(--clr-canvas);
-        display: flex; align-items: center; justify-content: center;
-        overflow: hidden;
-    }
-    .room-card-image img {
-        width: 100%; height: 100%; object-fit: cover;
-        transition: transform 0.3s ease;
-    }
-    .nx-card:hover .room-card-image img { transform: scale(1.05); }
-    .room-card-image .no-img { color: #cbd5e1; font-size: 3rem; }
-    .room-card-body { padding: 1.1rem 1.25rem 1.25rem; }
-    .room-card-body h5 {
-        font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;
-    }
-    .room-card-body .location {
-        font-size: 0.85rem; color: var(--clr-muted); margin-bottom: 0.55rem;
-    }
-    .room-card-body .desc {
-        font-size: 0.88rem; color: var(--clr-muted);
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    .room-price { font-size: 1.1rem; font-weight: 800; color: var(--clr-success); }
-    .search-box {
-        background: var(--clr-surface);
-        border: 1px solid var(--clr-border);
-        border-radius: var(--radius-lg);
-        padding: 1.1rem 1.25rem;
-        margin-bottom: 1.5rem;
-        box-shadow: var(--shadow-sm);
-    }
-</style>
-
 <div class="container py-3">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h2 style="font-weight: 800; margin: 0;">
-            <i class="bi bi-search me-2" style="color: var(--clr-primary);"></i>Browse Rooms
+            <i class="bi bi-search me-2" style="color: var(--primary);"></i>Browse Rooms
         </h2>
-        <span style="color: var(--clr-muted); font-size: 0.9rem;">
+        <span style="color: var(--muted); font-size: 0.9rem;">
             @Model.TotalCount room@(Model.TotalCount == 1 ? "" : "s") available
         </span>
     </div>
 
-    <div class="search-box">
+    <div class="nx-card p-3 mb-4 fade-up">
         <form asp-action="Index" method="get" class="row g-2">
             <div class="col-md-9">
-                <div style="position: relative;">
-                    <i class="bi bi-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--clr-muted);"></i>
-                    <input type="text" name="searchText" value="@searchText" class="form-control" style="padding-left: 38px;"
-                           placeholder="Search by title, description, or location" />
-                </div>
+                <input type="text" name="searchText" value="@searchText" class="form-control"
+                       placeholder="🔍  Search by title, description, or location" />
             </div>
             <div class="col-md-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary flex-grow-1">
-                    <i class="bi bi-search me-1"></i> Search
+                <button type="submit" class="btn-nx" style="flex-grow: 1;">
+                    <i class="bi bi-search"></i> Search
                 </button>
                 @if (!string.IsNullOrEmpty(searchText))
                 {
-                    <a asp-action="Index" class="btn btn-outline-secondary" title="Clear">
+                    <a asp-action="Index" class="btn-nx outline" title="Clear">
                         <i class="bi bi-x-lg"></i>
                     </a>
                 }
@@ -90,7 +51,7 @@
     }
     else
     {
-        <p style="color: var(--clr-muted); font-size: 0.88rem;">
+        <p style="color: var(--muted); font-size: 0.88rem;">
             Showing @((Model.Page - 1) * Model.PageSize + 1)
             – @((Model.Page - 1) * Model.PageSize + Model.Items.Count)
             of @Model.TotalCount rooms
@@ -100,37 +61,39 @@
             @foreach (var room in Model.Items)
             {
                 string cover = GetCoverImage(room);
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-lg-4 fade-up">
                     <div class="nx-card h-100">
-                        <div class="room-card-image">
+                        <div style="height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; overflow: hidden;">
                             @if (!string.IsNullOrEmpty(cover))
                             {
-                                <img src="@cover" alt="@room.Title" />
+                                <img src="@cover" alt="@room.Title" style="width: 100%; height: 100%; object-fit: cover;" />
                             }
                             else
                             {
-                                <i class="bi bi-image no-img"></i>
+                                <i class="bi bi-image" style="color: #cbd5e1; font-size: 3rem;"></i>
                             }
                         </div>
-                        <div class="room-card-body">
-                            <h5>@room.Title</h5>
-                            <p class="location">
+                        <div style="padding: 1.1rem 1.25rem 1.25rem;">
+                            <h5 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;">@room.Title</h5>
+                            <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.55rem;">
                                 <i class="bi bi-geo-alt"></i> @room.Location
                             </p>
-                            <p class="desc">@room.Description</p>
-                            <p style="font-size: 0.78rem; color: var(--clr-muted); margin: 0.5rem 0 0;">
+                            <p style="font-size: 0.88rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                @room.Description
+                            </p>
+                            <p style="font-size: 0.78rem; color: var(--muted); margin: 0.5rem 0 0;">
                                 <i class="bi bi-person-circle"></i>
                                 Posted by @(room.Owner?.UserName ?? "Unknown")
                             </p>
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top: 1px solid var(--clr-border);">
-                                <span class="room-price">BDT @room.Price</span>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top: 1px solid var(--border);">
+                                <span style="font-size: 1.1rem; font-weight: 800; color: var(--success);">BDT @room.Price</span>
                                 <div class="d-flex gap-2">
-                                    <a asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-secondary">
+                                    <a asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline sm">
                                         Details
                                     </a>
                                     @if (User.Identity != null && User.Identity.IsAuthenticated && !isAdmin)
                                     {
-                                        <a asp-action="Select" asp-route-id="@room.Id" class="btn btn-sm btn-success">
+                                        <a asp-action="Select" asp-route-id="@room.Id" class="btn-nx success sm">
                                             Select
                                         </a>
                                     }
@@ -147,24 +110,18 @@
             <nav class="mt-4">
                 <ul class="pagination justify-content-center">
                     <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
-                        <a class="page-link" asp-action="Index"
-                           asp-route-searchText="@searchText"
-                           asp-route-page="@(Model.Page - 1)">
+                        <a class="page-link" asp-action="Index" asp-route-searchText="@searchText" asp-route-page="@(Model.Page - 1)">
                             <i class="bi bi-chevron-left"></i> Previous
                         </a>
                     </li>
                     @for (int p = 1; p <= Model.TotalPages; p++)
                     {
                         <li class="page-item @(p == Model.Page ? "active" : "")">
-                            <a class="page-link" asp-action="Index"
-                               asp-route-searchText="@searchText"
-                               asp-route-page="@p">@p</a>
+                            <a class="page-link" asp-action="Index" asp-route-searchText="@searchText" asp-route-page="@p">@p</a>
                         </li>
                     }
                     <li class="page-item @(Model.HasNext ? "" : "disabled")">
-                        <a class="page-link" asp-action="Index"
-                           asp-route-searchText="@searchText"
-                           asp-route-page="@(Model.Page + 1)">
+                        <a class="page-link" asp-action="Index" asp-route-searchText="@searchText" asp-route-page="@(Model.Page + 1)">
                             Next <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>

@@ -5,14 +5,14 @@
     ViewData["Title"] = title;
 }
 
-<div class="auth-card" style="max-width: 600px;">
+<div class="auth-card fade-up" style="max-width: 620px;">
     <div class="d-flex align-items-center gap-2 mb-4">
         <div class="nx-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
         <span class="nx-brand-name">Bachelor's Point</span>
     </div>
 
-    <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.35rem;">@title</h2>
-    <p style="color: var(--clr-muted); font-size: 0.9rem; margin-bottom: 1.75rem;">
+    <h2 style="font-size: 1.55rem; font-weight: 800; margin-bottom: 0.35rem;">@title</h2>
+    <p style="color: var(--muted); font-size: 0.92rem; margin-bottom: 1.75rem;">
         Get started — it's free and only takes a minute.
     </p>
 
@@ -41,7 +41,7 @@
             </div>
 
             <div class="col-md-6">
-                <label asp-for="PhoneNumber" class="form-label">Phone Number <span style="color: var(--clr-muted); font-weight: 400;">(optional)</span></label>
+                <label asp-for="PhoneNumber" class="form-label">Phone <span style="color: var(--muted); font-weight: 400;">(optional)</span></label>
                 <input asp-for="PhoneNumber" class="form-control" placeholder="01XXXXXXXXX" />
                 <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
             </div>
@@ -50,7 +50,7 @@
                 <label asp-for="Email" class="form-label">Email address</label>
                 <input asp-for="Email" class="form-control" placeholder="you@example.com" />
                 <span asp-validation-for="Email" class="text-danger small"></span>
-                <small style="color: var(--clr-muted); font-size: 0.78rem;">We'll send a 6-digit verification code here.</small>
+                <small style="color: var(--muted); font-size: 0.78rem;">We'll send a 6-digit verification code here.</small>
             </div>
 
             <div class="col-12">
@@ -72,16 +72,14 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mt-4" style="height: 46px;">
-            <i class="bi bi-shield-check me-1"></i> Send Verification Code
+        <button type="submit" class="btn-auth mt-4">
+            <i class="bi bi-shield-check"></i> Send Verification Code
         </button>
     </form>
 
-    <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--clr-border);">
-        <span style="color: var(--clr-muted); font-size: 0.88rem;">Already have an account?</span>
-        <a asp-action="Login" asp-route-as="@regType" style="color: var(--clr-primary); font-weight: 600; text-decoration: none; font-size: 0.88rem;">
-            Sign in
-        </a>
+    <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--border); font-size: 0.9rem; color: var(--muted);">
+        Already have an account?
+        <a asp-action="Login" asp-route-as="@regType" class="auth-link">Sign in</a>
     </div>
 </div>
 

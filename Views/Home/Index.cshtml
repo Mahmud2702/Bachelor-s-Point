@@ -10,55 +10,22 @@
     }
 }
 
-<style>
-    .room-card-image {
-        height: 200px;
-        background: var(--clr-canvas);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        position: relative;
-    }
-    .room-card-image img {
-        width: 100%; height: 100%; object-fit: cover;
-        transition: transform 0.3s ease;
-    }
-    .nx-card:hover .room-card-image img { transform: scale(1.05); }
-    .room-card-image .no-img { color: #cbd5e1; font-size: 3rem; }
-    .room-price {
-        font-size: 1.15rem; font-weight: 800; color: var(--clr-success);
-    }
-    .room-card-body { padding: 1.1rem 1.25rem 1.25rem; }
-    .room-card-body h5 {
-        font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--clr-text);
-    }
-    .room-card-body .location {
-        font-size: 0.85rem; color: var(--clr-muted); margin-bottom: 0.6rem;
-    }
-    .room-card-body .desc {
-        font-size: 0.88rem; color: var(--clr-muted);
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-        overflow: hidden; min-height: 2.4em;
-    }
-</style>
-
 <div class="container">
-    <div class="nx-hero">
+    <div class="nx-hero fade-up">
         <h1 class="display-5">Welcome to Bachelor's Point</h1>
         <p class="lead mt-2 mb-4">Find a bachelor room, or list one for others.</p>
-        <a asp-controller="Room" asp-action="Index" class="btn btn-light btn-lg" style="font-weight: 700;">
-            <i class="bi bi-search me-1"></i> Browse all rooms
+        <a asp-controller="Room" asp-action="Index" class="btn-hero">
+            <i class="bi bi-search"></i> Browse all rooms
         </a>
     </div>
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 style="font-weight: 800; margin: 0; font-size: 1.4rem;">
-            <i class="bi bi-houses-fill me-2" style="color: var(--clr-primary);"></i>Latest Available Rooms
+        <h3 style="font-weight: 800; margin: 0; font-size: 1.45rem;">
+            <i class="bi bi-houses-fill me-2" style="color: var(--primary);"></i>Latest Available Rooms
         </h3>
         @if (Model.TotalCount > 0)
         {
-            <span style="color: var(--clr-muted); font-size: 0.85rem;">
+            <span style="color: var(--muted); font-size: 0.85rem;">
                 Showing @((Model.Page - 1) * Model.PageSize + 1)
                 – @((Model.Page - 1) * Model.PageSize + Model.Items.Count)
                 of @Model.TotalCount
@@ -79,27 +46,29 @@
             @foreach (var room in Model.Items)
             {
                 string cover = GetCoverImage(room);
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-lg-4 fade-up">
                     <div class="nx-card h-100">
-                        <div class="room-card-image">
+                        <div class="room-card-image" style="height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; overflow: hidden;">
                             @if (!string.IsNullOrEmpty(cover))
                             {
-                                <img src="@cover" alt="@room.Title" />
+                                <img src="@cover" alt="@room.Title" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s;" />
                             }
                             else
                             {
-                                <i class="bi bi-image no-img"></i>
+                                <i class="bi bi-image" style="color: #cbd5e1; font-size: 3rem;"></i>
                             }
                         </div>
-                        <div class="room-card-body">
-                            <h5>@room.Title</h5>
-                            <p class="location">
+                        <div style="padding: 1.1rem 1.25rem 1.25rem;">
+                            <h5 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;">@room.Title</h5>
+                            <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.6rem;">
                                 <i class="bi bi-geo-alt"></i> @room.Location
                             </p>
-                            <p class="desc">@room.Description</p>
-                            <div class="d-flex justify-content-between align-items-center mt-3">
-                                <span class="room-price">BDT @room.Price</span>
-                                <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-secondary">
+                            <p style="font-size: 0.88rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em;">
+                                @room.Description
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top: 1px solid var(--border);">
+                                <span style="font-size: 1.15rem; font-weight: 800; color: var(--success);">BDT @room.Price</span>
+                                <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline">
                                     Details <i class="bi bi-arrow-right"></i>
                                 </a>
                             </div>

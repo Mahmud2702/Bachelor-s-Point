@@ -196,20 +196,25 @@ namespace Bachelor_s_Point.Controllers
             var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
+            // "Remember me" extends the cookie to 30 days; otherwise it's a normal 8-hour session.
+            DateTimeOffset cookieExpiry = dto.RememberMe
+                ? DateTimeOffset.UtcNow.AddDays(30)
+                : DateTimeOffset.UtcNow.AddHours(8);
+
             await HttpContext.SignInAsync(
                 CookieAuthenticationDefaults.AuthenticationScheme,
                 principal,
                 new AuthenticationProperties
                 {
-                    IsPersistent = true,
-                    ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8)
+                    IsPersistent = dto.RememberMe,
+                    ExpiresUtc = cookieExpiry
                 });
 
             if (userRoleName != "Admin")
             {
                 Response.Cookies.Append("UserMode", "owner", new CookieOptions
                 {
-                    Expires = DateTimeOffset.UtcNow.AddHours(8),
+                    Expires = cookieExpiry,
                     HttpOnly = false,
                     SameSite = SameSiteMode.Lax
                 });

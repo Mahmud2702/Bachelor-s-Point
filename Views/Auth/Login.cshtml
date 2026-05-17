@@ -1,70 +1,113 @@
 @model LoginDto
 @{
     string loginType = (ViewBag.LoginType as string) ?? "";
-    string title = loginType == "admin" ? "Admin Sign In"
-                 : loginType == "user"  ? "Welcome back"
-                 : "Sign in";
+    string title = loginType == "admin" ? "Admin Sign In" : "Welcome back";
     string subtitle = loginType == "admin"
         ? "Sign in to the admin dashboard."
         : "Sign in to your Bachelor's Point account.";
     ViewData["Title"] = title;
 }
 
-<div class="auth-card">
+<style>
+    .nx-checkbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .nx-checkbox input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border);
+        border-radius: 5px;
+        background: var(--white);
+        cursor: pointer;
+        position: relative;
+        transition: var(--transition);
+        margin: 0;
+        flex-shrink: 0;
+    }
+    .nx-checkbox input[type="checkbox"]:hover {
+        border-color: var(--primary-mid);
+    }
+    .nx-checkbox input[type="checkbox"]:checked {
+        background: var(--primary);
+        border-color: var(--primary);
+    }
+    .nx-checkbox input[type="checkbox"]:checked::after {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 0px;
+        width: 5px;
+        height: 10px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+    .nx-checkbox label {
+        font-size: 0.88rem;
+        color: var(--text);
+        cursor: pointer;
+        font-weight: 500;
+        margin: 0;
+    }
+</style>
+
+<div class="auth-card fade-up">
     <div class="d-flex align-items-center gap-2 mb-4">
         <div class="nx-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
         <span class="nx-brand-name">Bachelor's Point</span>
     </div>
 
-    <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.35rem;">@title</h2>
-    <p style="color: var(--clr-muted); font-size: 0.9rem; margin-bottom: 1.75rem;">@subtitle</p>
+    <h2 style="font-size: 1.55rem; font-weight: 800; margin-bottom: 0.35rem;">@title</h2>
+    <p style="color: var(--muted); font-size: 0.92rem; margin-bottom: 1.75rem;">@subtitle</p>
 
     <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
 
-    <form asp-action="Login" asp-route-as="@(string.IsNullOrEmpty(loginType) ? null : loginType)" method="post">
+    <form asp-action="Login" asp-route-as="@(string.IsNullOrEmpty(loginType) ? null : loginType)" method="post" autocomplete="on">
         @Html.AntiForgeryToken()
 
         <div class="mb-3">
             <label asp-for="Email" class="form-label">Email address</label>
-            <div style="position: relative;">
-                <i class="bi bi-envelope" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--clr-muted);"></i>
-                <input asp-for="Email" class="form-control" style="padding-left: 38px;" placeholder="you@example.com" autocomplete="email" autofocus />
-            </div>
+            <input asp-for="Email" class="form-control" placeholder="you@example.com" autocomplete="email" autofocus />
             <span asp-validation-for="Email" class="text-danger small"></span>
         </div>
 
-        <div class="mb-2">
+        <div class="mb-3">
             <label asp-for="Password" class="form-label">Password</label>
             <div style="position: relative;">
-                <i class="bi bi-lock" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--clr-muted);"></i>
-                <input asp-for="Password" type="password" class="form-control" style="padding-left: 38px; padding-right: 38px;" placeholder="Your password" id="loginPass" autocomplete="current-password" />
-                <i class="bi bi-eye" id="togglePassIcon" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--clr-muted); cursor: pointer;" onclick="togglePass()"></i>
+                <input asp-for="Password" type="password" class="form-control" style="padding-right: 44px;" placeholder="Your password" id="loginPass" autocomplete="current-password" />
+                <i class="bi bi-eye" id="togglePassIcon" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); cursor: pointer;" onclick="togglePass()"></i>
             </div>
             <span asp-validation-for="Password" class="text-danger small"></span>
         </div>
 
-        <div class="text-end mb-3">
-            <a asp-action="ForgotPassword" style="font-size: 0.85rem; color: var(--clr-primary); font-weight: 600; text-decoration: none;">
-                Forgot password?
-            </a>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="nx-checkbox">
+                <input asp-for="RememberMe" id="RememberMe" />
+                <label for="RememberMe">Remember me</label>
+            </div>
+            <a asp-action="ForgotPassword" class="auth-link" style="font-size: 0.85rem;">Forgot password?</a>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mb-3" style="height: 46px;">
-            <i class="bi bi-arrow-right-circle me-1"></i> Sign In
+        <button type="submit" class="btn-auth mb-2">
+            <i class="bi bi-arrow-right-circle"></i> Sign In
         </button>
 
-        <a asp-action="RoleSelect" class="btn btn-outline-secondary w-100">
-            <i class="bi bi-arrow-left me-1"></i> Back
+        <a asp-action="RoleSelect" class="btn-auth outline">
+            <i class="bi bi-arrow-left"></i> Back
         </a>
     </form>
 
     @if (loginType != "admin")
     {
-        <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--clr-border);">
-            <span style="color: var(--clr-muted); font-size: 0.88rem;">Don't have an account?</span>
-            <a asp-action="Register" asp-route-as="@(string.IsNullOrEmpty(loginType) ? "user" : loginType)" style="color: var(--clr-primary); font-weight: 600; text-decoration: none; font-size: 0.88rem;">
-                Create one free
-            </a>
+        <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--border); font-size: 0.9rem; color: var(--muted);">
+            Don't have an account?
+            <a asp-action="Register" asp-route-as="@(string.IsNullOrEmpty(loginType) ? "user" : loginType)" class="auth-link">Create one free</a>
         </div>
     }
 </div>

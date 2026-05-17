@@ -4,21 +4,20 @@
     bool allowResend = ViewBag.AllowResend is bool b && b;
 }
 
-<div class="auth-card" style="max-width: 480px;">
+<div class="auth-card fade-up" style="max-width: 480px;">
     <div class="text-center mb-4">
-        <div style="width: 80px; height: 80px; background: var(--clr-primary-light); color: var(--clr-primary); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2.2rem; margin-bottom: 1rem;">
+        <div style="width: 80px; height: 80px; background: var(--primary-light); color: var(--primary); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2.2rem; margin-bottom: 1rem;">
             <i class="bi bi-shield-lock-fill"></i>
         </div>
-        <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.5rem;">Check your email</h2>
-        <p style="color: var(--clr-muted); font-size: 0.92rem; margin: 0;">
+        <h2 style="font-size: 1.55rem; font-weight: 800; margin-bottom: 0.5rem;">Check your email</h2>
+        <p style="color: var(--muted); font-size: 0.95rem; margin: 0;">
             We sent a 6-digit code to<br />
-            <strong style="color: var(--clr-text);">@Model.Email</strong>
+            <strong style="color: var(--text);">@Model.Email</strong>
         </p>
     </div>
 
     <form asp-action="VerifyOtp" method="post" autocomplete="off">
         @Html.AntiForgeryToken()
-
         <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
 
         <input asp-for="Email" type="hidden" />
@@ -26,40 +25,40 @@
         <div class="mb-3">
             <label asp-for="Otp" class="form-label visually-hidden">Verification Code</label>
             <input asp-for="Otp" class="form-control text-center"
-                   style="font-size: 1.7rem; letter-spacing: 0.8rem; font-weight: 700; padding: 0.85rem 0.5rem; font-family: 'Plus Jakarta Sans', monospace;"
+                   style="font-size: 1.7rem; letter-spacing: 0.8rem; font-weight: 700; padding: 0.85rem 0.5rem; height: 60px;"
                    inputmode="numeric" pattern="\d{6}" maxlength="6"
                    placeholder="——————" autofocus />
             <span asp-validation-for="Otp" class="text-danger small"></span>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mb-3" style="height: 46px;">
-            <i class="bi bi-check-circle me-1"></i> Verify &amp; Continue
+        <button type="submit" class="btn-auth mb-3">
+            <i class="bi bi-check-circle"></i> Verify &amp; Continue
         </button>
 
-        <p class="text-center mb-0" style="color: var(--clr-muted); font-size: 0.85rem;">
-            The code expires in <strong style="color: var(--clr-text);">5 minutes</strong>.
+        <p class="text-center mb-0" style="color: var(--muted); font-size: 0.85rem;">
+            Code expires in <strong style="color: var(--text);">5 minutes</strong>.
         </p>
     </form>
 
-    <hr style="border-color: var(--clr-border); margin: 1.5rem 0;" />
+    <hr style="border-color: var(--border); margin: 1.5rem 0;" />
 
     <div class="text-center">
-        <p style="color: var(--clr-muted); font-size: 0.85rem; margin-bottom: 0.65rem;">
+        <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem;">
             Didn't receive the code?
             @if (allowResend)
             {
-                <br /><span style="color: var(--clr-danger);">Your code expired — please request a new one.</span>
+                <br /><span style="color: var(--danger);">Your code expired — please request a new one.</span>
             }
         </p>
         <form asp-action="ResendOtp" method="post" class="d-inline">
             @Html.AntiForgeryToken()
             <input type="hidden" name="email" value="@Model.Email" />
-            <button type="submit" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-clockwise me-1"></i> Resend Code
+            <button type="submit" class="btn-nx outline sm">
+                <i class="bi bi-arrow-clockwise"></i> Resend Code
             </button>
         </form>
-        <a asp-action="Register" class="btn btn-sm" style="color: var(--clr-primary); text-decoration: none;">
-            <i class="bi bi-pencil me-1"></i> Change email
+        <a asp-action="Register" class="auth-link" style="margin-left: 0.5rem; font-size: 0.85rem;">
+            <i class="bi bi-pencil"></i> Change email
         </a>
     </div>
 </div>

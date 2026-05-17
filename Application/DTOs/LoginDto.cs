@@ -10,5 +10,11 @@ namespace Bachelor_s_Point.Application.DTOs
 
         [Required(ErrorMessage = "Password is required")]
         public string? Password { get; set; }
+
+        /// <summary>
+        /// When true, the auth cookie lasts 30 days instead of the default 8 hours.
+        /// </summary>
+        [Display(Name = "Remember me")]
+        public bool RememberMe { get; set; }
     }
 }
