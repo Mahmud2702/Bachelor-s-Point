@@ -2,35 +2,62 @@
     ViewData["Title"] = "Welcome";
 }
 
-<div class="hero-welcome">
-    <div class="container">
-        <h1 class="display-4">Welcome to Bachelor's Point</h1>
-        <p class="lead mt-2 mb-0">Find a bachelor room, or list one for others.</p>
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <div style="display:inline-flex; align-items:center; gap:12px; padding: 6px 16px; background: var(--clr-primary-light); border-radius: 999px; margin-bottom: 1.5rem;">
+            <i class="bi bi-house-heart-fill" style="color: var(--clr-primary);"></i>
+            <span style="color: var(--clr-primary); font-weight: 600; font-size: 0.85rem;">Welcome to Bachelor's Point</span>
+        </div>
+        <h1 style="font-size: 2.5rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 0.75rem;">
+            Find your perfect bachelor room
+        </h1>
+        <p style="font-size: 1.05rem; color: var(--clr-muted); max-width: 560px; margin: 0 auto;">
+            Choose how you'd like to continue. Sign in as an admin to manage the platform,
+            or as a regular user to browse and post rooms.
+        </p>
     </div>
-</div>
 
-<div class="container">
-    <h3 class="text-center mb-4">Login as</h3>
-
-    <div class="row justify-content-center g-4">
-        <div class="col-md-5 col-lg-4">
-            <a asp-action="Login" asp-route-as="admin" class="role-card p-4 text-center">
-                <div class="icon-wrap icon-admin mb-3">
+    <div class="row g-4 justify-content-center" style="max-width: 860px; margin: 0 auto;">
+        <div class="col-md-6">
+            <a asp-action="Login" asp-route-as="admin" class="role-card p-4 text-center h-100">
+                <div class="icon-wrap icon-admin mx-auto mb-3">
                     <i class="bi bi-shield-lock-fill"></i>
                 </div>
-                <h4 class="mb-2">Admin</h4>
-                <p class="text-muted mb-0">Manage users, roles, and all rooms.</p>
+                <h4 style="font-weight: 700; margin-bottom: 0.5rem;">Admin</h4>
+                <p style="color: var(--clr-muted); margin: 0; font-size: 0.92rem;">
+                    Approve room postings, manage users and roles.
+                </p>
+                <div class="mt-3">
+                    <span class="mode-pill" style="background: var(--clr-primary-light); color: var(--clr-primary);">
+                        <i class="bi bi-arrow-right-circle-fill"></i> Continue as Admin
+                    </span>
+                </div>
             </a>
         </div>
-
-        <div class="col-md-5 col-lg-4">
-            <a asp-action="Login" asp-route-as="user" class="role-card p-4 text-center">
-                <div class="icon-wrap icon-user mb-3">
+        <div class="col-md-6">
+            <a asp-action="Login" asp-route-as="user" class="role-card p-4 text-center h-100">
+                <div class="icon-wrap icon-user mx-auto mb-3">
                     <i class="bi bi-person-fill"></i>
                 </div>
-                <h4 class="mb-2">User</h4>
-                <p class="text-muted mb-0">Browse rooms or post your own listing.</p>
+                <h4 style="font-weight: 700; margin-bottom: 0.5rem;">User</h4>
+                <p style="color: var(--clr-muted); margin: 0; font-size: 0.92rem;">
+                    Post a room you're letting out, or find a bachelor room to rent.
+                </p>
+                <div class="mt-3">
+                    <span class="mode-pill" style="background: var(--clr-success-light); color: var(--clr-success);">
+                        <i class="bi bi-arrow-right-circle-fill"></i> Continue as User
+                    </span>
+                </div>
             </a>
         </div>
+    </div>
+
+    <div class="text-center mt-5">
+        <p style="color: var(--clr-muted); font-size: 0.9rem; margin: 0;">
+            Don't have an account?
+            <a asp-action="Register" asp-route-as="user" style="color: var(--clr-primary); font-weight: 600; text-decoration: none;">
+                Create one free
+            </a>
+        </p>
     </div>
 </div>

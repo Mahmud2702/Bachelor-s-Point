@@ -14,54 +14,83 @@
 
 <style>
     .room-card-image {
-        height: 180px;
-        background: #e3e8ef;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        height: 200px;
+        background: var(--clr-canvas);
+        display: flex; align-items: center; justify-content: center;
         overflow: hidden;
     }
-
-        .room-card-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .room-card-image .no-img {
-            color: #9ca3af;
-            font-size: 3rem;
-        }
+    .room-card-image img {
+        width: 100%; height: 100%; object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+    .nx-card:hover .room-card-image img { transform: scale(1.05); }
+    .room-card-image .no-img { color: #cbd5e1; font-size: 3rem; }
+    .room-card-body { padding: 1.1rem 1.25rem 1.25rem; }
+    .room-card-body h5 {
+        font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;
+    }
+    .room-card-body .location {
+        font-size: 0.85rem; color: var(--clr-muted); margin-bottom: 0.55rem;
+    }
+    .room-card-body .desc {
+        font-size: 0.88rem; color: var(--clr-muted);
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .room-price { font-size: 1.1rem; font-weight: 800; color: var(--clr-success); }
+    .search-box {
+        background: var(--clr-surface);
+        border: 1px solid var(--clr-border);
+        border-radius: var(--radius-lg);
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-sm);
+    }
 </style>
 
-<div class="container">
-    <h2 class="mb-3"><i class="bi bi-search me-2 text-secondary"></i>Browse Available Rooms</h2>
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h2 style="font-weight: 800; margin: 0;">
+            <i class="bi bi-search me-2" style="color: var(--clr-primary);"></i>Browse Rooms
+        </h2>
+        <span style="color: var(--clr-muted); font-size: 0.9rem;">
+            @Model.TotalCount room@(Model.TotalCount == 1 ? "" : "s") available
+        </span>
+    </div>
 
-    <form asp-action="Index" method="get" class="row g-2 mb-4">
-        <div class="col-md-7">
-            <input type="text" name="searchText" value="@searchText" class="form-control"
-                   placeholder="Search by title, description, or location" />
-        </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-search me-1"></i> Search
-            </button>
-            @if (!string.IsNullOrEmpty(searchText))
-            {
-                <a asp-action="Index" class="btn btn-link">Clear</a>
-            }
-        </div>
-    </form>
+    <div class="search-box">
+        <form asp-action="Index" method="get" class="row g-2">
+            <div class="col-md-9">
+                <div style="position: relative;">
+                    <i class="bi bi-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--clr-muted);"></i>
+                    <input type="text" name="searchText" value="@searchText" class="form-control" style="padding-left: 38px;"
+                           placeholder="Search by title, description, or location" />
+                </div>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1">
+                    <i class="bi bi-search me-1"></i> Search
+                </button>
+                @if (!string.IsNullOrEmpty(searchText))
+                {
+                    <a asp-action="Index" class="btn btn-outline-secondary" title="Clear">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                }
+            </div>
+        </form>
+    </div>
 
     @if (!Model.Items.Any())
     {
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle me-1"></i> No rooms found.
+        <div class="nx-alert nx-alert-info">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>No rooms found matching your search.</span>
         </div>
     }
     else
     {
-        <p class="text-muted small">
+        <p style="color: var(--clr-muted); font-size: 0.88rem;">
             Showing @((Model.Page - 1) * Model.PageSize + 1)
             – @((Model.Page - 1) * Model.PageSize + Model.Items.Count)
             of @Model.TotalCount rooms
@@ -72,7 +101,7 @@
             {
                 string cover = GetCoverImage(room);
                 <div class="col-md-6 col-lg-4">
-                    <div class="card h-100 shadow-sm border-0">
+                    <div class="nx-card h-100">
                         <div class="room-card-image">
                             @if (!string.IsNullOrEmpty(cover))
                             {
@@ -83,27 +112,30 @@
                                 <i class="bi bi-image no-img"></i>
                             }
                         </div>
-                        <div class="card-body">
-                            <h5 class="card-title">@room.Title</h5>
-                            <h6 class="card-subtitle text-muted mb-2">
+                        <div class="room-card-body">
+                            <h5>@room.Title</h5>
+                            <p class="location">
                                 <i class="bi bi-geo-alt"></i> @room.Location
-                            </h6>
-                            <p class="card-text">
-                                @(room.Description?.Length > 120 ? room.Description.Substring(0, 120) + "..." : room.Description)
                             </p>
-                            <p class="mb-1"><strong class="text-success">BDT @room.Price</strong></p>
-                            <p class="text-muted small mb-0">Posted by @(room.Owner?.UserName ?? "Unknown")</p>
-                        </div>
-                        <div class="card-footer bg-white border-0">
-                            <a asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-primary">
-                                Details
-                            </a>
-                            @if (User.Identity != null && User.Identity.IsAuthenticated && !isAdmin)
-                            {
-                                <a asp-action="Select" asp-route-id="@room.Id" class="btn btn-sm btn-success">
-                                    Select
-                                </a>
-                            }
+                            <p class="desc">@room.Description</p>
+                            <p style="font-size: 0.78rem; color: var(--clr-muted); margin: 0.5rem 0 0;">
+                                <i class="bi bi-person-circle"></i>
+                                Posted by @(room.Owner?.UserName ?? "Unknown")
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top: 1px solid var(--clr-border);">
+                                <span class="room-price">BDT @room.Price</span>
+                                <div class="d-flex gap-2">
+                                    <a asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-secondary">
+                                        Details
+                                    </a>
+                                    @if (User.Identity != null && User.Identity.IsAuthenticated && !isAdmin)
+                                    {
+                                        <a asp-action="Select" asp-route-id="@room.Id" class="btn btn-sm btn-success">
+                                            Select
+                                        </a>
+                                    }
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -115,27 +147,24 @@
             <nav class="mt-4">
                 <ul class="pagination justify-content-center">
                     <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
-                        <a class="page-link"
-                               asp-action="Index"
-                               asp-route-searchText="@searchText"
-                               asp-route-page="@(Model.Page - 1)">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-searchText="@searchText"
+                           asp-route-page="@(Model.Page - 1)">
                             <i class="bi bi-chevron-left"></i> Previous
                         </a>
                     </li>
                     @for (int p = 1; p <= Model.TotalPages; p++)
                     {
                         <li class="page-item @(p == Model.Page ? "active" : "")">
-                            <a class="page-link"
-                               asp-action="Index"
+                            <a class="page-link" asp-action="Index"
                                asp-route-searchText="@searchText"
                                asp-route-page="@p">@p</a>
                         </li>
                     }
                     <li class="page-item @(Model.HasNext ? "" : "disabled")">
-                        <a class="page-link"
-                               asp-action="Index"
-                               asp-route-searchText="@searchText"
-                               asp-route-page="@(Model.Page + 1)">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-searchText="@searchText"
+                           asp-route-page="@(Model.Page + 1)">
                             Next <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>

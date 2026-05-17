@@ -1,109 +1,90 @@
 @model RegisterDto
 @{
     string regType = (ViewBag.RegisterType as string) ?? "user";
-    string title = regType == "admin" ? "Admin Registration" : "Create an Account";
-    string iconClass = regType == "admin" ? "bi-shield-lock-fill text-primary" : "bi-person-plus-fill text-success";
+    string title = regType == "admin" ? "Create Admin Account" : "Create your account";
     ViewData["Title"] = title;
 }
 
-<div class="container">
-    <div class="auth-card" style="max-width: 600px;">
-        <div class="text-center mb-4">
-            <i class="bi @iconClass" style="font-size: 2.6rem;"></i>
-            <h3 class="mt-2 mb-0">@title</h3>
-            <p class="text-muted small mb-0">Join Bachelor's Point</p>
-        </div>
+<div class="auth-card" style="max-width: 600px;">
+    <div class="d-flex align-items-center gap-2 mb-4">
+        <div class="nx-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
+        <span class="nx-brand-name">Bachelor's Point</span>
+    </div>
 
-        <form asp-action="Register" asp-route-as="@regType" method="post" autocomplete="off">
-            @Html.AntiForgeryToken()
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
+    <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.35rem;">@title</h2>
+    <p style="color: var(--clr-muted); font-size: 0.9rem; margin-bottom: 1.75rem;">
+        Get started — it's free and only takes a minute.
+    </p>
 
-            <div class="row g-2">
-                <div class="col-md-6 mb-3">
-                    <label asp-for="FullName" class="form-label">
-                        <i class="bi bi-person me-1 text-secondary"></i>Full Name
-                    </label>
-                    <input asp-for="FullName" class="form-control" placeholder="Your full name" />
-                    <span asp-validation-for="FullName" class="text-danger small"></span>
-                </div>
+    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
 
-                <div class="col-md-6 mb-3">
-                    <label asp-for="UserName" class="form-label">
-                        <i class="bi bi-at me-1 text-secondary"></i>User Name
-                    </label>
-                    <input asp-for="UserName" class="form-control" placeholder="e.g. sajid007" />
-                    <span asp-validation-for="UserName" class="text-danger small"></span>
-                </div>
+    <form asp-action="Register" asp-route-as="@regType" method="post" autocomplete="off">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="FullName" class="form-label">Full Name</label>
+                <input asp-for="FullName" class="form-control" placeholder="Your full name" />
+                <span asp-validation-for="FullName" class="text-danger small"></span>
             </div>
 
-            <div class="row g-2">
-                <div class="col-md-6 mb-3">
-                    <label asp-for="DateOfBirth" class="form-label">
-                        <i class="bi bi-calendar3 me-1 text-secondary"></i>Date of Birth
-                    </label>
-                    <input asp-for="DateOfBirth" type="date" class="form-control" />
-                    <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label asp-for="PhoneNumber" class="form-label">
-                        <i class="bi bi-telephone me-1 text-secondary"></i>Phone Number
-                        <small class="text-muted fw-normal">(optional)</small>
-                    </label>
-                    <input asp-for="PhoneNumber" class="form-control" placeholder="e.g. 01XXXXXXXXX" />
-                    <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
-                </div>
+            <div class="col-md-6">
+                <label asp-for="UserName" class="form-label">User Name</label>
+                <input asp-for="UserName" class="form-control" placeholder="e.g. sajid007" />
+                <span asp-validation-for="UserName" class="text-danger small"></span>
             </div>
 
-            <div class="mb-3">
-                <label asp-for="Email" class="form-label">
-                    <i class="bi bi-envelope me-1 text-secondary"></i>Email
-                </label>
-                <input asp-for="Email" class="form-control" placeholder="you@example.com" autocomplete="email" />
+            <div class="col-md-6">
+                <label asp-for="DateOfBirth" class="form-label">Date of Birth</label>
+                <input asp-for="DateOfBirth" type="date" class="form-control" />
+                <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="PhoneNumber" class="form-label">Phone Number <span style="color: var(--clr-muted); font-weight: 400;">(optional)</span></label>
+                <input asp-for="PhoneNumber" class="form-control" placeholder="01XXXXXXXXX" />
+                <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Email" class="form-label">Email address</label>
+                <input asp-for="Email" class="form-control" placeholder="you@example.com" />
                 <span asp-validation-for="Email" class="text-danger small"></span>
-                <small class="text-muted">We'll send a 6-digit verification code to this email.</small>
+                <small style="color: var(--clr-muted); font-size: 0.78rem;">We'll send a 6-digit verification code here.</small>
             </div>
 
-            <div class="mb-3">
-                <label asp-for="Address" class="form-label">
-                    <i class="bi bi-geo-alt me-1 text-secondary"></i>Address
-                </label>
+            <div class="col-12">
+                <label asp-for="Address" class="form-label">Address</label>
                 <textarea asp-for="Address" class="form-control" rows="2" placeholder="Your address"></textarea>
                 <span asp-validation-for="Address" class="text-danger small"></span>
             </div>
 
-            <div class="row g-2">
-                <div class="col-md-6 mb-3">
-                    <label asp-for="Password" class="form-label">
-                        <i class="bi bi-lock me-1 text-secondary"></i>Password
-                    </label>
-                    <input asp-for="Password" type="password" class="form-control" placeholder="At least 8 characters" autocomplete="new-password" />
-                    <span asp-validation-for="Password" class="text-danger small"></span>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label asp-for="ConfirmPassword" class="form-label">
-                        <i class="bi bi-lock-fill me-1 text-secondary"></i>Confirm Password
-                    </label>
-                    <input asp-for="ConfirmPassword" type="password" class="form-control" placeholder="Re-enter password" autocomplete="new-password" />
-                    <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
-                </div>
+            <div class="col-md-6">
+                <label asp-for="Password" class="form-label">Password</label>
+                <input asp-for="Password" type="password" class="form-control" placeholder="At least 8 characters" autocomplete="new-password" />
+                <span asp-validation-for="Password" class="text-danger small"></span>
             </div>
 
-            <div class="d-grid gap-2 mt-2">
-                <button type="submit" class="btn btn-success btn-lg">
-                    <i class="bi bi-shield-check me-1"></i> Send Verification Code
-                </button>
-                <a asp-action="Login" asp-route-as="@regType" class="btn btn-outline-secondary">
-                    <i class="bi bi-arrow-left me-1"></i> Back to Login
-                </a>
+            <div class="col-md-6">
+                <label asp-for="ConfirmPassword" class="form-label">Confirm Password</label>
+                <input asp-for="ConfirmPassword" type="password" class="form-control" placeholder="Re-enter password" autocomplete="new-password" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
             </div>
-        </form>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 mt-4" style="height: 46px;">
+            <i class="bi bi-shield-check me-1"></i> Send Verification Code
+        </button>
+    </form>
+
+    <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--clr-border);">
+        <span style="color: var(--clr-muted); font-size: 0.88rem;">Already have an account?</span>
+        <a asp-action="Login" asp-route-as="@regType" style="color: var(--clr-primary); font-weight: 600; text-decoration: none; font-size: 0.88rem;">
+            Sign in
+        </a>
     </div>
 </div>
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
 }
