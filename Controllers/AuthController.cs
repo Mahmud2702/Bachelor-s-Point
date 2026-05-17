@@ -373,6 +373,86 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(Profile));
         }
 
+
+        // ============================================================
+        // FORGOT PASSWORD FLOW
+        // ============================================================
+
+        // GET: /Auth/ForgotPassword
+        [HttpGet]
+        public IActionResult ForgotPassword()
+        {
+            return View();
+        }
+
+        // POST: /Auth/ForgotPassword
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordDto dto)
+        {
+            if (!ModelState.IsValid) return View(dto);
+
+            string result = await _authService.StartPasswordResetAsync(dto.Email!);
+            if (result != "Success")
+            {
+                ModelState.AddModelError("", result);
+                return View(dto);
+            }
+
+            TempData["Success"] = $"If an account exists for {dto.Email}, we've sent a 6-digit reset code. Check your inbox.";
+            return RedirectToAction(nameof(ResetPassword), new { email = dto.Email });
+        }
+
+        // GET: /Auth/ResetPassword?email=...
+        [HttpGet]
+        public IActionResult ResetPassword(string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return RedirectToAction(nameof(ForgotPassword));
+
+            var dto = new ResetPasswordDto { Email = email };
+            return View(dto);
+        }
+
+        // POST: /Auth/ResetPassword
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDto dto)
+        {
+            if (!ModelState.IsValid) return View(dto);
+
+            string result = await _authService.ResetPasswordAsync(dto);
+            if (result != "Success")
+            {
+                ModelState.AddModelError("", result);
+                ViewBag.AllowResend = result.Contains("expired", StringComparison.OrdinalIgnoreCase);
+                return View(dto);
+            }
+
+            TempData["Success"] = "Password reset successful. Please log in with your new password.";
+            return RedirectToAction(nameof(Login), new { @as = "user" });
+        }
+
+        // POST: /Auth/ResendResetOtp
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendResetOtp(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                TempData["Error"] = "Email is required.";
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            string result = await _authService.ResendPasswordResetOtpAsync(email);
+            if (result != "Success")
+                TempData["Error"] = result;
+            else
+                TempData["Success"] = $"A new password reset code has been sent to {email}.";
+
+            return RedirectToAction(nameof(ResetPassword), new { email });
+        }
+
         private int GetCurrentUserId()
         {
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

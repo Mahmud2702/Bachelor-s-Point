@@ -5,20 +5,18 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
 {
     public interface IAuthService
     {
-        /// <summary>
-        /// Step 1: Validate input, store pending registration with OTP, and send OTP email.
-        /// Does NOT create the user. Returns "Success" or error message.
-        /// </summary>
         Task<string> StartRegistrationAsync(RegisterDto dto);
-
-        /// <summary>
-        /// Step 2: Verify the OTP, create the actual user, send confirmation email.
-        /// </summary>
         Task<string> VerifyOtpAndCreateUserAsync(string email, string otp);
-
-        /// <summary>Regenerate a fresh OTP for a pending registration and email it.</summary>
         Task<string> ResendOtpAsync(string email);
-
         Task<User?> LoginAsync(LoginDto dto);
+
+        /// <summary>Step 1 of forgot password: send OTP if email exists.</summary>
+        Task<string> StartPasswordResetAsync(string email);
+
+        /// <summary>Step 2 of forgot password: verify OTP and set new password.</summary>
+        Task<string> ResetPasswordAsync(ResetPasswordDto dto);
+
+        /// <summary>Resend OTP for password reset.</summary>
+        Task<string> ResendPasswordResetOtpAsync(string email);
     }
 }

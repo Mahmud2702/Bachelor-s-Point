@@ -14,6 +14,7 @@ namespace Bachelor_s_Point.Data
         public DbSet<RoomImage> RoomImages { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<PendingRegistration> PendingRegistrations { get; set; }
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -69,9 +70,13 @@ namespace Bachelor_s_Point.Data
             modelBuilder.Entity<PendingRegistration>()
                 .HasIndex(p => p.Email);
 
+            // Password reset token — index email for fast lookup
+            modelBuilder.Entity<PasswordResetToken>()
+                .HasIndex(p => p.Email);
+
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },
-                new Role { Id = 2, RoleName = "User", RoleDescription = "Regular user — can post and select rooms" }
+                new Role { Id = 2, RoleName = "User",  RoleDescription = "Regular user — can post and select rooms" }
             );
         }
     }

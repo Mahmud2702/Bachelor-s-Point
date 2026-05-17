@@ -118,6 +118,70 @@ namespace Bachelor_s_Point.Services
 </body>
 </html>";
 
+await _smtp.SendAsync(toEmail, subject, body, isHtml: true);
+        }
+
+        public async Task SendPasswordResetOtpAsync(string toEmail, string? toName, string otp, int validityMinutes)
+        {
+            string greeting = string.IsNullOrWhiteSpace(toName)
+                ? "Hello,"
+                : $"Hello {System.Net.WebUtility.HtmlEncode(toName)},";
+
+            string subject = "Bachelor's Point — Password reset code";
+
+            string body = $@"
+<html>
+<body style='font-family: Arial, sans-serif; color:#333; background:#f6f8fb; padding:24px;'>
+  <div style='max-width:560px; margin:0 auto; background:#fff; border-radius:12px; padding:32px; box-shadow:0 4px 14px rgba(44,62,80,0.06);'>
+    <h2 style='color:#2c3e50; margin-top:0;'>{greeting}</h2>
+    <p>We received a request to reset the password on your <b>Bachelor's Point</b> account. Use the verification code below to set a new password.</p>
+
+    <div style='text-align:center; margin:28px 0;'>
+      <div style='display:inline-block; background:#fef3c7; color:#92400e; font-size:32px; letter-spacing:8px; font-weight:700; padding:18px 30px; border-radius:10px; border:1px solid #fcd34d;'>
+        {System.Net.WebUtility.HtmlEncode(otp)}
+      </div>
+    </div>
+
+    <p>This code is valid for <b>{validityMinutes} minutes</b>. Enter it on the password-reset page along with your new password.</p>
+
+    <p style='color:#6b7280; font-size:14px; margin-top:24px;'>
+      If you didn't request this, you can safely ignore this email — your password will stay unchanged.
+    </p>
+
+    <hr style='border:none; border-top:1px solid #e3e8ef; margin:24px 0;'/>
+    <p style='font-size:12px; color:#9ca3af; margin:0;'>This is an automated message from Bachelor's Point. Please do not reply.</p>
+  </div>
+</body>
+</html>";
+
+            await _smtp.SendAsync(toEmail, subject, body, isHtml: true);
+        }
+
+        public async Task SendPasswordChangedConfirmationAsync(string toEmail, string? toName)
+        {
+            string safeName = System.Net.WebUtility.HtmlEncode(toName ?? "there");
+            string subject = "Your Bachelor's Point password has been changed";
+
+            string body = $@"
+<html>
+<body style='font-family: Arial, sans-serif; color:#333; background:#f6f8fb; padding:24px;'>
+  <div style='max-width:560px; margin:0 auto; background:#fff; border-radius:12px; padding:32px; box-shadow:0 4px 14px rgba(44,62,80,0.06);'>
+    <h2 style='color:#15803d; margin-top:0;'>Hello {safeName},</h2>
+    <p>Your <b>Bachelor's Point</b> account password has been successfully changed.</p>
+
+    <p>You can now sign in with your new password.</p>
+
+    <div style='background:#fef2f2; border-left:4px solid #ef4444; padding:12px 16px; margin:20px 0; border-radius:6px;'>
+      <strong style='color:#991b1b;'>Didn't change your password?</strong><br />
+      <span style='color:#7f1d1d; font-size:14px;'>If you didn't make this change, please contact support immediately.</span>
+    </div>
+
+    <hr style='border:none; border-top:1px solid #e3e8ef; margin:24px 0;'/>
+    <p style='font-size:12px; color:#9ca3af; margin:0;'>This is an automated message from Bachelor's Point.</p>
+  </div>
+</body>
+</html>";
+
             await _smtp.SendAsync(toEmail, subject, body, isHtml: true);
         }
     }

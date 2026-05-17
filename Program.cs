@@ -35,6 +35,7 @@ builder.Services.AddScoped<IRoomSelectionRepository, RoomSelectionRepository>();
 builder.Services.AddScoped<IRoomImageRepository, RoomImageRepository>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
+builder.Services.AddScoped<IPasswordResetRepository, PasswordResetRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, Bachelor_s_Point.UnitOfWork.UnitOfWork>();
 

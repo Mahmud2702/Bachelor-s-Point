@@ -211,6 +211,152 @@ namespace Bachelor_s_Point.Services
             return user;
         }
 
+
+        // ============================================================
+        // FORGOT PASSWORD FLOW
+        // ============================================================
+
+        public async Task<string> StartPasswordResetAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email)) return "Email is required";
+
+            var user = await _unitOfWork.UserRepo.GetUserByEmailAsync(email);
+            if (user == null)
+            {
+                // For security: don't reveal whether email exists. Return Success anyway
+                // so attackers can't enumerate registered emails. Just don't send the OTP.
+                return "Success";
+            }
+
+            string plainOtp = GenerateOtp();
+            string otpHash = HashOtp(email, plainOtp);
+
+            // Upsert reset token for this email
+            var existing = await _unitOfWork.PasswordResetRepo.GetByEmailAsync(email);
+            if (existing == null)
+            {
+                var token = new PasswordResetToken
+                {
+                    Email = email,
+                    OtpHash = otpHash,
+                    OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes),
+                    CreatedAt = DateTime.Now,
+                    AttemptCount = 0
+                };
+                await _unitOfWork.PasswordResetRepo.AddAsync(token);
+            }
+            else
+            {
+                existing.OtpHash = otpHash;
+                existing.OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes);
+                existing.AttemptCount = 0;
+                _unitOfWork.PasswordResetRepo.Update(existing);
+            }
+            await _unitOfWork.SaveAsync();
+
+            try
+            {
+                await _emailService.SendPasswordResetOtpAsync(email, user.FullName ?? user.UserName, plainOtp, OtpValidityMinutes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send password reset OTP to {Email}", email);
+                string innerMsg = ex.InnerException?.Message ?? ex.Message;
+                return $"Email send failed: {innerMsg}";
+            }
+
+            return "Success";
+        }
+
+        public async Task<string> ResetPasswordAsync(ResetPasswordDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Email) ||
+                string.IsNullOrWhiteSpace(dto.Otp) || string.IsNullOrWhiteSpace(dto.NewPassword))
+                return "All fields are required";
+
+            var token = await _unitOfWork.PasswordResetRepo.GetByEmailAsync(dto.Email);
+            if (token == null)
+                return "No password reset request found. Please start again.";
+
+            if (DateTime.Now > token.OtpExpiresAt)
+                return "OTP has expired. Please request a new one.";
+
+            string expectedHash = HashOtp(token.Email, dto.Otp);
+            if (!CryptographicEquals(expectedHash, token.OtpHash))
+            {
+                token.AttemptCount += 1;
+                _unitOfWork.PasswordResetRepo.Update(token);
+                await _unitOfWork.SaveAsync();
+                return "Incorrect OTP. Please check your email and try again.";
+            }
+
+            var user = await _unitOfWork.UserRepo.GetUserByEmailAsync(token.Email);
+            if (user == null)
+            {
+                _unitOfWork.PasswordResetRepo.Delete(token);
+                await _unitOfWork.SaveAsync();
+                return "User account no longer exists.";
+            }
+
+            // Hash and save the new password
+            user.PasswordHash = _passwordHasher.HashPassword(user, dto.NewPassword);
+            _unitOfWork.UserRepo.Update(user);
+
+            // Consume the token
+            _unitOfWork.PasswordResetRepo.Delete(token);
+
+            await _unitOfWork.SaveAsync();
+
+            // Send confirmation (don't fail reset if email errors)
+            try
+            {
+                await _emailService.SendPasswordChangedConfirmationAsync(user.Email!, user.FullName ?? user.UserName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send password-changed confirmation to {Email}", user.Email);
+            }
+
+            return "Success";
+        }
+
+        public async Task<string> ResendPasswordResetOtpAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email)) return "Email is required";
+
+            var token = await _unitOfWork.PasswordResetRepo.GetByEmailAsync(email);
+            if (token == null)
+                return "No password reset request found. Please start again.";
+
+            var user = await _unitOfWork.UserRepo.GetUserByEmailAsync(email);
+            if (user == null)
+            {
+                _unitOfWork.PasswordResetRepo.Delete(token);
+                await _unitOfWork.SaveAsync();
+                return "User account no longer exists.";
+            }
+
+            string plainOtp = GenerateOtp();
+            token.OtpHash = HashOtp(email, plainOtp);
+            token.OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes);
+            token.AttemptCount = 0;
+            _unitOfWork.PasswordResetRepo.Update(token);
+            await _unitOfWork.SaveAsync();
+
+            try
+            {
+                await _emailService.SendPasswordResetOtpAsync(email, user.FullName ?? user.UserName, plainOtp, OtpValidityMinutes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to resend password reset OTP to {Email}", email);
+                string innerMsg = ex.InnerException?.Message ?? ex.Message;
+                return $"Email send failed: {innerMsg}";
+            }
+
+            return "Success";
+        }
+
         // ---------- helpers ----------
 
         private static string GenerateOtp()
