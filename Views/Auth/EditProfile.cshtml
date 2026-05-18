@@ -1,0 +1,105 @@
+﻿@model EditProfileDto
+@{
+    ViewData["Title"] = "Edit Profile";
+    string? email = ViewBag.Email as string;
+    string? pic = ViewBag.ProfilePicturePath as string;
+}
+
+<div class="auth-card fade-up" style="max-width: 640px;">
+    <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
+        <div class="d-flex align-items-center gap-3">
+            @if (!string.IsNullOrEmpty(pic))
+            {
+                <img src="@pic" alt="Profile" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" />
+            }
+            else
+            {
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem;">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+            }
+            <div>
+                <h2 style="font-size: 1.45rem; font-weight: 800; margin: 0;">Edit Profile</h2>
+                <p style="color: var(--muted); font-size: 0.85rem; margin: 0;">Update your personal information.</p>
+            </div>
+        </div>
+        <a asp-action="Profile" class="btn-nx outline sm">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+    </div>
+
+    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+    <form asp-action="EditProfile" method="post" autocomplete="off">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="FullName" class="form-label">Full Name</label>
+                <input asp-for="FullName" class="form-control" placeholder="Your full name" />
+                <span asp-validation-for="FullName" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="UserName" class="form-label">User Name</label>
+                <input asp-for="UserName" class="form-control" placeholder="e.g. sajid007" />
+                <span asp-validation-for="UserName" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="DateOfBirth" class="form-label">Date of Birth</label>
+                <input asp-for="DateOfBirth" type="date" class="form-control" />
+                <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="PhoneNumber" class="form-label">Phone Number <span style="color: var(--muted); font-weight: 400;">(optional)</span></label>
+                <input asp-for="PhoneNumber" class="form-control" placeholder="01XXXXXXXXX" />
+                <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Email address <span style="color: var(--muted); font-weight: 400;">(can't change)</span></label>
+                <div class="d-flex align-items-center gap-2 p-2 ps-3" style="background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); height: 50px;">
+                    <i class="bi bi-envelope" style="color: var(--muted);"></i>
+                    <span style="color: var(--text); font-size: 0.93rem;">@email</span>
+                    <span class="badge-approved ms-auto"><i class="bi bi-check-circle-fill me-1"></i>Verified</span>
+                </div>
+                <small style="color: var(--muted); font-size: 0.78rem;">Email is locked for security. Contact support to change it.</small>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Address" class="form-label">Address</label>
+                <textarea asp-for="Address" class="form-control" rows="2" placeholder="Your address"></textarea>
+                <span asp-validation-for="Address" class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn-auth" style="flex: 1;">
+                <i class="bi bi-check-circle"></i> Save Changes
+            </button>
+            <a asp-action="Profile" class="btn-auth outline" style="flex: 1;">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+        </div>
+    </form>
+
+    <hr style="border-color: var(--border); margin: 1.75rem 0 1.25rem;" />
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Forgot or want to change your password?</h5>
+            <p style="color: var(--muted); font-size: 0.82rem; margin: 0;">Use the password reset flow.</p>
+        </div>
+        <a asp-action="ForgotPassword" class="btn-nx outline">
+            <i class="bi bi-key"></i> Change Password
+        </a>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

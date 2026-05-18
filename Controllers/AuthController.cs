@@ -278,6 +278,66 @@ namespace Bachelor_s_Point.Controllers
             return View(user);
         }
 
+        // GET: /Auth/EditProfile
+        [HttpGet]
+        [Authorize]
+        public async Task<IActionResult> EditProfile()
+        {
+            int userId = GetCurrentUserId();
+            if (userId == 0) return RedirectToAction(nameof(Login));
+
+            var user = await _userService.GetUserByIdAsync(userId);
+            if (user == null) return NotFound();
+
+            var dto = new EditProfileDto
+            {
+                FullName = user.FullName,
+                UserName = user.UserName,
+                DateOfBirth = user.DateOfBirth,
+                PhoneNumber = user.PhoneNumber,
+                Address = user.Address
+            };
+
+            ViewBag.Email = user.Email;
+            ViewBag.ProfilePicturePath = user.ProfilePicturePath;
+            return View(dto);
+        }
+
+        // POST: /Auth/EditProfile
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditProfile(EditProfileDto dto)
+        {
+            int userId = GetCurrentUserId();
+            if (userId == 0) return RedirectToAction(nameof(Login));
+
+            var user = await _userService.GetUserByIdAsync(userId);
+            if (user == null) return NotFound();
+
+            ViewBag.Email = user.Email;
+            ViewBag.ProfilePicturePath = user.ProfilePicturePath;
+
+            if (!ModelState.IsValid) return View(dto);
+
+            // Apply changes — Email and Password are NOT editable here
+            user.FullName = dto.FullName;
+            user.UserName = dto.UserName;
+            user.DateOfBirth = dto.DateOfBirth;
+            user.PhoneNumber = dto.PhoneNumber;
+            user.Address = dto.Address;
+
+            string result = await _userService.UpdateUserAsync(user);
+            if (result != "Success")
+            {
+                ModelState.AddModelError("", result);
+                return View(dto);
+            }
+
+            TempData["Success"] = "Your profile has been updated.";
+            return RedirectToAction(nameof(Profile));
+        }
+
         // POST: /Auth/UploadProfilePicture
         [HttpPost]
         [Authorize]
