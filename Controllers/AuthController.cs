@@ -338,6 +338,36 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(Profile));
         }
 
+        // GET: /Auth/ChangePassword
+        [HttpGet]
+        [Authorize]
+        public IActionResult ChangePassword()
+        {
+            return View(new ChangePasswordDto());
+        }
+
+        // POST: /Auth/ChangePassword
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+        {
+            if (!ModelState.IsValid) return View(dto);
+
+            int userId = GetCurrentUserId();
+            if (userId == 0) return RedirectToAction(nameof(Login));
+
+            string result = await _authService.ChangePasswordAsync(userId, dto);
+            if (result != "Success")
+            {
+                ModelState.AddModelError("", result);
+                return View(dto);
+            }
+
+            TempData["Success"] = "Your password has been changed successfully.";
+            return RedirectToAction(nameof(Profile));
+        }
+
         // POST: /Auth/UploadProfilePicture
         [HttpPost]
         [Authorize]

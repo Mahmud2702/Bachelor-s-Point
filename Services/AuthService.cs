@@ -357,6 +357,50 @@ namespace Bachelor_s_Point.Services
             return "Success";
         }
 
+
+        // ============================================================
+        // CHANGE PASSWORD (logged-in user, verify current password)
+        // ============================================================
+
+        public async Task<string> ChangePasswordAsync(int userId, ChangePasswordDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.CurrentPassword) ||
+                string.IsNullOrWhiteSpace(dto.NewPassword))
+                return "All fields are required";
+
+            if (dto.NewPassword == dto.CurrentPassword)
+                return "New password must be different from current password";
+
+            var user = await _unitOfWork.UserRepo.GetByIdAsync(userId);
+            if (user == null || string.IsNullOrEmpty(user.PasswordHash))
+                return "User not found";
+
+            // Verify current password
+            var verifyResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.CurrentPassword);
+            if (verifyResult == PasswordVerificationResult.Failed)
+                return "Current password is incorrect";
+
+            // Hash and save new password
+            user.PasswordHash = _passwordHasher.HashPassword(user, dto.NewPassword);
+            _unitOfWork.UserRepo.Update(user);
+            await _unitOfWork.SaveAsync();
+
+            // Send confirmation email (don't fail if email errors)
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(user.Email))
+                {
+                    await _emailService.SendPasswordChangedConfirmationAsync(user.Email, user.FullName ?? user.UserName);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send password-changed email to {Email}", user.Email);
+            }
+
+            return "Success";
+        }
+
         // ---------- helpers ----------
 
         private static string GenerateOtp()

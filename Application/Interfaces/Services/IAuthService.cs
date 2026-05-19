@@ -18,5 +18,9 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
 
         /// <summary>Resend OTP for password reset.</summary>
         Task<string> ResendPasswordResetOtpAsync(string email);
+
+        // Change password (for logged-in users who know their current password)
+        Task<string> ChangePasswordAsync(int userId, ChangePasswordDto dto);
+
     }
 }
