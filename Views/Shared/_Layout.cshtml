@@ -33,38 +33,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Bachelor's Point</title>
 
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem('bp-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
 
     <style>
         :root {
-            --primary: #2563eb;
+            --primary: #3b82f6;
             --primary-dark: #1d4ed8;
-            --primary-mid: #3b82f6;
-            --primary-light: #dbeafe;
-            --success: #16a34a;
-            --success-light: #dcfce7;
-            --warning: #ea580c;
-            --warning-light: #ffedd5;
-            --danger: #dc2626;
-            --danger-light: #fee2e2;
+            --primary-mid: #60a5fa;
+            --primary-light: rgba(59, 130, 246, 0.08);
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
             --border: #e2e8f0;
             --text: #0f172a;
             --muted: #64748b;
-            --bg: #f1f5f9;
+            --bg: #f8fafc;
             --white: #ffffff;
+            --navbar-bg: rgba(255, 255, 255, 0.85);
             --radius-sm: 8px;
             --radius-md: 10px;
             --radius-lg: 12px;
             --radius-xl: 16px;
             --radius-2xl: 24px;
             --shadow-sm: 0 1px 3px rgba(15,23,42,0.04), 0 1px 2px rgba(15,23,42,0.06);
-            --shadow-md: 0 4px 12px rgba(15,23,42,0.06);
-            --shadow-lg: 0 20px 50px rgba(15,23,42,0.12);
-            --shadow-glow: 0 0 0 3px rgba(59,130,246,0.15);
-            --transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+            --shadow-md: 0 8px 30px rgba(15,23,42,0.06);
+            --shadow-lg: 0 20px 50px rgba(15,23,42,0.08);
+            --shadow-glow: 0 0 0 4px rgba(59,130,246,0.12);
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             --font-base: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --primary: #60a5fa;
+            --primary-dark: #3b82f6;
+            --primary-mid: #93c5fd;
+            --primary-light: rgba(96, 165, 250, 0.12);
+            --success: #34d399;
+            --success-light: rgba(52, 211, 153, 0.1);
+            --warning: #fbbf24;
+            --warning-light: rgba(251, 191, 36, 0.1);
+            --danger: #f87171;
+            --danger-light: rgba(248, 113, 113, 0.1);
+            --border: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --bg: #090d16;
+            --white: #111827;
+            --navbar-bg: rgba(17, 24, 39, 0.85);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
+            --shadow-md: 0 8px 30px rgba(0,0,0,0.25);
+            --shadow-lg: 0 20px 50px rgba(0,0,0,0.35);
+            --shadow-glow: 0 0 0 4px rgba(96,165,250,0.18);
         }
 
         * { box-sizing: border-box; }
@@ -73,24 +104,45 @@
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
-            display: flex; flex-direction: column;
+            display: flex; 
+            flex-direction: column;
             margin: 0;
+            transition: background 0.30s ease, color 0.30s ease;
         }
         main { flex: 1; }
-        a { color: var(--primary); }
+        a { color: var(--primary); text-decoration: none; transition: var(--transition); }
         a:hover { color: var(--primary-dark); }
 
-        /* ============================================
-           UNIVERSAL BUTTON SYSTEM (reference style)
-           ============================================ */
-        /* Primary call-to-action — used on auth forms */
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 99px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--muted);
+        }
+
+        /* Ripple Splash Animations on Buttons */
+        .btn-auth, .btn-nx, .btn-hero {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Buttons */
         .btn-auth {
             width: 100%;
             height: 52px;
             border: none;
             border-radius: var(--radius-lg);
             background: var(--primary);
-            color: var(--white);
+            color: #ffffff;
             font-family: var(--font-base);
             font-weight: 700;
             font-size: 15px;
@@ -104,14 +156,13 @@
         }
         .btn-auth:hover {
             background: var(--primary-dark);
-            color: var(--white);
+            color: #ffffff;
             text-decoration: none;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
         }
         .btn-auth:active { transform: translateY(0); }
 
-        /* Variants of .btn-auth */
         .btn-auth.outline {
             background: var(--white);
             color: var(--primary);
@@ -123,36 +174,29 @@
             color: var(--primary-dark);
             box-shadow: none;
         }
-        .btn-auth.success {
-            background: var(--success);
-        }
+        .btn-auth.success { background: var(--success); }
         .btn-auth.success:hover {
-            background: #15803d;
-            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.3);
+            background: #059669;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
         }
-        .btn-auth.warning {
-            background: var(--warning);
-        }
+        .btn-auth.warning { background: var(--warning); }
         .btn-auth.warning:hover {
-            background: #c2410c;
-            box-shadow: 0 4px 14px rgba(234, 88, 12, 0.3);
+            background: #d97706;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.25);
         }
-        .btn-auth.danger {
-            background: var(--danger);
-        }
+        .btn-auth.danger { background: var(--danger); }
         .btn-auth.danger:hover {
-            background: #b91c1c;
-            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+            background: #dc2626;
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
         }
 
-        /* Compact button — used inline / in cards */
         .btn-nx {
             height: 38px;
-            padding: 0 16px;
+            padding: 0 18px;
             border: none;
             border-radius: var(--radius-md);
             background: var(--primary);
-            color: var(--white);
+            color: #ffffff;
             font-family: var(--font-base);
             font-weight: 600;
             font-size: 13px;
@@ -166,8 +210,9 @@
         }
         .btn-nx:hover {
             background: var(--primary-dark);
-            color: var(--white);
+            color: #ffffff;
             text-decoration: none;
+            transform: translateY(-1px);
         }
         .btn-nx.outline {
             background: var(--white);
@@ -175,9 +220,9 @@
             border: 1px solid var(--border);
         }
         .btn-nx.outline:hover {
-            background: var(--bg);
-            color: var(--text);
-            border-color: var(--muted);
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--primary);
         }
         .btn-nx.outline-danger {
             background: var(--white);
@@ -190,45 +235,46 @@
             border-color: var(--danger);
         }
         .btn-nx.success { background: var(--success); }
-        .btn-nx.success:hover { background: #15803d; color: var(--white); }
+        .btn-nx.success:hover { background: #059669; color: #ffffff; }
         .btn-nx.warning { background: var(--warning); }
-        .btn-nx.warning:hover { background: #c2410c; color: var(--white); }
+        .btn-nx.warning:hover { background: #d97706; color: #ffffff; }
         .btn-nx.danger { background: var(--danger); }
-        .btn-nx.danger:hover { background: #b91c1c; color: var(--white); }
-
-        /* Tiny button — used in tables, inline */
+        .btn-nx.danger:hover { background: #dc2626; color: #ffffff; }
         .btn-nx.sm { height: 32px; padding: 0 12px; font-size: 12px; }
 
-        /* ============================================
-           AUTH LINK
-           ============================================ */
         .auth-link {
             color: var(--primary);
             font-weight: 600;
             text-decoration: none;
+            transition: var(--transition);
         }
         .auth-link:hover {
             color: var(--primary-dark);
             text-decoration: underline;
         }
 
-        /* ============================================
-           NAVBAR
-           ============================================ */
+        /* Navbar glassmorphism styling */
         .nx-navbar {
-            background: var(--white);
+            background: var(--navbar-bg);
             border-bottom: 1px solid var(--border);
             box-shadow: var(--shadow-sm);
-            padding: 0.85rem 0;
+            padding: 0.8rem 0;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            transition: var(--transition);
         }
         .nx-brand {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             text-decoration: none;
             color: var(--text);
+            transition: var(--transition);
         }
-        .nx-brand:hover { color: var(--text); text-decoration: none; }
+        .nx-brand:hover { color: var(--primary); text-decoration: none; }
         .nx-brand-icon {
             width: 42px;
             height: 42px;
@@ -237,20 +283,32 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--white);
-            font-size: 1.15rem;
-            box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+            color: #ffffff;
+            font-size: 1.25rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.25);
+            transition: var(--transition);
+        }
+        .nx-brand:hover .nx-brand-icon {
+            transform: rotate(-8deg) scale(1.05);
         }
         .nx-brand-name {
-            font-size: 1.15rem;
+            font-size: 1.25rem;
             font-weight: 800;
-            letter-spacing: -0.3px;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--text), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        [data-theme="dark"] .nx-brand-name {
+            background: linear-gradient(135deg, #ffffff, var(--primary-mid));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         .nx-nav-link {
             font-size: 0.92rem;
             font-weight: 600;
             color: var(--muted);
-            padding: 0.55rem 0.9rem;
+            padding: 0.6rem 1rem;
             border-radius: var(--radius-md);
             text-decoration: none;
             transition: var(--transition);
@@ -266,16 +324,17 @@
         .nx-badge {
             display: inline-block;
             background: var(--danger);
-            color: var(--white);
+            color: #ffffff;
             border-radius: 999px;
-            padding: 0.1rem 0.5rem;
-            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            font-size: 0.72rem;
             font-weight: 700;
         }
-        .nx-badge-warning { background: var(--warning); }
+        .nx-badge-warning { background: var(--warning); color: #000; }
+        [data-theme="dark"] .nx-badge-warning { color: #fff; }
         @@keyframes pulse-dot {
             0%, 100% { transform: scale(1); opacity: 1; }
-            50%      { transform: scale(1.18); opacity: 0.85; }
+            50%      { transform: scale(1.15); opacity: 0.85; }
         }
         .nx-badge.pulse { animation: pulse-dot 1.6s ease-in-out infinite; }
 
@@ -283,7 +342,7 @@
             background: var(--primary-light);
             color: var(--primary);
             border-radius: 999px;
-            padding: 0.4rem 0.95rem;
+            padding: 0.45rem 1.05rem;
             font-size: 0.85rem;
             font-weight: 600;
             display: inline-flex;
@@ -295,7 +354,7 @@
             text-decoration: none;
         }
         .mode-pill:hover {
-            border-color: var(--primary);
+            border-color: var(--primary-mid);
             color: var(--primary-dark);
             text-decoration: none;
         }
@@ -306,6 +365,11 @@
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid var(--border);
+            transition: var(--transition);
+        }
+        .nav-avatar:hover {
+            border-color: var(--primary);
+            transform: scale(1.05);
         }
         .nav-avatar-default {
             width: 34px;
@@ -318,24 +382,42 @@
             justify-content: center;
             font-size: 1rem;
             font-weight: 700;
+            border: 2px solid var(--border);
         }
 
-        /* ============================================
-           AUTH CARD
-           ============================================ */
+        /* Theme Toggle Pill Styling */
+        .theme-pill-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-md);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .theme-pill-btn:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        /* Auth Card Layout styling */
         .auth-card {
             max-width: 520px;
-            margin: 2rem auto;
+            margin: 3rem auto;
             background: var(--white);
             border: 1px solid var(--border);
             border-radius: var(--radius-2xl);
             padding: 40px;
             box-shadow: var(--shadow-lg);
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
 
-        /* ============================================
-           NX CARD
-           ============================================ */
+        /* Nx Card Overrides & Modern Glow */
         .nx-card {
             background: var(--white);
             border: 1px solid var(--border);
@@ -343,121 +425,153 @@
             box-shadow: var(--shadow-sm);
             transition: var(--transition);
             overflow: hidden;
+            position: relative;
         }
-        .nx-card:hover { box-shadow: var(--shadow-md); }
+        .nx-card:hover { 
+            box-shadow: var(--shadow-md); 
+            transform: translateY(-6px);
+            border-color: var(--primary-mid);
+        }
 
-        /* ============================================
-           HERO
-           ============================================ */
+        /* Hero Modern mesh gradient overlay */
         .nx-hero {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: var(--white);
-            padding: 4rem 1.5rem;
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e1b4b 50%, #311042 100%);
+            color: #ffffff;
+            padding: 5rem 1.5rem;
             border-radius: var(--radius-2xl);
-            margin: 1.5rem 0 2.5rem;
+            margin: 1.5rem 0 3rem;
             text-align: center;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+        }
+        [data-theme="dark"] .nx-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #030712 50%, #1e1b4b 100%);
+            border: 1px solid rgba(255,255,255,0.05);
         }
         .nx-hero::before {
             content: '';
             position: absolute; inset: 0;
-            background: radial-gradient(ellipse 70% 80% at 50% -10%, rgba(255,255,255,0.18), transparent);
+            background: radial-gradient(ellipse 70% 80% at 50% -10%, rgba(255,255,255,0.12), transparent);
+            pointer-events: none;
+        }
+        /* Floating background ambient glow inside hero */
+        .nx-hero::after {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: rgba(59, 130, 246, 0.15);
+            border-radius: 50%;
+            filter: blur(80px);
+            top: -100px;
+            right: -100px;
+            pointer-events: none;
         }
         .nx-hero > * { position: relative; z-index: 1; }
         .nx-hero h1 {
             font-weight: 800;
-            letter-spacing: -0.5px;
-            margin-bottom: 0.6rem;
+            letter-spacing: -0.8px;
+            margin-bottom: 0.8rem;
         }
-        .nx-hero .lead { opacity: 0.92; font-weight: 400; }
+        .nx-hero .lead { opacity: 0.88; font-weight: 400; max-width: 600px; margin: 0 auto; }
 
-        /* Hero CTA button — white with blue text */
         .btn-hero {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            background: var(--white);
-            color: var(--primary);
+            background: #ffffff;
+            color: #1e3a8a;
             font-weight: 700;
             font-size: 15px;
-            padding: 14px 32px;
+            padding: 14px 34px;
             border-radius: var(--radius-lg);
             border: none;
             text-decoration: none;
             transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .btn-hero:hover {
-            color: var(--primary-dark);
+            color: #1d4ed8;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.25);
             text-decoration: none;
         }
 
-        /* ============================================
-           ALERTS
-           ============================================ */
+        /* Alerts and Overrides */
         .nx-alert {
             border: 1px solid;
             border-radius: var(--radius-md);
-            padding: 0.85rem 1rem;
+            padding: 1rem 1.25rem;
             font-size: 0.92rem;
             display: flex;
             align-items: center;
-            gap: 0.55rem;
+            gap: 0.6rem;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
         }
-        .nx-alert-success { background: var(--success-light); border-color: #86efac; color: #166534; }
-        .nx-alert-danger  { background: var(--danger-light);  border-color: #fca5a5; color: #991b1b; }
-        .nx-alert-warning { background: var(--warning-light); border-color: #fdba74; color: #9a3412; }
-        .nx-alert-info    { background: #e0f2fe; border-color: #7dd3fc; color: #075985; }
+        .nx-alert-success { background: var(--success-light); border-color: rgba(16, 185, 129, 0.2); color: #047857; }
+        .nx-alert-danger  { background: var(--danger-light);  border-color: rgba(239, 68, 68, 0.2); color: #b91c1c; }
+        .nx-alert-warning { background: var(--warning-light); border-color: rgba(245, 158, 11, 0.2); color: #b45309; }
+        .nx-alert-info    { background: var(--primary-light); border-color: rgba(59, 130, 246, 0.2); color: var(--primary-dark); }
+        [data-theme="dark"] .nx-alert-success { color: #34d399; }
+        [data-theme="dark"] .nx-alert-danger { color: #f87171; }
+        [data-theme="dark"] .nx-alert-warning { color: #fbbf24; }
+        [data-theme="dark"] .nx-alert-info { color: #60a5fa; }
 
-        /* ============================================
-           BADGES
-           ============================================ */
         .badge-pending {
             background: var(--warning-light);
-            color: #9a3412;
-            padding: 0.25rem 0.65rem;
+            color: #b45309;
+            border: 1px solid rgba(245, 158, 11, 0.15);
+            padding: 0.25rem 0.75rem;
             border-radius: 999px;
             font-size: 0.75rem;
             font-weight: 600;
         }
         .badge-approved {
             background: var(--success-light);
-            color: #166534;
-            padding: 0.25rem 0.65rem;
+            color: #047857;
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            padding: 0.25rem 0.75rem;
             border-radius: 999px;
             font-size: 0.75rem;
             font-weight: 600;
         }
+        [data-theme="dark"] .badge-pending { color: #fbbf24; }
+        [data-theme="dark"] .badge-approved { color: #34d399; }
 
-        /* ============================================
-           FORM CONTROLS
-           ============================================ */
+        /* Form Inputs */
         .form-control, .form-select {
             font-family: var(--font-base);
             border: 1px solid var(--border);
             border-radius: var(--radius-lg);
-            padding: 0.7rem 0.95rem;
+            padding: 0.7rem 1.1rem;
             font-size: 0.93rem;
-            height: 50px;
+            height: 52px;
+            background-color: var(--white);
+            color: var(--text);
+            transition: var(--transition);
         }
         .form-control:focus, .form-select:focus {
-            border-color: var(--primary-mid);
+            border-color: var(--primary);
             box-shadow: var(--shadow-glow);
+            background-color: var(--white);
+            color: var(--text);
             outline: none;
         }
-        textarea.form-control { height: auto; min-height: 80px; }
+        .form-control::placeholder {
+            color: var(--muted);
+            opacity: 0.65;
+        }
+        textarea.form-control { height: auto; min-height: 90px; }
         .form-label {
             font-size: 0.85rem;
             font-weight: 600;
             color: var(--text);
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.45rem;
         }
 
-        /* ============================================
-           ROLE-SELECT CARDS
-           ============================================ */
+        /* Role Card Upgrade */
         .role-card {
             border: 2px solid var(--border);
             border-radius: var(--radius-xl);
@@ -465,70 +579,83 @@
             text-decoration: none;
             color: inherit;
             display: block;
-            padding: 2rem;
+            padding: 2.5rem;
             transition: var(--transition);
             cursor: pointer;
             text-align: center;
+            box-shadow: var(--shadow-sm);
         }
         .role-card:hover {
-            transform: translateY(-4px);
+            transform: translateY(-5px);
             box-shadow: var(--shadow-lg);
             border-color: var(--primary);
             color: inherit;
             text-decoration: none;
         }
         .role-card .icon-wrap {
-            width: 88px;
-            height: 88px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.4rem;
-            margin-bottom: 1rem;
+            font-size: 2.2rem;
+            margin-bottom: 1.25rem;
+            transition: var(--transition);
+        }
+        .role-card:hover .icon-wrap {
+            transform: scale(1.08) rotate(-5deg);
         }
         .icon-admin { background: var(--primary-light); color: var(--primary); }
         .icon-user  { background: var(--success-light); color: var(--success); }
 
-        /* ============================================
-           FOOTER
-           ============================================ */
+        /* Footer styling */
         .nx-footer {
             background: var(--white);
             border-top: 1px solid var(--border);
-            padding: 1.25rem 0;
+            padding: 1.5rem 0;
             color: var(--muted);
             font-size: 0.85rem;
-            margin-top: 3rem;
+            margin-top: 4rem;
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
         .nx-footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
+        .nx-footer a:hover { color: var(--primary-dark); text-decoration: underline; }
 
-        /* ============================================
-           ANIMATIONS
-           ============================================ */
+        /* General Animations */
         @@keyframes fadeUp {
-            from { opacity: 0; transform: translateY(8px); }
+            from { opacity: 0; transform: translateY(12px); }
             to   { opacity: 1; transform: translateY(0); }
         }
         .fade-up { animation: fadeUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both; }
 
-        /* Override Bootstrap btn-close in alerts */
-        .nx-alert .btn-close { padding: 0.5rem; }
+        .nx-alert .btn-close { padding: 0.6rem; color: var(--text); }
 
-        /* Pagination */
+        /* Pagination style */
         .pagination .page-link {
             color: var(--primary);
+            background-color: var(--white);
             border-color: var(--border);
             font-weight: 600;
             border-radius: var(--radius-md);
-            margin: 0 2px;
+            margin: 0 3px;
+            padding: 0.5rem 0.95rem;
+            transition: var(--transition);
+        }
+        .pagination .page-link:hover {
+            background-color: var(--primary-light);
+            border-color: var(--primary-mid);
         }
         .pagination .page-item.active .page-link {
             background: var(--primary);
             border-color: var(--primary);
+            color: #ffffff !important;
         }
         .pagination .page-item.disabled .page-link {
             color: var(--muted);
+            background-color: var(--white);
+            border-color: var(--border);
+            opacity: 0.5;
         }
     </style>
 </head>
@@ -545,9 +672,15 @@
                     string currentMode = Context.Request.Cookies["UserMode"] ?? "owner";
                     bool ownerMode = currentMode == "owner";
 
-                    <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
+                    <div class="d-flex align-items-center gap-2 ms-auto order-md-last">
+                        <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                            <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size: 1.15rem;"></i>
+                        </button>
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                    </div>
+
                     <div class="collapse navbar-collapse" id="navMain">
                         <ul class="navbar-nav mx-auto align-items-center gap-1">
                             <li class="nav-item">
@@ -673,6 +806,17 @@
                         </ul>
                     </div>
                 }
+                else
+                {
+                    <div class="d-flex align-items-center gap-2 ms-auto">
+                        <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                            <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size: 1.15rem;"></i>
+                        </button>
+                        <a class="btn-nx sm outline" asp-controller="Auth" asp-action="RoleSelect">
+                            <i class="bi bi-box-arrow-in-right"></i> Sign In
+                        </a>
+                    </div>
+                }
             </div>
         </nav>
     </header>
@@ -718,6 +862,37 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleButtons = document.querySelectorAll('#theme-toggle');
+            
+            function updateThemeIcon(theme) {
+                const icons = document.querySelectorAll('#theme-icon');
+                icons.forEach(icon => {
+                    if (theme === 'dark') {
+                        icon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
+                        icon.style.color = '#fbbf24';
+                    } else {
+                        icon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
+                        icon.style.color = '';
+                    }
+                });
+            }
+
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            updateThemeIcon(currentTheme);
+
+            toggleButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+                    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-theme', nextTheme);
+                    localStorage.setItem('bp-theme', nextTheme);
+                    updateThemeIcon(nextTheme);
+                });
+            });
+        });
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
