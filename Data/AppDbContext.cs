@@ -15,6 +15,8 @@ namespace Bachelor_s_Point.Data
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<PendingRegistration> PendingRegistrations { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<KycVerification> KycVerifications { get; set; }
+        public DbSet<LoginHistory> LoginHistories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -73,6 +75,23 @@ namespace Bachelor_s_Point.Data
             // Password reset token — index email for fast lookup
             modelBuilder.Entity<PasswordResetToken>()
                 .HasIndex(p => p.Email);
+
+            // KYC — one verification record per user
+            modelBuilder.Entity<KycVerification>()
+                .HasIndex(k => k.UserId)
+                .IsUnique();
+            modelBuilder.Entity<KycVerification>()
+                .HasOne(k => k.User)
+                .WithMany()
+                .HasForeignKey(k => k.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Login history — many rows per user
+            modelBuilder.Entity<LoginHistory>()
+                .HasOne(l => l.User)
+                .WithMany()
+                .HasForeignKey(l => l.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },

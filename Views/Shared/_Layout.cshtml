@@ -2,10 +2,12 @@
 @inject IUserService UserService
 @inject IChatService ChatService
 @inject IRoomService RoomService
+@inject IKycService KycService
 @{
     string? currentUserPic = null;
     int unreadCount = 0;
     int pendingRoomCount = 0;
+    int pendingKycCount = 0;
     bool isAuthed = User.Identity != null && User.Identity.IsAuthenticated;
     bool isAdminUser = isAuthed && User.IsInRole("Admin");
 
@@ -23,6 +25,7 @@
         {
             var pending = await RoomService.GetPendingApprovalAsync();
             pendingRoomCount = pending.Count;
+            pendingKycCount = await KycService.CountPendingAsync();
         }
     }
 }
@@ -714,6 +717,21 @@
                                 <li class="nav-item">
                                     <a class="nx-nav-link" asp-controller="Role" asp-action="Index">
                                         <i class="bi bi-shield-lock-fill"></i> Roles
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nx-nav-link" asp-controller="Kyc" asp-action="Pending"
+                                       title="@(pendingKycCount > 0 ? $"{pendingKycCount} verification(s) waiting" : "KYC verifications")">
+                                        <i class="bi bi-person-vcard-fill"></i> Verifications
+                                        @if (pendingKycCount > 0)
+                                        {
+                                            <span class="nx-badge nx-badge-warning pulse">@pendingKycCount</span>
+                                        }
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nx-nav-link" asp-controller="Kyc" asp-action="LoginActivity">
+                                        <i class="bi bi-activity"></i> Login Activity
                                     </a>
                                 </li>
                             }

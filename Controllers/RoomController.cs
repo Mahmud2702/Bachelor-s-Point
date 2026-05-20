@@ -15,12 +15,32 @@ namespace Bachelor_s_Point.Controllers
         private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
 
         private readonly IRoomService _roomService;
+        private readonly IKycService _kycService;
         private readonly IWebHostEnvironment _env;
 
-        public RoomController(IRoomService roomService, IWebHostEnvironment env)
+        public RoomController(IRoomService roomService, IKycService kycService, IWebHostEnvironment env)
         {
             _roomService = roomService;
+            _kycService = kycService;
             _env = env;
+        }
+
+        /// <summary>
+        /// Returns a redirect result if the current non-admin user is not KYC-verified,
+        /// otherwise null (meaning the action may proceed).
+        /// </summary>
+        private async Task<IActionResult?> RequireKycAsync(string actionLabel)
+        {
+            if (User.IsInRole("Admin")) return null;  // admins are exempt
+
+            int uid = GetCurrentUserId();
+            if (uid == 0) return RedirectToAction("Login", "Auth");
+
+            bool verified = await _kycService.IsUserVerifiedAsync(uid);
+            if (verified) return null;
+
+            TempData["Error"] = $"You must complete identity (KYC) verification before you can {actionLabel}.";
+            return RedirectToAction("Status", "Kyc");
         }
 
         [HttpGet]
@@ -54,7 +74,12 @@ namespace Bachelor_s_Point.Controllers
 
         [HttpGet]
         [Authorize]
-        public IActionResult Create() => View();
+        public async Task<IActionResult> Create()
+        {
+            var gate = await RequireKycAsync("post a room");
+            if (gate != null) return gate;
+            return View();
+        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -62,6 +87,9 @@ namespace Bachelor_s_Point.Controllers
         [RequestSizeLimit(60 * 1024 * 1024)]  // 10 images x 5MB + overhead
         public async Task<IActionResult> Create(CreateRoomDto dto, List<IFormFile>? roomImages)
         {
+            var gate = await RequireKycAsync("post a room");
+            if (gate != null) return gate;
+
             if (!ModelState.IsValid) return View(dto);
 
             int currentUserId = GetCurrentUserId();
@@ -226,6 +254,9 @@ namespace Bachelor_s_Point.Controllers
         {
             if (id == null) return NotFound();
 
+            var gate = await RequireKycAsync("book a room");
+            if (gate != null) return gate;
+
             if (User.IsInRole("Admin"))
             {
                 TempData["Error"] = "Admin cannot select rooms.";
@@ -251,6 +282,9 @@ namespace Bachelor_s_Point.Controllers
         [Authorize]
         public async Task<IActionResult> Select(SelectRoomDto dto)
         {
+            var gate = await RequireKycAsync("book a room");
+            if (gate != null) return gate;
+
             if (User.IsInRole("Admin"))
             {
                 TempData["Error"] = "Admin cannot select rooms.";

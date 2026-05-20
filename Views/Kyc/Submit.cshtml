@@ -1,0 +1,83 @@
+@model SubmitKycDto
+@{
+    ViewData["Title"] = "Identity Verification";
+    string? rejectionReason = ViewBag.RejectionReason as string;
+}
+
+<div class="auth-card fade-up" style="max-width: 640px;">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <div style="width: 56px; height: 56px; background: var(--primary-light); color: var(--primary); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.65rem;">
+            <i class="bi bi-person-vcard-fill"></i>
+        </div>
+        <div>
+            <h2 style="font-size: 1.45rem; font-weight: 800; margin: 0;">Identity Verification (KYC)</h2>
+            <p style="color: var(--muted); font-size: 0.85rem; margin: 0;">Verify your identity to post or book rooms.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(rejectionReason))
+    {
+        <div class="nx-alert nx-alert-danger mb-3">
+            <i class="bi bi-exclamation-octagon-fill"></i>
+            <div>
+                <strong>Your previous submission was rejected.</strong><br />
+                <span style="font-size: 0.88rem;">Reason: @rejectionReason</span><br />
+                <span style="font-size: 0.85rem;">Please correct the details below and submit again.</span>
+            </div>
+        </div>
+    }
+
+    <div class="nx-alert nx-alert-info mb-3">
+        <i class="bi bi-info-circle-fill"></i>
+        <span style="font-size: 0.85rem;">Your documents are only visible to admins and used for identity verification.</span>
+    </div>
+
+    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+    <form asp-action="Submit" method="post" enctype="multipart/form-data" autocomplete="off">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="FullNameOnNid" class="form-label">Full Name (as on NID)</label>
+                <input asp-for="FullNameOnNid" class="form-control" placeholder="Name printed on your NID" />
+                <span asp-validation-for="FullNameOnNid" class="text-danger small"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="NidNumber" class="form-label">NID Number</label>
+                <input asp-for="NidNumber" class="form-control" placeholder="National ID number" />
+                <span asp-validation-for="NidNumber" class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">NID Front Photo</label>
+                <input type="file" name="nidFront" class="form-control" accept="image/jpeg,image/png,image/webp" required />
+                <small style="color: var(--muted); font-size: 0.78rem;">Clear photo of the front side. JPG/PNG/WEBP, max 5 MB.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">NID Back Photo <span style="color: var(--muted); font-weight: 400;">(optional)</span></label>
+                <input type="file" name="nidBack" class="form-control" accept="image/jpeg,image/png,image/webp" />
+                <small style="color: var(--muted); font-size: 0.78rem;">Back side of the NID, if available.</small>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Your Photo (Selfie)</label>
+                <input type="file" name="userPhoto" class="form-control" accept="image/jpeg,image/png,image/webp" required />
+                <small style="color: var(--muted); font-size: 0.78rem;">A clear photo of your face — ideally holding your NID. JPG/PNG/WEBP, max 5 MB.</small>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+            <button type="submit" class="btn-auth" style="flex: 1;">
+                <i class="bi bi-shield-check"></i> Submit for Verification
+            </button>
+            <a asp-action="Status" class="btn-auth outline" style="flex: 1;">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+}

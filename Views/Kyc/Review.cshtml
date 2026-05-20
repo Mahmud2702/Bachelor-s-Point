@@ -1,0 +1,137 @@
+@model Bachelor_s_Point.Models.KycVerification
+@{
+    ViewData["Title"] = "Review Verification";
+}
+
+<div class="container py-3" style="max-width: 920px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 style="font-weight: 800; margin: 0;">
+            <i class="bi bi-person-vcard-fill me-2" style="color: var(--primary);"></i>Review Verification
+        </h2>
+        <a asp-action="Pending" class="btn-nx outline sm">
+            <i class="bi bi-arrow-left"></i> Back to List
+        </a>
+    </div>
+
+    <div class="row g-3">
+        <!-- Left: details -->
+        <div class="col-md-5">
+            <div class="nx-card p-4 h-100">
+                <h5 style="font-weight: 700; margin-bottom: 1rem;">Submission Details</h5>
+
+                <div style="font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between" style="padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--muted);">Account</span>
+                        <strong>@(Model.User?.UserName ?? "-")</strong>
+                    </div>
+                    <div class="d-flex justify-content-between" style="padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--muted);">Email</span>
+                        <strong>@(Model.User?.Email ?? "-")</strong>
+                    </div>
+                    <div class="d-flex justify-content-between" style="padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--muted);">Name on NID</span>
+                        <strong>@Model.FullNameOnNid</strong>
+                    </div>
+                    <div class="d-flex justify-content-between" style="padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--muted);">NID Number</span>
+                        <strong>@Model.NidNumber</strong>
+                    </div>
+                    <div class="d-flex justify-content-between" style="padding: 0.4rem 0; border-bottom: 1px solid var(--border);">
+                        <span style="color: var(--muted);">Submitted</span>
+                        <strong>@Model.SubmittedAt.ToString("dd-MMM-yyyy")</strong>
+                    </div>
+                    <div class="d-flex justify-content-between" style="padding: 0.4rem 0;">
+                        <span style="color: var(--muted);">Status</span>
+                        <strong>@Model.Status</strong>
+                    </div>
+                </div>
+
+                @if (Model.Status == "Pending")
+                {
+                    <hr style="border-color: var(--border); margin: 1.25rem 0;" />
+
+                    <form asp-action="Approve" method="post" class="mb-2">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <button type="submit" class="btn-auth success">
+                            <i class="bi bi-patch-check"></i> Approve Verification
+                        </button>
+                    </form>
+
+                    <button type="button" class="btn-auth danger" onclick="document.getElementById('rejectBox').style.display='block'; this.style.display='none';">
+                        <i class="bi bi-x-circle"></i> Reject Verification
+                    </button>
+
+                    <div id="rejectBox" style="display:none; margin-top: 0.75rem;">
+                        <form asp-action="Reject" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <label class="form-label">Reason for rejection</label>
+                            <textarea name="rejectionReason" class="form-control mb-2" rows="3"
+                                      placeholder="e.g. NID photo is blurry, name does not match..." required></textarea>
+                            <button type="submit" class="btn-auth danger">
+                                <i class="bi bi-send"></i> Confirm Rejection
+                            </button>
+                        </form>
+                    </div>
+                }
+                else
+                {
+                    <hr style="border-color: var(--border); margin: 1.25rem 0;" />
+                    <div class="nx-alert @(Model.Status == "Verified" ? "nx-alert-success" : "nx-alert-danger")">
+                        <i class="bi @(Model.Status == "Verified" ? "bi-patch-check-fill" : "bi-x-circle-fill")"></i>
+                        <div>
+                            <strong>@Model.Status</strong>
+                            @if (Model.ReviewedAt.HasValue)
+                            {
+                                <span> on @Model.ReviewedAt.Value.ToString("dd-MMM-yyyy")</span>
+                            }
+                            @if (Model.Status == "Rejected" && !string.IsNullOrEmpty(Model.RejectionReason))
+                            {
+                                <br /><span style="font-size: 0.85rem;">Reason: @Model.RejectionReason</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Right: document images -->
+        <div class="col-md-7">
+            <div class="nx-card p-4">
+                <h5 style="font-weight: 700; margin-bottom: 1rem;">Documents</h5>
+
+                <div class="mb-3">
+                    <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 0.35rem;">NID — Front</p>
+                    <a href="@Model.NidFrontImagePath" target="_blank">
+                        <img src="@Model.NidFrontImagePath" alt="NID Front"
+                             style="width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border);" />
+                    </a>
+                </div>
+
+                @if (!string.IsNullOrEmpty(Model.NidBackImagePath))
+                {
+                    <div class="mb-3">
+                        <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 0.35rem;">NID — Back</p>
+                        <a href="@Model.NidBackImagePath" target="_blank">
+                            <img src="@Model.NidBackImagePath" alt="NID Back"
+                                 style="width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border);" />
+                        </a>
+                    </div>
+                }
+
+                <div>
+                    <p style="font-size: 0.82rem; color: var(--muted); margin-bottom: 0.35rem;">User Photo</p>
+                    <a href="@Model.UserPhotoPath" target="_blank">
+                        <img src="@Model.UserPhotoPath" alt="User Photo"
+                             style="width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border);" />
+                    </a>
+                </div>
+
+                <p style="font-size: 0.78rem; color: var(--muted); margin: 0.75rem 0 0;">
+                    <i class="bi bi-info-circle"></i> Click any image to open full size in a new tab.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

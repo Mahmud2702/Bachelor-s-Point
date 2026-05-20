@@ -12,6 +12,8 @@ namespace Bachelor_s_Point.Application.Interfaces.UnitOfWork
         IChatRepository ChatRepo { get; }
         IPendingRegistrationRepository PendingRegRepo { get; }
         IPasswordResetRepository PasswordResetRepo { get; }
+        IKycRepository KycRepo { get; }
+        ILoginHistoryRepository LoginHistoryRepo { get; }
         Task<int> SaveAsync();
     }
 }

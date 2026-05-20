@@ -1,0 +1,78 @@
+@model List<Bachelor_s_Point.Models.LoginHistory>
+@{
+    ViewData["Title"] = "Login Activity";
+    int totalLogins = ViewBag.TotalLogins ?? 0;
+    int distinctUsers = ViewBag.DistinctUsers ?? 0;
+    int todayLogins = ViewBag.TodayLogins ?? 0;
+}
+
+<div class="container py-3">
+    <h2 style="font-weight: 800; margin-bottom: 1.25rem;">
+        <i class="bi bi-activity me-2" style="color: var(--primary);"></i>User Login Activity
+    </h2>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="nx-card p-3 text-center">
+                <i class="bi bi-box-arrow-in-right" style="font-size: 2rem; color: var(--primary);"></i>
+                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@totalLogins</h2>
+                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Total Logins</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="nx-card p-3 text-center">
+                <i class="bi bi-people-fill" style="font-size: 2rem; color: var(--success);"></i>
+                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@distinctUsers</h2>
+                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Distinct Users Logged In</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="nx-card p-3 text-center">
+                <i class="bi bi-calendar-day-fill" style="font-size: 2rem; color: var(--warning);"></i>
+                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@todayLogins</h2>
+                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Logins Today</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="nx-alert nx-alert-info">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>No login records yet.</span>
+        </div>
+    }
+    else
+    {
+        <p style="color: var(--muted); font-size: 0.85rem;">Showing the most recent @Model.Count logins.</p>
+        <div class="nx-card" style="overflow: hidden;">
+            <table class="table mb-0" style="font-size: 0.9rem;">
+                <thead style="background: var(--bg);">
+                    <tr>
+                        <th style="padding: 0.85rem 1rem;">#</th>
+                        <th style="padding: 0.85rem 1rem;">User</th>
+                        <th style="padding: 0.85rem 1rem;">Email</th>
+                        <th style="padding: 0.85rem 1rem;">Login Date</th>
+                        <th style="padding: 0.85rem 1rem;">Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int rowNum = 1; }
+                    @foreach (var l in Model)
+                    {
+                        <tr>
+                            <td style="padding: 0.85rem 1rem; color: var(--muted);">@rowNum</td>
+                            <td style="padding: 0.85rem 1rem;">
+                                <strong>@(l.User?.UserName ?? "-")</strong>
+                            </td>
+                            <td style="padding: 0.85rem 1rem;">@(l.Email ?? l.User?.Email ?? "-")</td>
+                            <td style="padding: 0.85rem 1rem;">@l.LoginAt.ToString("dd-MMM-yyyy")</td>
+                            <td style="padding: 0.85rem 1rem; color: var(--muted);">@l.LoginAt.ToString("hh:mm tt")</td>
+                        </tr>
+                        rowNum++;
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

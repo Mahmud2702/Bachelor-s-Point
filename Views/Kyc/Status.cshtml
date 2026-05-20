@@ -1,0 +1,91 @@
+@model Bachelor_s_Point.Models.KycVerification
+@{
+    ViewData["Title"] = "Verification Status";
+}
+
+<div class="auth-card fade-up" style="max-width: 560px;">
+    <div class="text-center mb-4">
+        @if (Model == null)
+        {
+            <div style="width: 80px; height: 80px; background: var(--warning-light); color: var(--warning); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2.2rem; margin-bottom: 1rem;">
+                <i class="bi bi-shield-exclamation"></i>
+            </div>
+            <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.4rem;">Not Verified</h2>
+            <p style="color: var(--muted); font-size: 0.92rem;">
+                You haven't submitted identity verification yet.
+                You need to verify before you can post or book rooms.
+            </p>
+        }
+        else if (Model.Status == "Pending")
+        {
+            <div style="width: 80px; height: 80px; background: var(--warning-light); color: var(--warning); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2.2rem; margin-bottom: 1rem;">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.4rem;">Under Review</h2>
+            <p style="color: var(--muted); font-size: 0.92rem;">
+                Your verification was submitted on <strong>@Model.SubmittedAt.ToString("dd-MMM-yyyy")</strong>
+                and is waiting for an admin to review it.
+            </p>
+        }
+        else if (Model.Status == "Verified")
+        {
+            <div style="width: 80px; height: 80px; background: var(--success-light); color: var(--success); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2.2rem; margin-bottom: 1rem;">
+                <i class="bi bi-patch-check-fill"></i>
+            </div>
+            <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.4rem;">Verified</h2>
+            <p style="color: var(--muted); font-size: 0.92rem;">
+                Your identity was verified on
+                <strong>@(Model.ReviewedAt.HasValue ? Model.ReviewedAt.Value.ToString("dd-MMM-yyyy") : "-")</strong>.
+                You can now post and book rooms.
+            </p>
+        }
+        else
+        {
+            <div style="width: 80px; height: 80px; background: var(--danger-light); color: var(--danger); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2.2rem; margin-bottom: 1rem;">
+                <i class="bi bi-shield-x"></i>
+            </div>
+            <h2 style="font-size: 1.45rem; font-weight: 800; margin-bottom: 0.4rem;">Rejected</h2>
+            <p style="color: var(--muted); font-size: 0.92rem;">
+                Your verification submitted on <strong>@Model.SubmittedAt.ToString("dd-MMM-yyyy")</strong> was rejected.
+            </p>
+            @if (!string.IsNullOrEmpty(Model.RejectionReason))
+            {
+                <div class="nx-alert nx-alert-danger mt-3" style="text-align: left;">
+                    <i class="bi bi-exclamation-octagon-fill"></i>
+                    <span><strong>Reason:</strong> @Model.RejectionReason</span>
+                </div>
+            }
+        }
+    </div>
+
+    @if (Model != null && Model.Status != "Pending")
+    {
+        <div style="background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+            <div class="d-flex justify-content-between" style="font-size: 0.88rem; padding: 0.25rem 0;">
+                <span style="color: var(--muted);">Name on NID</span>
+                <strong>@Model.FullNameOnNid</strong>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size: 0.88rem; padding: 0.25rem 0;">
+                <span style="color: var(--muted);">NID Number</span>
+                <strong>@Model.NidNumber</strong>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size: 0.88rem; padding: 0.25rem 0;">
+                <span style="color: var(--muted);">Submitted</span>
+                <strong>@Model.SubmittedAt.ToString("dd-MMM-yyyy")</strong>
+            </div>
+        </div>
+    }
+
+    <div class="d-grid gap-2">
+        @if (Model == null || Model.Status == "Rejected")
+        {
+            <a asp-action="Submit" class="btn-auth">
+                <i class="bi bi-person-vcard"></i>
+                @(Model == null ? "Start Verification" : "Resubmit Verification")
+            </a>
+        }
+        <a asp-controller="Home" asp-action="Index" class="btn-auth outline">
+            <i class="bi bi-house"></i> Back to Home
+        </a>
+    </div>
+</div>

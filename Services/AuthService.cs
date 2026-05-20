@@ -207,6 +207,15 @@ namespace Bachelor_s_Point.Services
 
             user.LastLogin = DateTime.Now;
             _unitOfWork.UserRepo.Update(user);
+
+            // Record this login in the history table (for admin activity view)
+            await _unitOfWork.LoginHistoryRepo.AddAsync(new LoginHistory
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                LoginAt = DateTime.Now
+            });
+
             await _unitOfWork.SaveAsync();
             return user;
         }

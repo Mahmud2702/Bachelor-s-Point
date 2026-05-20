@@ -1,0 +1,89 @@
+@model List<Bachelor_s_Point.Models.KycVerification>
+@{
+    ViewData["Title"] = "KYC Verifications";
+    int pendingCount = ViewBag.PendingCount ?? 0;
+    int verifiedCount = ViewBag.VerifiedCount ?? 0;
+    int rejectedCount = ViewBag.RejectedCount ?? 0;
+
+    string StatusBadge(string s) => s switch
+    {
+        "Verified" => "<span class='badge-approved'><i class='bi bi-patch-check-fill me-1'></i>Verified</span>",
+        "Rejected" => "<span style='background:var(--danger-light);color:var(--danger);border:1px solid rgba(239,68,68,0.15);padding:0.25rem 0.75rem;border-radius:999px;font-size:0.75rem;font-weight:600;'><i class='bi bi-x-circle-fill me-1'></i>Rejected</span>",
+        _ => "<span class='badge-pending'><i class='bi bi-hourglass-split me-1'></i>Pending</span>"
+    };
+}
+
+<div class="container py-3">
+    <h2 style="font-weight: 800; margin-bottom: 1.25rem;">
+        <i class="bi bi-person-vcard-fill me-2" style="color: var(--primary);"></i>KYC Verifications
+    </h2>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="nx-card p-3 text-center">
+                <i class="bi bi-hourglass-split" style="font-size: 2rem; color: var(--warning);"></i>
+                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@pendingCount</h2>
+                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Pending Review</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="nx-card p-3 text-center">
+                <i class="bi bi-patch-check-fill" style="font-size: 2rem; color: var(--success);"></i>
+                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@verifiedCount</h2>
+                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Verified</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="nx-card p-3 text-center">
+                <i class="bi bi-x-circle-fill" style="font-size: 2rem; color: var(--danger);"></i>
+                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@rejectedCount</h2>
+                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Rejected</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="nx-alert nx-alert-info">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>No KYC submissions yet.</span>
+        </div>
+    }
+    else
+    {
+        <div class="nx-card" style="overflow: hidden;">
+            <table class="table mb-0" style="font-size: 0.9rem;">
+                <thead style="background: var(--bg);">
+                    <tr>
+                        <th style="padding: 0.85rem 1rem;">User</th>
+                        <th style="padding: 0.85rem 1rem;">Name on NID</th>
+                        <th style="padding: 0.85rem 1rem;">NID Number</th>
+                        <th style="padding: 0.85rem 1rem;">Submitted</th>
+                        <th style="padding: 0.85rem 1rem;">Status</th>
+                        <th style="padding: 0.85rem 1rem;" class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var k in Model)
+                    {
+                        <tr>
+                            <td style="padding: 0.85rem 1rem;">
+                                <strong>@(k.User?.UserName ?? "-")</strong><br />
+                                <span style="color: var(--muted); font-size: 0.8rem;">@(k.User?.Email ?? "-")</span>
+                            </td>
+                            <td style="padding: 0.85rem 1rem;">@k.FullNameOnNid</td>
+                            <td style="padding: 0.85rem 1rem;">@k.NidNumber</td>
+                            <td style="padding: 0.85rem 1rem;">@k.SubmittedAt.ToString("dd-MMM-yyyy")</td>
+                            <td style="padding: 0.85rem 1rem;">@Html.Raw(StatusBadge(k.Status))</td>
+                            <td style="padding: 0.85rem 1rem;" class="text-end">
+                                <a asp-action="Review" asp-route-id="@k.Id" class="btn-nx outline sm">
+                                    <i class="bi bi-eye"></i> Review
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
