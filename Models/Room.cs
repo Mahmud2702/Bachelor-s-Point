@@ -16,9 +16,20 @@ namespace Bachelor_s_Point.Models
         [MaxLength(2000)]
         public string? Description { get; set; }
 
-        [Required(ErrorMessage = "Price is required")]
-        [Range(0, int.MaxValue, ErrorMessage = "Price must be a positive number")]
+        // Base room rent per month
+        [Required(ErrorMessage = "Room cost is required")]
+        [Range(0, int.MaxValue, ErrorMessage = "Room cost must be a positive number")]
         public int Price { get; set; }
+
+        // Estimated additional monthly costs — nullable so existing rooms aren't broken
+        [Range(0, int.MaxValue, ErrorMessage = "Wifi cost must be a positive number")]
+        public int? WifiCost { get; set; }
+
+        [Range(0, int.MaxValue, ErrorMessage = "Meal cost must be a positive number")]
+        public int? MealCostPerMonth { get; set; }
+
+        [Range(0, int.MaxValue, ErrorMessage = "Maid cost must be a positive number")]
+        public int? MaidCostPerMonth { get; set; }
 
         [Required(ErrorMessage = "Location is required")]
         [MaxLength(200)]
