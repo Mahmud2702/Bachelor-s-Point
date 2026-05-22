@@ -16,45 +16,50 @@
         cursor: pointer;
         user-select: none;
     }
-    .nx-checkbox input[type="checkbox"] {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 18px;
-        height: 18px;
-        border: 2px solid var(--border);
-        border-radius: 5px;
-        background: var(--white);
-        cursor: pointer;
-        position: relative;
-        transition: var(--transition);
-        margin: 0;
-        flex-shrink: 0;
-    }
-    .nx-checkbox input[type="checkbox"]:hover {
-        border-color: var(--primary-mid);
-    }
-    .nx-checkbox input[type="checkbox"]:checked {
-        background: var(--primary);
-        border-color: var(--primary);
-    }
-    .nx-checkbox input[type="checkbox"]:checked::after {
-        content: '';
-        position: absolute;
-        left: 4px;
-        top: 0px;
-        width: 5px;
-        height: 10px;
-        border: solid white;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-    }
-    .nx-checkbox label {
-        font-size: 0.88rem;
-        color: var(--text);
-        cursor: pointer;
-        font-weight: 500;
-        margin: 0;
-    }
+
+        .nx-checkbox input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border);
+            border-radius: 5px;
+            background: var(--white);
+            cursor: pointer;
+            position: relative;
+            transition: var(--transition);
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+            .nx-checkbox input[type="checkbox"]:hover {
+                border-color: var(--primary-mid);
+            }
+
+            .nx-checkbox input[type="checkbox"]:checked {
+                background: var(--primary);
+                border-color: var(--primary);
+            }
+
+                .nx-checkbox input[type="checkbox"]:checked::after {
+                    content: '';
+                    position: absolute;
+                    left: 4px;
+                    top: 0px;
+                    width: 5px;
+                    height: 10px;
+                    border: solid white;
+                    border-width: 0 2px 2px 0;
+                    transform: rotate(45deg);
+                }
+
+        .nx-checkbox label {
+            font-size: 0.88rem;
+            color: var(--text);
+            cursor: pointer;
+            font-weight: 500;
+            margin: 0;
+        }
 </style>
 
 <div class="auth-card fade-up">
@@ -103,17 +108,24 @@
         </a>
     </form>
 
-    @if (loginType != "admin")
-    {
-        <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--border); font-size: 0.9rem; color: var(--muted);">
-            Don't have an account?
+    <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--border); font-size: 0.9rem; color: var(--muted);">
+        @if (loginType == "admin")
+        {
+            <span>Need an admin account?</span>
+            <a asp-action="Register" asp-route-as="admin" class="auth-link">Register as Admin</a>
+        }
+        else
+        {
+            <span>Don't have an account?</span>
             <a asp-action="Register" asp-route-as="@(string.IsNullOrEmpty(loginType) ? "user" : loginType)" class="auth-link">Create one free</a>
-        </div>
-    }
+        }
+    </div>
 </div>
 
 @section Scripts {
-    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
     <script>
         function togglePass() {
             const inp = document.getElementById('loginPass');
