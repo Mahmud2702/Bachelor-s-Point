@@ -32,5 +32,13 @@ namespace Bachelor_s_Point.Application.DTOs
         [Required(ErrorMessage = "Location is required")]
         [MaxLength(200)]
         public string? Location { get; set; }
+
+        [Display(Name = "Division")]
+        [MaxLength(60)]
+        public string? Division { get; set; }
+
+        [Display(Name = "District")]
+        [MaxLength(60)]
+        public string? District { get; set; }
     }
 }

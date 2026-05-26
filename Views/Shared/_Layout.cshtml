@@ -696,6 +696,12 @@
                                     <i class="bi bi-search"></i> Browse Rooms
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nx-nav-link" asp-controller="Room" asp-action="Index" asp-route-openFilters="1"
+                                   title="Advanced filters">
+                                    <i class="bi bi-funnel-fill"></i> Filter
+                                </a>
+                            </li>
 
                             @if (isAdminUser)
                             {

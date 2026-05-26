@@ -1,3 +1,4 @@
+@using Bachelor_s_Point.Application.Common
 @model CreateRoomDto
 @{
     ViewData["Title"] = "Post a Room";
@@ -70,8 +71,27 @@
                     <span asp-validation-for="Title" class="text-danger small"></span>
                 </div>
                 <div class="col-md-5 mb-3">
-                    <label asp-for="Location" class="form-label"><i class="bi bi-geo-alt-fill me-1" style="color: var(--danger);"></i>Location</label>
-                    <input asp-for="Location" class="form-control" placeholder="e.g. Khulshi, Chittagong" />
+                    <label class="form-label"><i class="bi bi-geo-alt-fill me-1" style="color: var(--danger);"></i>Location</label>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="Division" class="form-label" style="font-size: 0.85rem;">Division</label>
+                            <select asp-for="Division" id="divisionSelect" class="form-select">
+                                <option value="">Select Division</option>
+                                @foreach (var div in BangladeshLocations.Divisions)
+                                {
+                                    <option value="@div">@div</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="District" class="form-label" style="font-size: 0.85rem;">District</label>
+                            <select asp-for="District" id="districtSelect" class="form-select">
+                                <option value="">Select District</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label asp-for="Location" class="form-label" style="font-size: 0.85rem;">Location Details</label>
+                    <input asp-for="Location" class="form-control" placeholder="e.g. Street, Neighborhood, Area" />
                     <span asp-validation-for="Location" class="text-danger small"></span>
                 </div>
             </div>
@@ -151,6 +171,29 @@
 @section Scripts {
     @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
     <script>
+        // Cascading Division -> District dropdown
+        const divisionDistricts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Bachelor_s_Point.Application.Common.BangladeshLocations.DivisionDistricts));
+
+        const divisionSelect = document.getElementById('divisionSelect');
+        const districtSelect = document.getElementById('districtSelect');
+
+        function refreshDistricts() {
+            const div = divisionSelect.value;
+            districtSelect.innerHTML = '<option value="">Select District</option>';
+            if (div && divisionDistricts[div]) {
+                divisionDistricts[div].forEach(function (d) {
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = d;
+                    districtSelect.appendChild(opt);
+                });
+            }
+        }
+
+        divisionSelect.addEventListener('change', refreshDistricts);
+
+        // Image preview
         (function() {
             const input = document.getElementById('roomImagesInput');
             const preview = document.getElementById('imagePreview');

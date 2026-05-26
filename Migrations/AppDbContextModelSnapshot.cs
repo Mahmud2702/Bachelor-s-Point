@@ -53,7 +53,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("SenderId");
 
-                    b.ToTable("ChatMessages");
+                    b.ToTable("ChatMessages", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.KycVerification", b =>
@@ -114,7 +114,7 @@ namespace Bachelor_s_Point.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
-                    b.ToTable("KycVerifications");
+                    b.ToTable("KycVerifications", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.LoginHistory", b =>
@@ -139,7 +139,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("LoginHistories");
+                    b.ToTable("LoginHistories", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.PasswordResetToken", b =>
@@ -172,7 +172,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("PasswordResetTokens");
+                    b.ToTable("PasswordResetTokens", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.PendingRegistration", b =>
@@ -232,7 +232,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("PendingRegistrations");
+                    b.ToTable("PendingRegistrations", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.Role", b =>
@@ -254,7 +254,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Roles");
+                    b.ToTable("Roles", (string)null);
 
                     b.HasData(
                         new
@@ -316,7 +316,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Rooms");
+                    b.ToTable("Rooms", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.RoomImage", b =>
@@ -348,7 +348,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("RoomId");
 
-                    b.ToTable("RoomImages");
+                    b.ToTable("RoomImages", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.RoomSelection", b =>
@@ -378,7 +378,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("SeekerUserId");
 
-                    b.ToTable("RoomSelections");
+                    b.ToTable("RoomSelections", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.User", b =>
@@ -435,7 +435,7 @@ namespace Bachelor_s_Point.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("Bachelor_s_Point.Models.ChatMessage", b =>

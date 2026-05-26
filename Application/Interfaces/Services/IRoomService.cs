@@ -28,6 +28,7 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
         Task<string> ApproveRoomAsync(int roomId);
 
         Task<PagedResult<Room>> GetApprovedPagedAsync(string? searchText, int page, int pageSize);
+        Task<PagedResult<Room>> GetFilteredPagedAsync(RoomFilterDto filter, int pageSize);
 
         // -------- Image management --------
         Task AddRoomImageAsync(int roomId, string imagePath, bool isPrimary, int displayOrder);

@@ -49,6 +49,8 @@ namespace Bachelor_s_Point.Services
                 MealCostPerMonth = dto.MealCostPerMonth,
                 MaidCostPerMonth = dto.MaidCostPerMonth,
                 Location = dto.Location,
+                Division = dto.Division,
+                District = dto.District,
                 UserId = ownerUserId,
                 CreatedAt = DateTime.Now,
                 IsAvailable = true,
@@ -161,6 +163,18 @@ namespace Bachelor_s_Point.Services
             {
                 Items = items,
                 Page = page,
+                PageSize = pageSize,
+                TotalCount = total
+            };
+        }
+
+        public async Task<PagedResult<Room>> GetFilteredPagedAsync(RoomFilterDto filter, int pageSize)
+        {
+            var (items, total) = await _unitOfWork.RoomRepo.GetFilteredPagedAsync(filter, pageSize);
+            return new PagedResult<Room>
+            {
+                Items = items,
+                Page = filter.Page < 1 ? 1 : filter.Page,
                 PageSize = pageSize,
                 TotalCount = total
             };

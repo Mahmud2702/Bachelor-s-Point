@@ -1,3 +1,4 @@
+using Bachelor_s_Point.Application.DTOs;
 using Bachelor_s_Point.Models;
 
 namespace Bachelor_s_Point.Application.Interfaces.Repositories
@@ -10,6 +11,7 @@ namespace Bachelor_s_Point.Application.Interfaces.Repositories
         Task<List<Room>> GetRoomsByOwnerIdAsync(int ownerId);
         Task<List<Room>> SearchAsync(string searchText);
         Task<(List<Room> Items, int TotalCount)> GetApprovedAvailablePagedAsync(string? searchText, int page, int pageSize);
+        Task<(List<Room> Items, int TotalCount)> GetFilteredPagedAsync(RoomFilterDto filter, int pageSize);
         Task<List<Room>> GetPendingApprovalAsync();
     }
 }

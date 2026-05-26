@@ -35,6 +35,13 @@ namespace Bachelor_s_Point.Models
         [MaxLength(200)]
         public string? Location { get; set; }
 
+        // Structured location — nullable so existing rooms aren't broken
+        [MaxLength(60)]
+        public string? Division { get; set; }
+
+        [MaxLength(60)]
+        public string? District { get; set; }
+
         [Required]
         public int UserId { get; set; }
 

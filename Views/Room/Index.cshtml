@@ -1,8 +1,11 @@
+@using Bachelor_s_Point.Application.Common
 @model Bachelor_s_Point.Application.DTOs.PagedResult<Room>
 @{
     ViewData["Title"] = "Browse Rooms";
-    var searchText = ViewBag.SearchText as string;
+    var filter = ViewBag.Filter as Bachelor_s_Point.Application.DTOs.RoomFilterDto
+                 ?? new Bachelor_s_Point.Application.DTOs.RoomFilterDto();
     bool isAdmin = User.IsInRole("Admin");
+    bool panelOpen = filter.HasAnyFilter;   // keep panel open if filters are active
 
     string GetCoverImage(Room r)
     {
@@ -12,32 +15,182 @@
     }
 }
 
+<style>
+    .filter-panel {
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+    .filter-panel.collapsed { max-height: 0; }
+    .filter-panel.expanded  { max-height: 1200px; }
+    .filter-toggle-btn { cursor: pointer; }
+    .chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: var(--primary-light); color: var(--primary);
+        border-radius: 999px; padding: 0.25rem 0.7rem;
+        font-size: 0.78rem; font-weight: 600;
+    }
+    .chip a { color: var(--primary); text-decoration: none; }
+</style>
+
 <div class="container py-3">
+
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h2 style="font-weight: 800; margin: 0;">
             <i class="bi bi-search me-2" style="color: var(--primary);"></i>Browse Rooms
         </h2>
         <span style="color: var(--muted); font-size: 0.9rem;">
-            @Model.TotalCount room@(Model.TotalCount == 1 ? "" : "s") available
+            @Model.TotalCount room@(Model.TotalCount == 1 ? "" : "s") found
         </span>
     </div>
 
-    <div class="nx-card p-3 mb-4 fade-up">
-        <form asp-action="Index" method="get" class="row g-2">
-            <div class="col-md-9">
-                <input type="text" name="searchText" value="@searchText" class="form-control"
-                       placeholder="🔍  Search by title, description, or location" />
+    <!-- ===================== FILTER CARD ===================== -->
+    <div class="nx-card p-3 mb-4 fade-up" id="filterCard">
+        <form asp-action="Index" method="get" id="filterForm">
+
+            <!-- Search row — always visible -->
+            <div class="row g-2 align-items-center">
+                <div class="col-md-7">
+                    <input type="text" name="searchText" value="@filter.SearchText" class="form-control"
+                           placeholder="🔍  Search by title, description, or location" />
+                </div>
+                <div class="col-md-5 d-flex gap-2">
+                    <button type="submit" class="btn-nx" style="flex-grow: 1;">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                    <button type="button" class="btn-nx outline filter-toggle-btn" id="toggleFilters"
+                            style="white-space: nowrap;">
+                        <i class="bi bi-sliders"></i> Filters
+                        <i class="bi bi-chevron-down" id="filterChevron"></i>
+                    </button>
+                </div>
             </div>
-            <div class="col-md-3 d-flex gap-2">
-                <button type="submit" class="btn-nx" style="flex-grow: 1;">
-                    <i class="bi bi-search"></i> Search
-                </button>
-                @if (!string.IsNullOrEmpty(searchText))
-                {
-                    <a asp-action="Index" class="btn-nx outline" title="Clear">
-                        <i class="bi bi-x-lg"></i>
+
+            <!-- Advanced filters — collapsible -->
+            <div class="filter-panel @(panelOpen ? "expanded" : "collapsed")" id="filterPanel">
+                <hr style="border-color: var(--border); margin: 1rem 0;" />
+
+                <div class="row g-3">
+                    <!-- Division -->
+                    <div class="col-md-3">
+                        <label class="form-label" style="font-size: 0.82rem;">Division</label>
+                        <select name="division" id="divisionSelect" class="form-select">
+                            <option value="">All Divisions</option>
+                            @foreach (var div in BangladeshLocations.Divisions)
+                            {
+                                if (filter.Division == div)
+                                {
+                                    <option value="@div" selected>@div</option>
+                                }
+                                else
+                                {
+                                    <option value="@div">@div</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- District -->
+                    <div class="col-md-3">
+                        <label class="form-label" style="font-size: 0.82rem;">District</label>
+                        <select name="district" id="districtSelect" class="form-select">
+                            <option value="">All Districts</option>
+                            @foreach (var dist in BangladeshLocations.GetDistricts(filter.Division))
+                            {
+                                if (filter.District == dist)
+                                {
+                                    <option value="@dist" selected>@dist</option>
+                                }
+                                else
+                                {
+                                    <option value="@dist">@dist</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Price range -->
+                    <div class="col-md-3">
+                        <label class="form-label" style="font-size: 0.82rem;">Min Price (BDT)</label>
+                        <input type="number" name="minPrice" value="@(filter.MinPrice?.ToString())"
+                               class="form-control" placeholder="0" min="0" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" style="font-size: 0.82rem;">Max Price (BDT)</label>
+                        <input type="number" name="maxPrice" value="@(filter.MaxPrice?.ToString())"
+                               class="form-control" placeholder="Any" min="0" />
+                    </div>
+
+                    <!-- Sort -->
+                    <div class="col-md-3">
+                        <label class="form-label" style="font-size: 0.82rem;">Sort By</label>
+                        <select name="sortBy" class="form-select">
+                            @{
+                                var sorts = new (string val, string label)[]
+                                {
+                                    ("newest", "Newest first"),
+                                    ("oldest", "Oldest first"),
+                                    ("price_asc", "Price: Low to High"),
+                                    ("price_desc", "Price: High to Low")
+                                };
+                            }
+                            @foreach (var s in sorts)
+                            {
+                                if ((filter.SortBy ?? "newest") == s.val)
+                                {
+                                    <option value="@s.val" selected>@s.label</option>
+                                }
+                                else
+                                {
+                                    <option value="@s.val">@s.label</option>
+                                }
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Amenity + availability toggles -->
+                    <div class="col-md-9">
+                        <label class="form-label" style="font-size: 0.82rem;">Amenities &amp; Availability</label>
+                        <div class="d-flex flex-wrap gap-3 align-items-center" style="padding-top: 0.35rem;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="hasWifi" value="true"
+                                       id="hasWifi" @(filter.HasWifi ? "checked" : "") />
+                                <label class="form-check-label" for="hasWifi" style="font-size: 0.88rem;">
+                                    <i class="bi bi-wifi"></i> Wifi
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="hasMeal" value="true"
+                                       id="hasMeal" @(filter.HasMeal ? "checked" : "") />
+                                <label class="form-check-label" for="hasMeal" style="font-size: 0.88rem;">
+                                    <i class="bi bi-egg-fried"></i> Meal
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="hasMaid" value="true"
+                                       id="hasMaid" @(filter.HasMaid ? "checked" : "") />
+                                <label class="form-check-label" for="hasMaid" style="font-size: 0.88rem;">
+                                    <i class="bi bi-person-arms-up"></i> Maid
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="availableOnly" value="true"
+                                       id="availableOnly" @(filter.AvailableOnly ? "checked" : "") />
+                                <label class="form-check-label" for="availableOnly" style="font-size: 0.88rem;">
+                                    <i class="bi bi-check-circle"></i> Available only
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button type="submit" class="btn-nx success">
+                        <i class="bi bi-funnel-fill"></i> Apply Filters
+                    </button>
+                    <a asp-action="Index" class="btn-nx outline">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
                     </a>
-                }
+                </div>
             </div>
         </form>
     </div>
@@ -46,7 +199,7 @@
     {
         <div class="nx-alert nx-alert-info">
             <i class="bi bi-info-circle-fill"></i>
-            <span>No rooms found matching your search.</span>
+            <span>No rooms found matching your criteria. Try widening your filters.</span>
         </div>
     }
     else
@@ -76,8 +229,16 @@
                         <div style="padding: 1.1rem 1.25rem 1.25rem;">
                             <h5 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;">@room.Title</h5>
                             <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.55rem;">
-                                <i class="bi bi-geo-alt"></i> @room.Location
-                                <a href="https://www.google.com/maps/search/?api=1&query=@(System.Net.WebUtility.UrlEncode((room.Location ?? "") + ", Bangladesh"))"
+                                <i class="bi bi-geo-alt"></i>
+                                @if (!string.IsNullOrWhiteSpace(room.District))
+                                {
+                                    <span>@room.District@(string.IsNullOrWhiteSpace(room.Division) ? "" : ", " + room.Division)</span>
+                                }
+                                else
+                                {
+                                    <span>@room.Location</span>
+                                }
+                                <a href="https://www.google.com/maps/search/?api=1&query=@(System.Net.WebUtility.UrlEncode((room.Location ?? room.District ?? "") + ", Bangladesh"))"
                                    target="_blank" rel="noopener" title="View on Google Maps"
                                    class="auth-link" style="margin-left: 0.3rem;">
                                     <i class="bi bi-map"></i>
@@ -86,6 +247,21 @@
                             <p style="font-size: 0.88rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
                                 @room.Description
                             </p>
+                            @{
+                                var amenities = new List<string>();
+                                if (room.WifiCost is > 0) amenities.Add("Wifi");
+                                if (room.MealCostPerMonth is > 0) amenities.Add("Meal");
+                                if (room.MaidCostPerMonth is > 0) amenities.Add("Maid");
+                            }
+                            @if (amenities.Any())
+                            {
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    @foreach (var a in amenities)
+                                    {
+                                        <span class="chip">@a</span>
+                                    }
+                                </div>
+                            }
                             <p style="font-size: 0.78rem; color: var(--muted); margin: 0.5rem 0 0;">
                                 <i class="bi bi-person-circle"></i>
                                 Posted by @(room.Owner?.UserName ?? "Unknown")
@@ -115,18 +291,51 @@
             <nav class="mt-4">
                 <ul class="pagination justify-content-center">
                     <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
-                        <a class="page-link" asp-action="Index" asp-route-searchText="@searchText" asp-route-page="@(Model.Page - 1)">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-searchText="@filter.SearchText"
+                           asp-route-division="@filter.Division"
+                           asp-route-district="@filter.District"
+                           asp-route-minPrice="@(filter.MinPrice?.ToString())"
+                           asp-route-maxPrice="@(filter.MaxPrice?.ToString())"
+                           asp-route-hasWifi="@filter.HasWifi"
+                           asp-route-hasMeal="@filter.HasMeal"
+                           asp-route-hasMaid="@filter.HasMaid"
+                           asp-route-availableOnly="@filter.AvailableOnly"
+                           asp-route-sortBy="@filter.SortBy"
+                           asp-route-page="@(Model.Page - 1)">
                             <i class="bi bi-chevron-left"></i> Previous
                         </a>
                     </li>
                     @for (int p = 1; p <= Model.TotalPages; p++)
                     {
                         <li class="page-item @(p == Model.Page ? "active" : "")">
-                            <a class="page-link" asp-action="Index" asp-route-searchText="@searchText" asp-route-page="@p">@p</a>
+                            <a class="page-link" asp-action="Index"
+                               asp-route-searchText="@filter.SearchText"
+                               asp-route-division="@filter.Division"
+                               asp-route-district="@filter.District"
+                               asp-route-minPrice="@(filter.MinPrice?.ToString())"
+                               asp-route-maxPrice="@(filter.MaxPrice?.ToString())"
+                               asp-route-hasWifi="@filter.HasWifi"
+                               asp-route-hasMeal="@filter.HasMeal"
+                               asp-route-hasMaid="@filter.HasMaid"
+                               asp-route-availableOnly="@filter.AvailableOnly"
+                               asp-route-sortBy="@filter.SortBy"
+                               asp-route-page="@p">@p</a>
                         </li>
                     }
                     <li class="page-item @(Model.HasNext ? "" : "disabled")">
-                        <a class="page-link" asp-action="Index" asp-route-searchText="@searchText" asp-route-page="@(Model.Page + 1)">
+                        <a class="page-link" asp-action="Index"
+                           asp-route-searchText="@filter.SearchText"
+                           asp-route-division="@filter.Division"
+                           asp-route-district="@filter.District"
+                           asp-route-minPrice="@(filter.MinPrice?.ToString())"
+                           asp-route-maxPrice="@(filter.MaxPrice?.ToString())"
+                           asp-route-hasWifi="@filter.HasWifi"
+                           asp-route-hasMeal="@filter.HasMeal"
+                           asp-route-hasMaid="@filter.HasMaid"
+                           asp-route-availableOnly="@filter.AvailableOnly"
+                           asp-route-sortBy="@filter.SortBy"
+                           asp-route-page="@(Model.Page + 1)">
                             Next <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>
@@ -135,3 +344,58 @@
         }
     }
 </div>
+
+@section Scripts {
+    <script>
+        // Division -> District cascading dropdown data
+        const divisionDistricts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Bachelor_s_Point.Application.Common.BangladeshLocations.DivisionDistricts));
+
+        const divisionSelect = document.getElementById('divisionSelect');
+        const districtSelect = document.getElementById('districtSelect');
+        const currentDistrict = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(filter.District ?? ""));
+
+        function refreshDistricts(keepSelected) {
+            const div = divisionSelect.value;
+            districtSelect.innerHTML = '<option value="">All Districts</option>';
+            if (div && divisionDistricts[div]) {
+                divisionDistricts[div].forEach(function (d) {
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = d;
+                    if (keepSelected && d === currentDistrict) opt.selected = true;
+                    districtSelect.appendChild(opt);
+                });
+            }
+        }
+        divisionSelect.addEventListener('change', function () { refreshDistricts(false); });
+
+        // Collapsible filter panel
+        const panel = document.getElementById('filterPanel');
+        const toggleBtn = document.getElementById('toggleFilters');
+        const chevron = document.getElementById('filterChevron');
+        toggleBtn.addEventListener('click', function () {
+            if (panel.classList.contains('collapsed')) {
+                panel.classList.remove('collapsed');
+                panel.classList.add('expanded');
+                chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
+            } else {
+                panel.classList.remove('expanded');
+                panel.classList.add('collapsed');
+                chevron.classList.replace('bi-chevron-up', 'bi-chevron-down');
+            }
+        });
+
+        // If panel is open on load (filters active), point chevron up
+        @if (panelOpen)
+        {
+            <text>chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');</text>
+        }
+
+        // Support ?openFilters=1 from the navbar Filter button
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('openFilters') === '1' && panel.classList.contains('collapsed')) {
+            toggleBtn.click();
+        }
+    </script>
+}

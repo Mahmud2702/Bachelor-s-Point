@@ -45,9 +45,29 @@ namespace Bachelor_s_Point.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> Index(string? searchText, int page = 1)
+        public async Task<IActionResult> Index(
+            string? searchText, string? division, string? district,
+            int? minPrice, int? maxPrice,
+            bool hasWifi = false, bool hasMeal = false, bool hasMaid = false,
+            bool availableOnly = false, string? sortBy = null, int page = 1)
         {
-            var paged = await _roomService.GetApprovedPagedAsync(searchText, page, PageSize);
+            var filter = new RoomFilterDto
+            {
+                SearchText = searchText,
+                Division = division,
+                District = district,
+                MinPrice = minPrice,
+                MaxPrice = maxPrice,
+                HasWifi = hasWifi,
+                HasMeal = hasMeal,
+                HasMaid = hasMaid,
+                AvailableOnly = availableOnly,
+                SortBy = sortBy,
+                Page = page
+            };
+
+            var paged = await _roomService.GetFilteredPagedAsync(filter, PageSize);
+            ViewBag.Filter = filter;
             ViewBag.SearchText = searchText;
             return View(paged);
         }
