@@ -17,6 +17,7 @@
                        User.FindFirst("PaymentVerified")?.Value == "True");
 
     var roomSelections = ViewBag.RoomSelections as List<RoomSelection>;
+    var roomPayment    = ViewBag.RoomPayment as Bachelor_s_Point.Models.Payment;
     var images = (Model.Images ?? new List<RoomImage>())
         .OrderByDescending(i => i.IsPrimary)
         .ThenBy(i => i.DisplayOrder)
@@ -244,6 +245,37 @@
                 <a asp-action="Delete" asp-route-id="@Model.Id" class="btn-nx outline-danger">
                     <i class="bi bi-trash"></i> Delete
                 </a>
+
+                @* ── Payment status button for pending rooms ── *@
+                @if (!Model.IsApproved)
+                {
+                    @if (roomPayment == null)
+                    {
+                        <a asp-controller="Payment" asp-action="RoomFee"
+                           asp-route-roomId="@Model.Id" class="btn-nx success">
+                            <i class="bi bi-cash-coin"></i> Pay Posting Fee
+                        </a>
+                    }
+                    else if (roomPayment.Status == Bachelor_s_Point.Models.PaymentStatus.Pending)
+                    {
+                        <button class="btn-nx" style="background:var(--warning);cursor:default;" disabled>
+                            <i class="bi bi-hourglass-split"></i> Payment Under Review
+                        </button>
+                    }
+                    else if (roomPayment.Status == Bachelor_s_Point.Models.PaymentStatus.Verified)
+                    {
+                        <button class="btn-nx success" style="cursor:default;" disabled>
+                            <i class="bi bi-check-circle-fill"></i> Payment Done
+                        </button>
+                    }
+                    else if (roomPayment.Status == Bachelor_s_Point.Models.PaymentStatus.Rejected)
+                    {
+                        <a asp-controller="Payment" asp-action="RoomFee"
+                           asp-route-roomId="@Model.Id" class="btn-nx danger">
+                            <i class="bi bi-x-circle"></i> Payment Rejected — Resubmit
+                        </a>
+                    }
+                }
             }
             else if (User.Identity?.IsAuthenticated == true && Model.IsAvailable && Model.IsApproved)
             {

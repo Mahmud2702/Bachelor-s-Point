@@ -1,0 +1,1 @@
+UPDATE Users SET IsPaymentVerified = 1 WHERE RoleId = 1

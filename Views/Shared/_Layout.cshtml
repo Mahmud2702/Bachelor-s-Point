@@ -6,12 +6,14 @@
 @inject IPaymentService PaymentService
 @{
     string? currentUserPic = null;
+    string? currentUserName = null;
     int unreadCount = 0;
     int pendingRoomCount = 0;
     int pendingKycCount = 0;
     int pendingPaymentCount = 0;
     bool isAuthed = User.Identity != null && User.Identity.IsAuthenticated;
     bool isAdminUser = isAuthed && User.IsInRole("Admin");
+    string currentPath = Context.Request.Path.ToString().ToLower();
 
     if (isAuthed)
     {
@@ -19,18 +21,24 @@
         if (int.TryParse(idClaim, out int currentUid))
         {
             var currentUser = await UserService.GetUserByIdAsync(currentUid);
-            currentUserPic = currentUser?.ProfilePicturePath;
-            unreadCount = await ChatService.GetUnreadCountAsync(currentUid);
+            currentUserPic  = currentUser?.ProfilePicturePath;
+            currentUserName = currentUser?.UserName;
+            unreadCount     = await ChatService.GetUnreadCountAsync(currentUid);
         }
-
         if (isAdminUser)
         {
             var pending = await RoomService.GetPendingApprovalAsync();
-            pendingRoomCount = pending.Count;
-            pendingKycCount = await KycService.CountPendingAsync();
+            pendingRoomCount    = pending.Count;
+            pendingKycCount     = await KycService.CountPendingAsync();
             pendingPaymentCount = await PaymentService.CountPendingPaymentsAsync();
         }
     }
+
+    string currentMode = Context.Request.Cookies["UserMode"] ?? "owner";
+    bool ownerMode = currentMode == "owner";
+
+    bool IsActive(string path) =>
+        currentPath == path.ToLower() || currentPath.StartsWith(path.ToLower() + "/");
 }
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
@@ -41,8 +49,8 @@
 
     <script>
         (function () {
-            const savedTheme = localStorage.getItem('bp-theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
+            const t = localStorage.getItem('bp-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
         })();
     </script>
 
@@ -55,7 +63,7 @@
             --primary: #3b82f6;
             --primary-dark: #1d4ed8;
             --primary-mid: #60a5fa;
-            --primary-light: rgba(59, 130, 246, 0.08);
+            --primary-light: rgba(59,130,246,0.08);
             --success: #10b981;
             --success-light: #ecfdf5;
             --warning: #f59e0b;
@@ -67,835 +75,754 @@
             --muted: #64748b;
             --bg: #f8fafc;
             --white: #ffffff;
-            --navbar-bg: rgba(255, 255, 255, 0.85);
+            --sidebar-w: 230px;
+            --topbar-h: 58px;
             --radius-sm: 8px;
             --radius-md: 10px;
             --radius-lg: 12px;
             --radius-xl: 16px;
             --radius-2xl: 24px;
-            --shadow-sm: 0 1px 3px rgba(15,23,42,0.04), 0 1px 2px rgba(15,23,42,0.06);
-            --shadow-md: 0 8px 30px rgba(15,23,42,0.06);
-            --shadow-lg: 0 20px 50px rgba(15,23,42,0.08);
-            --shadow-glow: 0 0 0 4px rgba(59,130,246,0.12);
-            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            --font-base: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            --shadow-sm: 0 1px 3px rgba(15,23,42,.04),0 1px 2px rgba(15,23,42,.06);
+            --shadow-md: 0 8px 30px rgba(15,23,42,.06);
+            --shadow-lg: 0 20px 50px rgba(15,23,42,.08);
+            --shadow-glow: 0 0 0 4px rgba(59,130,246,.12);
+            --transition: all .25s cubic-bezier(.4,0,.2,1);
+            --font-base: 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
         }
-
         [data-theme="dark"] {
-            --primary: #60a5fa;
-            --primary-dark: #3b82f6;
-            --primary-mid: #93c5fd;
-            --primary-light: rgba(96, 165, 250, 0.12);
-            --success: #34d399;
-            --success-light: rgba(52, 211, 153, 0.1);
-            --warning: #fbbf24;
-            --warning-light: rgba(251, 191, 36, 0.1);
-            --danger: #f87171;
-            --danger-light: rgba(248, 113, 113, 0.1);
-            --border: #1e293b;
-            --text: #f8fafc;
-            --muted: #94a3b8;
-            --bg: #090d16;
-            --white: #111827;
-            --navbar-bg: rgba(17, 24, 39, 0.85);
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.2);
-            --shadow-md: 0 8px 30px rgba(0,0,0,0.25);
-            --shadow-lg: 0 20px 50px rgba(0,0,0,0.35);
-            --shadow-glow: 0 0 0 4px rgba(96,165,250,0.18);
+            --primary:#60a5fa; --primary-dark:#3b82f6; --primary-mid:#93c5fd;
+            --primary-light:rgba(96,165,250,.12);
+            --success:#34d399; --success-light:rgba(52,211,153,.1);
+            --warning:#fbbf24; --warning-light:rgba(251,191,36,.1);
+            --danger:#f87171; --danger-light:rgba(248,113,113,.1);
+            --border:#1e293b; --text:#f8fafc; --muted:#94a3b8;
+            --bg:#090d16; --white:#111827;
+            --shadow-sm:0 1px 3px rgba(0,0,0,.2);
+            --shadow-md:0 8px 30px rgba(0,0,0,.25);
+            --shadow-lg:0 20px 50px rgba(0,0,0,.35);
+            --shadow-glow:0 0 0 4px rgba(96,165,250,.18);
         }
 
-        * { box-sizing: border-box; }
-        body {
-            font-family: var(--font-base);
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex; 
+        *{box-sizing:border-box;}
+        body{
+            font-family:var(--font-base);
+            background:var(--bg); color:var(--text);
+            margin:0; padding:0;
+            transition:background .3s ease,color .3s ease;
+        }
+        a{color:var(--primary);text-decoration:none;transition:var(--transition);}
+        a:hover{color:var(--primary-dark);}
+
+        /* ── SIDEBAR ── */
+        .bp-sidebar {
+            position: fixed;
+            left: 0; top: 0; bottom: 0;
+            width: var(--sidebar-w);
+            background: var(--white);
+            border-right: 1px solid var(--border);
+            display: flex;
             flex-direction: column;
-            margin: 0;
-            transition: background 0.30s ease, color 0.30s ease;
+            z-index: 200;
+            transition: transform .3s ease;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
-        main { flex: 1; }
-        a { color: var(--primary); text-decoration: none; transition: var(--transition); }
-        a:hover { color: var(--primary-dark); }
+        .bp-sidebar::-webkit-scrollbar { width: 4px; }
+        .bp-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 99px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--muted);
-        }
-
-        /* Ripple Splash Animations on Buttons */
-        .btn-auth, .btn-nx, .btn-hero {
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Buttons */
-        .btn-auth {
-            width: 100%;
-            height: 52px;
-            border: none;
-            border-radius: var(--radius-lg);
-            background: var(--primary);
-            color: #ffffff;
-            font-family: var(--font-base);
-            font-weight: 700;
-            font-size: 15px;
-            cursor: pointer;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            text-decoration: none;
-        }
-        .btn-auth:hover {
-            background: var(--primary-dark);
-            color: #ffffff;
-            text-decoration: none;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
-        }
-        .btn-auth:active { transform: translateY(0); }
-
-        .btn-auth.outline {
-            background: var(--white);
-            color: var(--primary);
-            border: 2px solid var(--border);
-        }
-        .btn-auth.outline:hover {
-            border-color: var(--primary);
-            background: var(--primary-light);
-            color: var(--primary-dark);
-            box-shadow: none;
-        }
-        .btn-auth.success { background: var(--success); }
-        .btn-auth.success:hover {
-            background: #059669;
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.25);
-        }
-        .btn-auth.warning { background: var(--warning); }
-        .btn-auth.warning:hover {
-            background: #d97706;
-            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.25);
-        }
-        .btn-auth.danger { background: var(--danger); }
-        .btn-auth.danger:hover {
-            background: #dc2626;
-            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.25);
-        }
-
-        .btn-nx {
-            height: 38px;
-            padding: 0 18px;
-            border: none;
-            border-radius: var(--radius-md);
-            background: var(--primary);
-            color: #ffffff;
-            font-family: var(--font-base);
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            text-decoration: none;
-        }
-        .btn-nx:hover {
-            background: var(--primary-dark);
-            color: #ffffff;
-            text-decoration: none;
-            transform: translateY(-1px);
-        }
-        .btn-nx.outline {
-            background: var(--white);
-            color: var(--text);
-            border: 1px solid var(--border);
-        }
-        .btn-nx.outline:hover {
-            background: var(--primary-light);
-            color: var(--primary);
-            border-color: var(--primary);
-        }
-        .btn-nx.outline-danger {
-            background: var(--white);
-            color: var(--danger);
-            border: 1px solid var(--border);
-        }
-        .btn-nx.outline-danger:hover {
-            background: var(--danger-light);
-            color: var(--danger);
-            border-color: var(--danger);
-        }
-        .btn-nx.success { background: var(--success); }
-        .btn-nx.success:hover { background: #059669; color: #ffffff; }
-        .btn-nx.warning { background: var(--warning); }
-        .btn-nx.warning:hover { background: #d97706; color: #ffffff; }
-        .btn-nx.danger { background: var(--danger); }
-        .btn-nx.danger:hover { background: #dc2626; color: #ffffff; }
-        .btn-nx.sm { height: 32px; padding: 0 12px; font-size: 12px; }
-
-        .auth-link {
-            color: var(--primary);
-            font-weight: 600;
-            text-decoration: none;
-            transition: var(--transition);
-        }
-        .auth-link:hover {
-            color: var(--primary-dark);
-            text-decoration: underline;
-        }
-
-        /* Navbar glassmorphism styling */
-        .nx-navbar {
-            background: var(--navbar-bg);
-            border-bottom: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-            padding: 0.8rem 0;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            transition: var(--transition);
-        }
-        .nx-brand {
+        .bp-brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+            padding: 1.1rem 1.2rem 0.8rem;
             text-decoration: none;
             color: var(--text);
-            transition: var(--transition);
+            flex-shrink: 0;
         }
-        .nx-brand:hover { color: var(--primary); text-decoration: none; }
-        .nx-brand-icon {
-            width: 42px;
-            height: 42px;
+        .bp-brand:hover { color: var(--primary); }
+        .bp-brand-icon {
+            width: 38px; height: 38px;
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             border-radius: var(--radius-lg);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 1.1rem;
+            box-shadow: 0 4px 12px rgba(59,130,246,.25);
+            flex-shrink: 0;
+            transition: var(--transition);
+        }
+        .bp-brand:hover .bp-brand-icon { transform: rotate(-8deg) scale(1.05); }
+        .bp-brand-name {
+            font-size: 1rem; font-weight: 800; letter-spacing: -.4px;
+            background: linear-gradient(135deg, var(--text), var(--primary-dark));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        [data-theme="dark"] .bp-brand-name {
+            background: linear-gradient(135deg,#fff,var(--primary-mid));
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+        }
+
+        .bp-sidenav { padding: 0.3rem 0.65rem; flex: 1; }
+
+        .bp-nav-section {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .7px;
+            padding: 0.9rem 0.6rem 0.35rem;
+        }
+
+        .bp-nav-item {
             display: flex;
             align-items: center;
-            justify-content: center;
-            color: #ffffff;
-            font-size: 1.25rem;
-            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.25);
-            transition: var(--transition);
-        }
-        .nx-brand:hover .nx-brand-icon {
-            transform: rotate(-8deg) scale(1.05);
-        }
-        .nx-brand-name {
-            font-size: 1.25rem;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            background: linear-gradient(135deg, var(--text), var(--primary-dark));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        [data-theme="dark"] .nx-brand-name {
-            background: linear-gradient(135deg, #ffffff, var(--primary-mid));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .nx-nav-link {
-            font-size: 0.92rem;
-            font-weight: 600;
-            color: var(--muted);
-            padding: 0.6rem 1rem;
+            gap: 0.7rem;
+            padding: 0.55rem 0.75rem;
             border-radius: var(--radius-md);
+            color: var(--muted);
+            font-size: 0.875rem;
+            font-weight: 600;
             text-decoration: none;
             transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
+            position: relative;
+            margin-bottom: 2px;
         }
-        .nx-nav-link:hover {
+        .bp-nav-item i { font-size: 1.05rem; flex-shrink: 0; width: 20px; text-align: center; }
+        .bp-nav-item:hover {
             background: var(--primary-light);
             color: var(--primary);
-            text-decoration: none;
         }
-        .nx-badge {
-            display: inline-block;
+        .bp-nav-item.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            font-weight: 700;
+        }
+        .bp-nav-item.active i { color: var(--primary); }
+
+        .bp-nav-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             background: var(--danger);
-            color: #ffffff;
+            color: #fff;
             border-radius: 999px;
-            padding: 0.15rem 0.5rem;
-            font-size: 0.72rem;
+            font-size: 0.65rem;
             font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            margin-left: auto;
         }
-        .nx-badge-warning { background: var(--warning); color: #000; }
-        [data-theme="dark"] .nx-badge-warning { color: #fff; }
+        .bp-nav-badge.warning { background: var(--warning); color: #000; }
+        [data-theme="dark"] .bp-nav-badge.warning { color: #fff; }
         @@keyframes pulse-dot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50%      { transform: scale(1.15); opacity: 0.85; }
+            0%,100%{transform:scale(1);opacity:1;}
+            50%{transform:scale(1.2);opacity:.8;}
         }
-        .nx-badge.pulse { animation: pulse-dot 1.6s ease-in-out infinite; }
+        .bp-nav-badge.pulse { animation: pulse-dot 1.6s ease-in-out infinite; }
 
-        .mode-pill {
-            background: var(--primary-light);
-            color: var(--primary);
-            border-radius: 999px;
-            padding: 0.45rem 1.05rem;
-            font-size: 0.85rem;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: var(--transition);
-            text-decoration: none;
-        }
-        .mode-pill:hover {
-            border-color: var(--primary-mid);
-            color: var(--primary-dark);
-            text-decoration: none;
+        .bp-sidebar-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 0.5rem 0.65rem;
         }
 
-        .nav-avatar {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--border);
-            transition: var(--transition);
+        /* ── SIDEBAR BOTTOM (user info) ── */
+        .bp-sidebar-footer {
+            padding: 0.75rem 0.9rem;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
         }
-        .nav-avatar:hover {
-            border-color: var(--primary);
-            transform: scale(1.05);
-        }
-        .nav-avatar-default {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            background: var(--primary-light);
-            color: var(--primary);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            font-weight: 700;
-            border: 2px solid var(--border);
-        }
-
-        /* Theme Toggle Pill Styling */
-        .theme-pill-btn {
-            background: transparent;
-            border: none;
-            color: var(--muted);
-            width: 38px;
-            height: 38px;
-            border-radius: var(--radius-md);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-        .theme-pill-btn:hover {
-            background: var(--primary-light);
-            color: var(--primary);
-            transform: scale(1.05);
-        }
-
-        /* Auth Card Layout styling */
-        .auth-card {
-            max-width: 520px;
-            margin: 3rem auto;
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-2xl);
-            padding: 40px;
-            box-shadow: var(--shadow-lg);
-            transition: background 0.3s ease, border-color 0.3s ease;
-        }
-
-        /* Nx Card Overrides & Modern Glow */
-        .nx-card {
-            background: var(--white);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-            overflow: hidden;
-            position: relative;
-        }
-        .nx-card:hover { 
-            box-shadow: var(--shadow-md); 
-            transform: translateY(-6px);
-            border-color: var(--primary-mid);
-        }
-
-        /* Hero Modern mesh gradient overlay */
-        .nx-hero {
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e1b4b 50%, #311042 100%);
-            color: #ffffff;
-            padding: 5rem 1.5rem;
-            border-radius: var(--radius-2xl);
-            margin: 1.5rem 0 3rem;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
-        }
-        [data-theme="dark"] .nx-hero {
-            background: linear-gradient(135deg, #0f172a 0%, #030712 50%, #1e1b4b 100%);
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-        .nx-hero::before {
-            content: '';
-            position: absolute; inset: 0;
-            background: radial-gradient(ellipse 70% 80% at 50% -10%, rgba(255,255,255,0.12), transparent);
-            pointer-events: none;
-        }
-        /* Floating background ambient glow inside hero */
-        .nx-hero::after {
-            content: '';
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            background: rgba(59, 130, 246, 0.15);
-            border-radius: 50%;
-            filter: blur(80px);
-            top: -100px;
-            right: -100px;
-            pointer-events: none;
-        }
-        .nx-hero > * { position: relative; z-index: 1; }
-        .nx-hero h1 {
-            font-weight: 800;
-            letter-spacing: -0.8px;
-            margin-bottom: 0.8rem;
-        }
-        .nx-hero .lead { opacity: 0.88; font-weight: 400; max-width: 600px; margin: 0 auto; }
-
-        .btn-hero {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #ffffff;
-            color: #1e3a8a;
-            font-weight: 700;
-            font-size: 15px;
-            padding: 14px 34px;
-            border-radius: var(--radius-lg);
-            border: none;
-            text-decoration: none;
-            transition: var(--transition);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        .btn-hero:hover {
-            color: #1d4ed8;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.25);
-            text-decoration: none;
-        }
-
-        /* Alerts and Overrides */
-        .nx-alert {
-            border: 1px solid;
-            border-radius: var(--radius-md);
-            padding: 1rem 1.25rem;
-            font-size: 0.92rem;
+        .bp-sidebar-user {
             display: flex;
             align-items: center;
             gap: 0.6rem;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-        }
-        .nx-alert-success { background: var(--success-light); border-color: rgba(16, 185, 129, 0.2); color: #047857; }
-        .nx-alert-danger  { background: var(--danger-light);  border-color: rgba(239, 68, 68, 0.2); color: #b91c1c; }
-        .nx-alert-warning { background: var(--warning-light); border-color: rgba(245, 158, 11, 0.2); color: #b45309; }
-        .nx-alert-info    { background: var(--primary-light); border-color: rgba(59, 130, 246, 0.2); color: var(--primary-dark); }
-        [data-theme="dark"] .nx-alert-success { color: #34d399; }
-        [data-theme="dark"] .nx-alert-danger { color: #f87171; }
-        [data-theme="dark"] .nx-alert-warning { color: #fbbf24; }
-        [data-theme="dark"] .nx-alert-info { color: #60a5fa; }
-
-        .badge-pending {
-            background: var(--warning-light);
-            color: #b45309;
-            border: 1px solid rgba(245, 158, 11, 0.15);
-            padding: 0.25rem 0.75rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .badge-approved {
-            background: var(--success-light);
-            color: #047857;
-            border: 1px solid rgba(16, 185, 129, 0.15);
-            padding: 0.25rem 0.75rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        [data-theme="dark"] .badge-pending { color: #fbbf24; }
-        [data-theme="dark"] .badge-approved { color: #34d399; }
-
-        /* Form Inputs */
-        .form-control, .form-select {
-            font-family: var(--font-base);
-            border: 1px solid var(--border);
+            padding: 0.5rem 0.6rem;
             border-radius: var(--radius-lg);
-            padding: 0.7rem 1.1rem;
-            font-size: 0.93rem;
-            height: 52px;
-            background-color: var(--white);
-            color: var(--text);
-            transition: var(--transition);
-        }
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary);
-            box-shadow: var(--shadow-glow);
-            background-color: var(--white);
-            color: var(--text);
-            outline: none;
-        }
-        .form-control::placeholder {
-            color: var(--muted);
-            opacity: 0.65;
-        }
-        textarea.form-control { height: auto; min-height: 90px; }
-        .form-label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text);
-            margin-bottom: 0.45rem;
-        }
-
-        /* Role Card Upgrade */
-        .role-card {
-            border: 2px solid var(--border);
-            border-radius: var(--radius-xl);
-            background: var(--white);
-            text-decoration: none;
-            color: inherit;
-            display: block;
-            padding: 2.5rem;
-            transition: var(--transition);
             cursor: pointer;
-            text-align: center;
-            box-shadow: var(--shadow-sm);
-        }
-        .role-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary);
-            color: inherit;
             text-decoration: none;
+            color: var(--text);
+            transition: var(--transition);
         }
-        .role-card .icon-wrap {
-            width: 80px;
-            height: 80px;
+        .bp-sidebar-user:hover { background: var(--primary-light); color: var(--primary); }
+        .bp-sidebar-user-name { font-size: 0.83rem; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bp-sidebar-user-role { font-size: 0.7rem; color: var(--muted); }
+        .nav-avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%; object-fit: cover;
+            border: 2px solid var(--border); flex-shrink: 0;
+        }
+        .nav-avatar-default {
+            width: 32px; height: 32px;
             border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2.2rem;
-            margin-bottom: 1.25rem;
-            transition: var(--transition);
+            background: var(--primary-light); color: var(--primary);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: .9rem; font-weight: 700;
+            border: 2px solid var(--border); flex-shrink: 0;
         }
-        .role-card:hover .icon-wrap {
-            transform: scale(1.08) rotate(-5deg);
+
+        /* ── TOPBAR ── */
+        .bp-topbar {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(var(--white-rgb, 255,255,255),.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            height: var(--topbar-h);
+            display: flex; align-items: center;
+            padding: 0 1.25rem;
+            gap: 0.75rem;
         }
-        .icon-admin { background: var(--primary-light); color: var(--primary); }
-        .icon-user  { background: var(--success-light); color: var(--success); }
+        [data-theme="dark"] .bp-topbar { background: rgba(17,24,39,.85); }
 
-        /* Footer styling */
-        .nx-footer {
-            background: var(--white);
-            border-top: 1px solid var(--border);
-            padding: 1.5rem 0;
-            color: var(--muted);
-            font-size: 0.85rem;
-            margin-top: 4rem;
-            transition: background 0.3s ease, border-color 0.3s ease;
-        }
-        .nx-footer a { color: var(--primary); text-decoration: none; font-weight: 600; }
-        .nx-footer a:hover { color: var(--primary-dark); text-decoration: underline; }
-
-        /* General Animations */
-        @@keyframes fadeUp {
-            from { opacity: 0; transform: translateY(12px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        .fade-up { animation: fadeUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both; }
-
-        .nx-alert .btn-close { padding: 0.6rem; color: var(--text); }
-
-        /* Pagination style */
-        .pagination .page-link {
-            color: var(--primary);
-            background-color: var(--white);
-            border-color: var(--border);
-            font-weight: 600;
+        .bp-topbar-hamburger {
+            display: none;
+            background: none; border: none;
+            color: var(--muted); font-size: 1.3rem;
+            cursor: pointer; padding: 6px;
             border-radius: var(--radius-md);
-            margin: 0 3px;
-            padding: 0.5rem 0.95rem;
             transition: var(--transition);
         }
-        .pagination .page-link:hover {
-            background-color: var(--primary-light);
-            border-color: var(--primary-mid);
+        .bp-topbar-hamburger:hover { background: var(--primary-light); color: var(--primary); }
+
+        .bp-topbar-right {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 0.5rem;
         }
-        .pagination .page-item.active .page-link {
-            background: var(--primary);
-            border-color: var(--primary);
-            color: #ffffff !important;
+
+        .theme-pill-btn {
+            background: transparent; border: none;
+            color: var(--muted); width: 36px; height: 36px;
+            border-radius: var(--radius-md);
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: var(--transition);
         }
-        .pagination .page-item.disabled .page-link {
-            color: var(--muted);
-            background-color: var(--white);
-            border-color: var(--border);
-            opacity: 0.5;
+        .theme-pill-btn:hover { background: var(--primary-light); color: var(--primary); }
+
+        /* mode pill in topbar */
+        .mode-pill {
+            background: var(--primary-light); color: var(--primary);
+            border-radius: 999px; padding: .35rem .9rem;
+            font-size: .82rem; font-weight: 600;
+            display: inline-flex; align-items: center; gap: .4rem;
+            border: 1px solid transparent; cursor: pointer;
+            transition: var(--transition); text-decoration: none;
+        }
+        .mode-pill:hover { border-color: var(--primary-mid); color: var(--primary-dark); }
+
+        /* ── MAIN CONTENT AREA ── */
+        .bp-main {
+            margin-left: var(--sidebar-w);
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+        }
+        .bp-content { flex: 1; }
+
+        /* ── MOBILE OVERLAY ── */
+        .bp-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.4);
+            z-index: 199;
+        }
+        .bp-overlay.show { display: block; }
+
+        @@media (max-width: 768px) {
+            .bp-sidebar { transform: translateX(-100%); }
+            .bp-sidebar.open { transform: translateX(0); }
+            .bp-main { margin-left: 0; }
+            .bp-topbar-hamburger { display: inline-flex; }
+        }
+
+        /* ── BUTTONS ── */
+        .btn-auth,.btn-nx,.btn-hero{position:relative;overflow:hidden;}
+        .btn-auth{
+            width:100%; height:52px; border:none;
+            border-radius:var(--radius-lg); background:var(--primary);
+            color:#fff; font-family:var(--font-base); font-weight:700;
+            font-size:15px; cursor:pointer; transition:var(--transition);
+            display:inline-flex; align-items:center; justify-content:center;
+            gap:8px; text-decoration:none;
+        }
+        .btn-auth:hover{background:var(--primary-dark);color:#fff;transform:translateY(-2px);box-shadow:0 6px 20px rgba(59,130,246,.25);}
+        .btn-auth.outline{background:var(--white);color:var(--primary);border:2px solid var(--border);}
+        .btn-auth.outline:hover{border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark);box-shadow:none;}
+        .btn-auth.success{background:var(--success);}
+        .btn-auth.success:hover{background:#059669;box-shadow:0 6px 20px rgba(16,185,129,.25);}
+        .btn-auth.danger{background:var(--danger);}
+        .btn-auth.danger:hover{background:#dc2626;box-shadow:0 6px 20px rgba(239,68,68,.25);}
+
+        .btn-nx{
+            height:38px; padding:0 18px; border:none;
+            border-radius:var(--radius-md); background:var(--primary);
+            color:#fff; font-family:var(--font-base); font-weight:600;
+            font-size:13px; cursor:pointer; transition:var(--transition);
+            display:inline-flex; align-items:center; justify-content:center;
+            gap:6px; text-decoration:none;
+        }
+        .btn-nx:hover{background:var(--primary-dark);color:#fff;transform:translateY(-1px);}
+        .btn-nx.outline{background:var(--white);color:var(--text);border:1px solid var(--border);}
+        .btn-nx.outline:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary);}
+        .btn-nx.outline-danger{background:var(--white);color:var(--danger);border:1px solid var(--border);}
+        .btn-nx.outline-danger:hover{background:var(--danger-light);border-color:var(--danger);}
+        .btn-nx.success{background:var(--success);}
+        .btn-nx.success:hover{background:#059669;color:#fff;}
+        .btn-nx.warning{background:var(--warning);}
+        .btn-nx.warning:hover{background:#d97706;color:#fff;}
+        .btn-nx.danger{background:var(--danger);}
+        .btn-nx.danger:hover{background:#dc2626;color:#fff;}
+        .btn-nx.sm{height:32px;padding:0 12px;font-size:12px;}
+
+        .auth-link{color:var(--primary);font-weight:600;text-decoration:none;transition:var(--transition);}
+        .auth-link:hover{color:var(--primary-dark);text-decoration:underline;}
+
+        /* ── CARDS ── */
+        .nx-card{
+            background:var(--white); border:1px solid var(--border);
+            border-radius:var(--radius-xl); box-shadow:var(--shadow-sm);
+            transition:var(--transition); overflow:hidden; position:relative;
+        }
+        .nx-card:hover{box-shadow:var(--shadow-md);transform:translateY(-6px);border-color:var(--primary-mid);}
+
+        /* ── ALERTS ── */
+        .nx-alert{
+            border:1px solid; border-radius:var(--radius-md);
+            padding:1rem 1.25rem; font-size:.92rem;
+            display:flex; align-items:center; gap:.6rem;
+            box-shadow:var(--shadow-sm); transition:var(--transition);
+        }
+        .nx-alert-success{background:var(--success-light);border-color:rgba(16,185,129,.2);color:#047857;}
+        .nx-alert-danger{background:var(--danger-light);border-color:rgba(239,68,68,.2);color:#b91c1c;}
+        .nx-alert-warning{background:var(--warning-light);border-color:rgba(245,158,11,.2);color:#b45309;}
+        .nx-alert-info{background:var(--primary-light);border-color:rgba(59,130,246,.2);color:var(--primary-dark);}
+        [data-theme="dark"] .nx-alert-success{color:#34d399;}
+        [data-theme="dark"] .nx-alert-danger{color:#f87171;}
+        [data-theme="dark"] .nx-alert-warning{color:#fbbf24;}
+        [data-theme="dark"] .nx-alert-info{color:#60a5fa;}
+        .nx-alert .btn-close{padding:.6rem;color:var(--text);}
+
+        /* ── BADGES ── */
+        .nx-badge{
+            display:inline-block; background:var(--danger); color:#fff;
+            border-radius:999px; padding:.15rem .5rem; font-size:.72rem; font-weight:700;
+        }
+        .nx-badge-warning{background:var(--warning);color:#000;}
+        [data-theme="dark"] .nx-badge-warning{color:#fff;}
+
+        .badge-pending{
+            background:var(--warning-light); color:#b45309;
+            border:1px solid rgba(245,158,11,.15);
+            padding:.25rem .75rem; border-radius:999px; font-size:.75rem; font-weight:600;
+        }
+        .badge-approved{
+            background:var(--success-light); color:#047857;
+            border:1px solid rgba(16,185,129,.15);
+            padding:.25rem .75rem; border-radius:999px; font-size:.75rem; font-weight:600;
+        }
+        [data-theme="dark"] .badge-pending{color:#fbbf24;}
+        [data-theme="dark"] .badge-approved{color:#34d399;}
+
+        /* ── FORM ── */
+        .form-control,.form-select{
+            font-family:var(--font-base); border:1px solid var(--border);
+            border-radius:var(--radius-lg); padding:.7rem 1.1rem;
+            font-size:.93rem; height:52px;
+            background-color:var(--white); color:var(--text); transition:var(--transition);
+        }
+        .form-control:focus,.form-select:focus{
+            border-color:var(--primary); box-shadow:var(--shadow-glow);
+            background-color:var(--white); color:var(--text); outline:none;
+        }
+        .form-control::placeholder{color:var(--muted);opacity:.65;}
+        textarea.form-control{height:auto;min-height:90px;}
+        .form-label{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.45rem;}
+
+        /* ── AUTH CARD ── */
+        .auth-card{
+            max-width:520px; margin:3rem auto;
+            background:var(--white); border:1px solid var(--border);
+            border-radius:var(--radius-2xl); padding:40px;
+            box-shadow:var(--shadow-lg);
+        }
+
+        /* ── HERO ── */
+        .nx-hero{
+            background:linear-gradient(135deg,#1e3a8a 0%,#1e1b4b 50%,#311042 100%);
+            color:#fff; padding:5rem 1.5rem;
+            border-radius:var(--radius-2xl); margin:1.5rem 0 3rem;
+            text-align:center; position:relative; overflow:hidden;
+            box-shadow:0 20px 40px rgba(15,23,42,.25);
+        }
+        [data-theme="dark"] .nx-hero{background:linear-gradient(135deg,#0f172a 0%,#030712 50%,#1e1b4b 100%);border:1px solid rgba(255,255,255,.05);}
+        .nx-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 80% at 50% -10%,rgba(255,255,255,.12),transparent);pointer-events:none;}
+        .nx-hero>*{position:relative;z-index:1;}
+        .nx-hero h1{font-weight:800;letter-spacing:-.8px;margin-bottom:.8rem;}
+        .nx-hero .lead{opacity:.88;font-weight:400;max-width:600px;margin:0 auto;}
+
+        .btn-hero{
+            display:inline-flex; align-items:center; gap:8px;
+            background:#fff; color:#1e3a8a; font-weight:700; font-size:15px;
+            padding:14px 34px; border-radius:var(--radius-lg); border:none;
+            text-decoration:none; transition:var(--transition);
+            box-shadow:0 4px 15px rgba(0,0,0,.1);
+        }
+        .btn-hero:hover{color:#1d4ed8;transform:translateY(-2px);box-shadow:0 8px 25px rgba(255,255,255,.25);}
+
+        /* ── ROLE CARD ── */
+        .role-card{
+            border:2px solid var(--border); border-radius:var(--radius-xl);
+            background:var(--white); text-decoration:none; color:inherit;
+            display:block; padding:2.5rem; transition:var(--transition);
+            cursor:pointer; text-align:center; box-shadow:var(--shadow-sm);
+        }
+        .role-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);border-color:var(--primary);color:inherit;}
+        .role-card .icon-wrap{
+            width:80px;height:80px;border-radius:50%;
+            display:inline-flex;align-items:center;justify-content:center;
+            font-size:2.2rem;margin-bottom:1.25rem;transition:var(--transition);
+        }
+        .role-card:hover .icon-wrap{transform:scale(1.08) rotate(-5deg);}
+        .icon-admin{background:var(--primary-light);color:var(--primary);}
+        .icon-user{background:var(--success-light);color:var(--success);}
+
+        /* ── PAGINATION ── */
+        .pagination .page-link{
+            color:var(--primary);background-color:var(--white);border-color:var(--border);
+            font-weight:600;border-radius:var(--radius-md);margin:0 3px;
+            padding:.5rem .95rem;transition:var(--transition);
+        }
+        .pagination .page-link:hover{background-color:var(--primary-light);border-color:var(--primary-mid);}
+        .pagination .page-item.active .page-link{background:var(--primary);border-color:var(--primary);color:#fff!important;}
+        .pagination .page-item.disabled .page-link{color:var(--muted);opacity:.5;}
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar{width:8px;height:8px;}
+        ::-webkit-scrollbar-track{background:var(--bg);}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+        ::-webkit-scrollbar-thumb:hover{background:var(--muted);}
+
+        /* ── FOOTER ── */
+        .nx-footer{
+            background:var(--white);border-top:1px solid var(--border);
+            padding:1.25rem 0;color:var(--muted);font-size:.85rem;
+        }
+        .nx-footer a{color:var(--primary);text-decoration:none;font-weight:600;}
+
+        /* ── ANIMATION ── */
+        @@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+        .fade-up{animation:fadeUp .5s cubic-bezier(.4,0,.2,1) both;}
+
+        /* ── SIDEBAR COLLAPSED (desktop toggle) ── */
+        .bp-sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        .bp-main.sidebar-collapsed {
+            margin-left: 0 !important;
+        }
+        @@media (min-width: 769px) {
+            .bp-topbar-hamburger { display: inline-flex; }
+        }
+
+        /* ── GUEST NAVBAR ── */
+        .bp-guest-nav {
+            background: var(--white);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: .8rem 0;
+            position: sticky; top: 0; z-index: 200;
+            transition: background .3s ease;
+        }
+
+        /* ── CHIP ── */
+        .chip{
+            display:inline-flex;align-items:center;gap:6px;
+            background:var(--primary-light);color:var(--primary);
+            border-radius:999px;padding:.25rem .7rem;font-size:.78rem;font-weight:600;
         }
     </style>
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-md nx-navbar">
-            <div class="container">
-                <a class="nx-brand" asp-controller="Home" asp-action="Index">
-                    <div class="nx-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
-                    <span class="nx-brand-name">Bachelor's Point</span>
-                </a>
-                @if (isAuthed)
+
+@if (isAuthed)
+{
+    <!-- Mobile overlay -->
+    <div class="bp-overlay" id="sidebarOverlay"></div>
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="bp-sidebar" id="sidebar">
+
+        <!-- Brand -->
+        <a class="bp-brand" asp-controller="Home" asp-action="Index">
+            <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
+            <span class="bp-brand-name">Bachelor's Point</span>
+        </a>
+
+        <div class="bp-sidenav">
+
+            <!-- Common links -->
+            <a class="bp-nav-item @(IsActive("/home") || currentPath=="/" ? "active" : "")"
+               asp-controller="Home" asp-action="Index">
+                <i class="bi bi-grid-1x2-fill"></i> Home
+            </a>
+
+            <a class="bp-nav-item @(IsActive("/room/index") || currentPath=="/room" ? "active" : "")"
+               asp-controller="Room" asp-action="Index">
+                <i class="bi bi-search"></i> Browse Rooms
+            </a>
+
+            <a class="bp-nav-item @(IsActive("/chat") ? "active" : "")"
+               asp-controller="Chat" asp-action="Index">
+                <i class="bi bi-chat-dots-fill"></i> Messages
+                @if (unreadCount > 0)
                 {
-                    string currentMode = Context.Request.Cookies["UserMode"] ?? "owner";
-                    bool ownerMode = currentMode == "owner";
+                    <span class="bp-nav-badge pulse">@unreadCount</span>
+                }
+            </a>
 
-                    <div class="d-flex align-items-center gap-2 ms-auto order-md-last">
-                        <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
-                            <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size: 1.15rem;"></i>
-                        </button>
-                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Toggle navigation">
-                            <span class="navbar-toggler-icon"></span>
-                        </button>
-                    </div>
+            @if (isAdminUser)
+            {
+                <div class="bp-sidebar-divider"></div>
+                <div class="bp-nav-section">Admin</div>
 
-                    <div class="collapse navbar-collapse" id="navMain">
-                        <ul class="navbar-nav mx-auto align-items-center gap-1">
-                            <li class="nav-item">
-                                <a class="nx-nav-link" asp-controller="Home" asp-action="Index">
-                                    <i class="bi bi-grid-1x2-fill"></i> Home
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nx-nav-link" asp-controller="Room" asp-action="Index">
-                                    <i class="bi bi-search"></i> Browse Rooms
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nx-nav-link" asp-controller="Room" asp-action="Index" asp-route-openFilters="1"
-                                   title="Advanced filters">
-                                    <i class="bi bi-funnel-fill"></i> Filter
-                                </a>
-                            </li>
+                <a class="bp-nav-item @(IsActive("/room/pending") ? "active" : "")"
+                   asp-controller="Room" asp-action="Pending">
+                    <i class="bi bi-clock-history"></i> Pending Rooms
+                    @if (pendingRoomCount > 0)
+                    {
+                        <span class="bp-nav-badge warning pulse">@pendingRoomCount</span>
+                    }
+                </a>
 
-                            @if (isAdminUser)
-                            {
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="Room" asp-action="Pending"
-                                       title="@(pendingRoomCount > 0 ? $"{pendingRoomCount} room(s) waiting for approval" : "No rooms pending")">
-                                        <i class="bi bi-clock-history"></i> Pending
-                                        @if (pendingRoomCount > 0)
-                                        {
-                                            <span class="nx-badge nx-badge-warning pulse">@pendingRoomCount</span>
-                                        }
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="Payment" asp-action="AdminPayments"
-                                       title="@(pendingPaymentCount > 0 ? $"{pendingPaymentCount} payment(s) awaiting verification" : "Payment verification")">
-                                        <i class="bi bi-cash-coin"></i> Payments
-                                        @if (pendingPaymentCount > 0)
-                                        {
-                                            <span class="nx-badge pulse">@pendingPaymentCount</span>
-                                        }
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="User" asp-action="Index">
-                                        <i class="bi bi-people-fill"></i> Users
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="Role" asp-action="Index">
-                                        <i class="bi bi-shield-lock-fill"></i> Roles
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="Kyc" asp-action="Pending"
-                                       title="@(pendingKycCount > 0 ? $"{pendingKycCount} verification(s) waiting" : "KYC verifications")">
-                                        <i class="bi bi-person-vcard-fill"></i> Verifications
-                                        @if (pendingKycCount > 0)
-                                        {
-                                            <span class="nx-badge nx-badge-warning pulse">@pendingKycCount</span>
-                                        }
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="Kyc" asp-action="LoginActivity">
-                                        <i class="bi bi-activity"></i> Login Activity
-                                    </a>
-                                </li>
-                            }
-                            else if (ownerMode)
-                            {
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="Room" asp-action="Create">
-                                        <i class="bi bi-plus-square-fill"></i> Post a Room
-                                    </a>
-                                </li>
-                            }
-                            else
-                            {
-                                <li class="nav-item">
-                                    <a class="nx-nav-link" asp-controller="Auth" asp-action="Profile">
-                                        <i class="bi bi-bookmark-check-fill"></i> My Bookings
-                                    </a>
-                                </li>
-                            }
+                <a class="bp-nav-item @(IsActive("/payment") ? "active" : "")"
+                   asp-controller="Payment" asp-action="AdminPayments">
+                    <i class="bi bi-cash-coin"></i> Payments
+                    @if (pendingPaymentCount > 0)
+                    {
+                        <span class="bp-nav-badge pulse">@pendingPaymentCount</span>
+                    }
+                </a>
 
-                            <li class="nav-item">
-                                <a class="nx-nav-link" asp-controller="Chat" asp-action="Index">
-                                    <i class="bi bi-chat-dots-fill"></i> Messages
-                                    @if (unreadCount > 0)
-                                    {
-                                        <span class="nx-badge">@unreadCount</span>
-                                    }
-                                </a>
-                            </li>
-                        </ul>
+                <a class="bp-nav-item @(IsActive("/user") ? "active" : "")"
+                   asp-controller="User" asp-action="Index">
+                    <i class="bi bi-people-fill"></i> Users
+                </a>
 
-                        <ul class="navbar-nav align-items-center gap-2">
-                            @if (!isAdminUser)
-                            {
-                                <li class="nav-item dropdown">
-                                    <a class="text-decoration-none" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <span class="mode-pill">
-                                            <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-search")"></i>
-                                            @(ownerMode ? "Owner Mode" : "Seeker Mode")
-                                            <i class="bi bi-caret-down-fill" style="font-size:0.65rem;"></i>
-                                        </span>
-                                    </a>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="border-color: var(--border); border-radius: var(--radius-lg); padding: 0.5rem;">
-                                        <li class="dropdown-header small" style="font-weight: 600; color: var(--muted);">Switch mode</li>
-                                        <li>
-                                            <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="mode" value="owner" />
-                                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                                <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")" style="border-radius: var(--radius-md);">
-                                                    <i class="bi bi-house-add-fill me-1"></i> Owner Mode
-                                                </button>
-                                            </form>
-                                        </li>
-                                        <li>
-                                            <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="mode" value="seeker" />
-                                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                                <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")" style="border-radius: var(--radius-md);">
-                                                    <i class="bi bi-search me-1"></i> Seeker Mode
-                                                </button>
-                                            </form>
-                                        </li>
-                                    </ul>
-                                </li>
-                            }
+                <a class="bp-nav-item @(IsActive("/role") ? "active" : "")"
+                   asp-controller="Role" asp-action="Index">
+                    <i class="bi bi-shield-lock-fill"></i> Roles
+                </a>
 
-                            <li class="nav-item">
-                                <a class="nx-nav-link d-flex align-items-center gap-2" asp-controller="Auth" asp-action="Profile" title="View profile">
-                                    @if (!string.IsNullOrEmpty(currentUserPic))
-                                    {
-                                        <img src="@currentUserPic" alt="Profile" class="nav-avatar" />
-                                    }
-                                    else
-                                    {
-                                        <span class="nav-avatar-default"><i class="bi bi-person-fill"></i></span>
-                                    }
-                                    <span>@User.Identity.Name</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <form asp-controller="Auth" asp-action="Logout" method="post" class="m-0">
+                <a class="bp-nav-item @(IsActive("/kyc") ? "active" : "")"
+                   asp-controller="Kyc" asp-action="Pending">
+                    <i class="bi bi-person-vcard-fill"></i> Verifications
+                    @if (pendingKycCount > 0)
+                    {
+                        <span class="bp-nav-badge warning pulse">@pendingKycCount</span>
+                    }
+                </a>
+
+                <a class="bp-nav-item @(IsActive("/kyc/loginactivity") ? "active" : "")"
+                   asp-controller="Kyc" asp-action="LoginActivity">
+                    <i class="bi bi-activity"></i> Login Activity
+                </a>
+            }
+            else
+            {
+                <div class="bp-sidebar-divider"></div>
+                <div class="bp-nav-section">@(ownerMode ? "Owner" : "Seeker")</div>
+
+                @if (ownerMode)
+                {
+                    <a class="bp-nav-item @(IsActive("/room/create") ? "active" : "")"
+                       asp-controller="Room" asp-action="Create">
+                        <i class="bi bi-plus-square-fill"></i> Post a Room
+                    </a>
+                    <a class="bp-nav-item @(IsActive("/room/mylistings") ? "active" : "")"
+                       asp-controller="Room" asp-action="MyListings">
+                        <i class="bi bi-house-fill"></i> My Listings
+                    </a>
+                }
+                else
+                {
+                    <a class="bp-nav-item @(IsActive("/auth/profile") ? "active" : "")"
+                       asp-controller="Auth" asp-action="Profile">
+                        <i class="bi bi-bookmark-check-fill"></i> My Bookings
+                    </a>
+                }
+
+                <a class="bp-nav-item @(IsActive("/kyc/status") || IsActive("/kyc/submit") ? "active" : "")"
+                   asp-controller="Kyc" asp-action="Status">
+                    <i class="bi bi-person-badge-fill"></i> KYC Verification
+                </a>
+
+                <a class="bp-nav-item @(IsActive("/payment/registrationfee") ? "active" : "")"
+                   asp-controller="Payment" asp-action="RegistrationFee">
+                    <i class="bi bi-cash-coin"></i> My Payment
+                </a>
+            }
+        </div>
+
+        <!-- Footer: user info + logout -->
+        <div class="bp-sidebar-footer">
+            <a class="bp-sidebar-user" asp-controller="Auth" asp-action="Profile">
+                @if (!string.IsNullOrEmpty(currentUserPic))
+                {
+                    <img src="@currentUserPic" alt="Profile" class="nav-avatar" />
+                }
+                else
+                {
+                    <span class="nav-avatar-default"><i class="bi bi-person-fill"></i></span>
+                }
+                <div style="overflow:hidden;">
+                    <div class="bp-sidebar-user-name">@(currentUserName ?? User.Identity?.Name)</div>
+                    <div class="bp-sidebar-user-role">@(isAdminUser ? "Admin" : (ownerMode ? "Owner" : "Seeker"))</div>
+                </div>
+            </a>
+            <form asp-controller="Auth" asp-action="Logout" method="post" class="mt-2">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn-nx outline-danger sm" style="width:100%;">
+                    <i class="bi bi-box-arrow-right"></i> Sign Out
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <div class="bp-main" id="mainWrap">
+
+        <!-- Top bar -->
+        <header class="bp-topbar">
+            <button class="bp-topbar-hamburger" id="sidebarToggle">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <span style="font-size:.9rem;font-weight:700;color:var(--muted);">
+                @(ViewData["Title"] ?? "Bachelor's Point")
+            </span>
+
+            <div class="bp-topbar-right">
+                <!-- Mode switcher (non-admin only) -->
+                @if (!isAdminUser)
+                {
+                    <div class="dropdown">
+                        <a class="mode-pill" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-search")"></i>
+                            @(ownerMode ? "Owner" : "Seeker")
+                            <i class="bi bi-caret-down-fill" style="font-size:.6rem;"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm"
+                            style="border-color:var(--border);border-radius:var(--radius-lg);padding:.5rem;">
+                            <li>
+                                <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
                                     @Html.AntiForgeryToken()
-                                    <button type="submit" class="btn-nx outline-danger sm" title="Logout">
-                                        <i class="bi bi-box-arrow-right"></i>
+                                    <input type="hidden" name="mode" value="owner" />
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
+                                        <i class="bi bi-house-add-fill me-1"></i> Owner Mode
+                                    </button>
+                                </form>
+                            </li>
+                            <li>
+                                <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="mode" value="seeker" />
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
+                                        <i class="bi bi-search me-1"></i> Seeker Mode
                                     </button>
                                 </form>
                             </li>
                         </ul>
                     </div>
                 }
-                else
-                {
-                    <div class="d-flex align-items-center gap-2 ms-auto">
-                        <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
-                            <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size: 1.15rem;"></i>
-                        </button>
-                        <a class="btn-nx sm outline" asp-controller="Auth" asp-action="RoleSelect">
-                            <i class="bi bi-box-arrow-in-right"></i> Sign In
-                        </a>
-                    </div>
-                }
+
+                <!-- Theme toggle -->
+                <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                    <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
+                </button>
             </div>
-        </nav>
-    </header>
+        </header>
+
+        <!-- Alerts -->
+        <div class="container-fluid px-4 pt-3">
+            @if (TempData["Success"] != null)
+            {
+                <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span class="flex-grow-1">@TempData["Success"]</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span class="flex-grow-1">@TempData["Error"]</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (isAdminUser && pendingPaymentCount > 0 && !currentPath.StartsWith("/payment"))
+            {
+                <div class="nx-alert nx-alert-info alert-dismissible fade show fade-up mb-3" role="alert">
+                    <i class="bi bi-cash-coin"></i>
+                    <div class="flex-grow-1">
+                        <strong>@pendingPaymentCount payment@(pendingPaymentCount == 1 ? "" : "s")</strong> awaiting verification.
+                        <a asp-controller="Payment" asp-action="AdminPayments" class="auth-link ms-1">Verify now &rarr;</a>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+
+        <!-- Page content -->
+        <div class="bp-content">
+            @RenderBody()
+        </div>
+
+        <footer class="nx-footer">
+            <div class="container text-center">
+                &copy; 2026 <strong>Bachelor's Point</strong> &middot;
+                <a asp-controller="Home" asp-action="Privacy">Privacy</a>
+            </div>
+        </footer>
+    </div>
+}
+else
+{
+    <!-- NOT AUTHENTICATED: minimal top navbar -->
+    <nav class="bp-guest-nav">
+        <div class="container d-flex align-items-center justify-content-between">
+            <a class="bp-brand" asp-controller="Home" asp-action="Index">
+                <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
+                <span class="bp-brand-name">Bachelor's Point</span>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                    <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
+                </button>
+                <a class="btn-nx sm outline" asp-controller="Auth" asp-action="RoleSelect">
+                    <i class="bi bi-box-arrow-in-right"></i> Sign In
+                </a>
+            </div>
+        </div>
+    </nav>
 
     <main role="main">
         <div class="container mt-3">
             @if (TempData["Success"] != null)
             {
-                <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up" role="alert">
+                <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
                     <i class="bi bi-check-circle-fill"></i>
                     <span class="flex-grow-1">@TempData["Success"]</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             }
             @if (TempData["Error"] != null)
             {
-                <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up" role="alert">
+                <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
                     <i class="bi bi-exclamation-triangle-fill"></i>
                     <span class="flex-grow-1">@TempData["Error"]</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (isAdminUser && pendingRoomCount > 0 && Context.Request.Path != "/Room/Pending")
-            {
-                <div class="nx-alert nx-alert-warning alert-dismissible fade show fade-up" role="alert">
-                    <i class="bi bi-bell-fill"></i>
-                    <div class="flex-grow-1">
-                        <strong>@pendingRoomCount new post@(pendingRoomCount == 1 ? "" : "s")</strong> waiting for your approval.
-                        <a asp-controller="Room" asp-action="Pending" class="auth-link">Review now &rarr;</a>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (isAdminUser && pendingPaymentCount > 0 && Context.Request.Path != "/Payment/AdminPayments")
-            {
-                <div class="nx-alert nx-alert-info alert-dismissible fade show fade-up" role="alert">
-                    <i class="bi bi-cash-coin"></i>
-                    <div class="flex-grow-1">
-                        <strong>@pendingPaymentCount payment@(pendingPaymentCount == 1 ? "" : "s")</strong> awaiting verification.
-                        <a asp-controller="Payment" asp-action="AdminPayments" class="auth-link">Verify now &rarr;</a>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             }
         </div>
@@ -908,39 +835,65 @@
             <a asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
+}
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const toggleButtons = document.querySelectorAll('#theme-toggle');
-            
-            function updateThemeIcon(theme) {
-                const icons = document.querySelectorAll('#theme-icon');
-                icons.forEach(icon => {
-                    if (theme === 'dark') {
-                        icon.classList.replace('bi-moon-stars-fill', 'bi-sun-fill');
-                        icon.style.color = '#fbbf24';
-                    } else {
-                        icon.classList.replace('bi-sun-fill', 'bi-moon-stars-fill');
-                        icon.style.color = '';
-                    }
-                });
-            }
-
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-            updateThemeIcon(currentTheme);
-
-            toggleButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const theme = document.documentElement.getAttribute('data-theme') || 'light';
-                    const nextTheme = theme === 'dark' ? 'light' : 'dark';
-                    document.documentElement.setAttribute('data-theme', nextTheme);
-                    localStorage.setItem('bp-theme', nextTheme);
-                    updateThemeIcon(nextTheme);
-                });
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Theme toggle
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggleBtns = document.querySelectorAll('#theme-toggle');
+        function updateIcon(theme) {
+            document.querySelectorAll('#theme-icon').forEach(i => {
+                if (theme === 'dark') {
+                    i.classList.replace('bi-moon-stars-fill','bi-sun-fill');
+                    i.style.color = '#fbbf24';
+                } else {
+                    i.classList.replace('bi-sun-fill','bi-moon-stars-fill');
+                    i.style.color = '';
+                }
             });
+        }
+        const cur = document.documentElement.getAttribute('data-theme') || 'light';
+        updateIcon(cur);
+        toggleBtns.forEach(btn => btn.addEventListener('click', () => {
+            const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+            localStorage.setItem('bp-theme', t);
+            updateIcon(t);
+        }));
+
+        // Sidebar toggle (desktop collapse + mobile overlay)
+        const sidebar   = document.getElementById('sidebar');
+        const overlay   = document.getElementById('sidebarOverlay');
+        const hamburger = document.getElementById('sidebarToggle');
+        const mainWrap  = document.getElementById('mainWrap');
+
+        function isMobile() { return window.innerWidth <= 768; }
+
+        // Restore desktop collapsed state
+        if (!isMobile() && localStorage.getItem('sidebar-collapsed') === '1') {
+            sidebar && sidebar.classList.add('collapsed');
+            mainWrap && mainWrap.classList.add('sidebar-collapsed');
+        }
+
+        if (hamburger && sidebar) {
+            hamburger.addEventListener('click', () => {
+                if (isMobile()) {
+                    sidebar.classList.toggle('open');
+                    overlay && overlay.classList.toggle('show');
+                } else {
+                    const isCollapsed = sidebar.classList.toggle('collapsed');
+                    mainWrap && mainWrap.classList.toggle('sidebar-collapsed', isCollapsed);
+                    localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
+                }
+            });
+        }
+        overlay && overlay.addEventListener('click', () => {
+            sidebar && sidebar.classList.remove('open');
+            overlay.classList.remove('show');
         });
-    </script>
-    @await RenderSectionAsync("Scripts", required: false)
+    });
+</script>
+@await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

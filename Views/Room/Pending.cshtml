@@ -1,63 +1,137 @@
-﻿@model IEnumerable<Room>
+@using Bachelor_s_Point.Models
+@model IEnumerable<Room>
 @{
     ViewData["Title"] = "Pending Approval";
+    var paymentMap = ViewBag.PaymentMap as Dictionary<int, Payment?> ?? new Dictionary<int, Payment?>();
 }
 
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-        <h2 class="mb-0">
-            <i class="bi bi-clock-history me-2 text-warning"></i>Pending Approval
+<div class="container py-3">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 style="font-weight:800;margin:0;">
+            <i class="bi bi-clock-history me-2" style="color:var(--warning);"></i>
+            Pending Approval
             @if (Model.Any())
             {
-                <span class="badge bg-warning text-dark ms-2">@Model.Count()</span>
+                <span class="nx-badge nx-badge-warning ms-2">@Model.Count()</span>
             }
         </h2>
     </div>
 
     @if (!Model.Any())
     {
-        <div class="alert alert-success">
-            <i class="bi bi-check2-all me-1"></i> All caught up — no rooms pending approval.
+        <div class="nx-alert nx-alert-success">
+            <i class="bi bi-check2-all"></i>
+            <span>All caught up — no rooms pending approval.</span>
         </div>
     }
     else
     {
-        <div class="card stat-card">
-            <div class="table-responsive">
-                <table class="table mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Title</th>
-                            <th>Location</th>
-                            <th>Price</th>
-                            <th>Posted By</th>
-                            <th>Posted On</th>
-                            <th class="text-end">Actions</th>
+        <div class="nx-card" style="overflow:hidden;">
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Title</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Location</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Price</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Posted By</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Payment / TrxID</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Posted On</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:right;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var room in Model)
                         {
-                            <tr>
-                                <td><strong>@room.Title</strong></td>
-                                <td>@room.Location</td>
-                                <td>BDT @room.Price</td>
-                                <td>@(room.Owner?.UserName ?? "Unknown")</td>
-                                <td class="small text-muted">@room.CreatedAt.ToString("dd-MMM-yyyy hh:mm tt")</td>
-                                <td class="text-end">
-                                    <a asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye"></i> View
-                                    </a>
-                                    <form asp-action="Approve" method="post" class="d-inline">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="id" value="@room.Id" />
-                                        <button type="submit" class="btn btn-sm btn-success">
-                                            <i class="bi bi-check2-circle"></i> Approve
-                                        </button>
-                                    </form>
-                                    <a asp-action="Delete" asp-route-id="@room.Id" class="btn btn-sm btn-outline-danger">
-                                        <i class="bi bi-trash"></i> Remove
-                                    </a>
+                            paymentMap.TryGetValue(room.Id, out var pay);
+
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:.85rem 1rem;font-weight:700;font-size:.9rem;">@room.Title</td>
+                                <td style="padding:.85rem 1rem;font-size:.85rem;color:var(--muted);">
+                                    @(!string.IsNullOrWhiteSpace(room.District) ? room.District : room.Location)
+                                </td>
+                                <td style="padding:.85rem 1rem;font-weight:700;color:var(--success);">BDT @room.Price</td>
+                                <td style="padding:.85rem 1rem;font-size:.88rem;">@(room.Owner?.UserName ?? "—")</td>
+
+                                <!-- Payment / TrxID column -->
+                                <td style="padding:.85rem 1rem;">
+                                    @if (pay == null)
+                                    {
+                                        <span style="font-size:.78rem;color:var(--muted);font-style:italic;">
+                                            <i class="bi bi-x-circle me-1"></i>Not paid yet
+                                        </span>
+                                    }
+                                    else if (pay.Status == PaymentStatus.Pending)
+                                    {
+                                        <div>
+                                            <span class="badge-pending mb-1" style="display:inline-block;">
+                                                <i class="bi bi-hourglass-split me-1"></i>Pending
+                                            </span>
+                                            <br />
+                                            <code style="font-size:.82rem;background:var(--bg);padding:2px 7px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;"
+                                                  title="Click to copy"
+                                                  onclick="navigator.clipboard.writeText('@pay.TransactionId');this.style.background='var(--success-light)';">
+                                                @pay.TransactionId
+                                            </code>
+                                            <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">
+                                                BDT @pay.Amount.ToString("0") · @pay.SubmittedAt.ToString("dd MMM, hh:mm tt")
+                                            </div>
+                                        </div>
+                                    }
+                                    else if (pay.Status == PaymentStatus.Rejected)
+                                    {
+                                        <span style="font-size:.78rem;color:var(--danger);">
+                                            <i class="bi bi-x-circle-fill me-1"></i>Rejected
+                                        </span>
+                                    }
+                                    else if (pay.Status == PaymentStatus.Verified)
+                                    {
+                                        <span class="badge-approved">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Paid
+                                        </span>
+                                    }
+                                </td>
+
+                                <td style="padding:.85rem 1rem;font-size:.8rem;color:var(--muted);">
+                                    @room.CreatedAt.ToString("dd-MMM-yyyy")
+                                </td>
+
+                                <td style="padding:.85rem 1rem;text-align:right;">
+                                    <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                        <a asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline sm">
+                                            <i class="bi bi-eye"></i> View
+                                        </a>
+
+                                        @if (pay?.Status == PaymentStatus.Pending)
+                                        {
+                                            <!-- Verify payment + approve in one click -->
+                                            <form asp-controller="Payment" asp-action="Verify"
+                                                  asp-route-id="@pay.Id" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn-nx success sm"
+                                                        onclick="return confirm('Verify TrxID: @pay.TransactionId and approve room?')">
+                                                    <i class="bi bi-check2-circle"></i> Verify &amp; Approve
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <!-- Manual approve (no payment) -->
+                                            <form asp-action="Approve" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@room.Id" />
+                                                <button type="submit" class="btn-nx success sm"
+                                                        onclick="return confirm('Approve this room without payment?')">
+                                                    <i class="bi bi-check2-circle"></i> Approve
+                                                </button>
+                                            </form>
+                                        }
+
+                                        <a asp-action="Delete" asp-route-id="@room.Id" class="btn-nx outline-danger sm">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         }

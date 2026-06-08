@@ -16,13 +16,19 @@ namespace Bachelor_s_Point.Controllers
 
         private readonly IRoomService        _roomService;
         private readonly IKycService         _kycService;
+        private readonly IPaymentService     _paymentService;
         private readonly IWebHostEnvironment _env;
 
-        public RoomController(IRoomService roomService, IKycService kycService, IWebHostEnvironment env)
+        public RoomController(
+            IRoomService        roomService,
+            IKycService         kycService,
+            IPaymentService     paymentService,
+            IWebHostEnvironment env)
         {
-            _roomService = roomService;
-            _kycService  = kycService;
-            _env         = env;
+            _roomService    = roomService;
+            _kycService     = kycService;
+            _paymentService = paymentService;
+            _env            = env;
         }
 
         private async Task<IActionResult?> RequireKycAsync(string actionLabel)
@@ -36,7 +42,7 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction("Status", "Kyc");
         }
 
-        // ── INDEX / BROWSE ───────────────────────────────────────
+        // ── INDEX ────────────────────────────────────────────────
 
         [HttpGet]
         [AllowAnonymous]
@@ -48,19 +54,11 @@ namespace Bachelor_s_Point.Controllers
         {
             var filter = new RoomFilterDto
             {
-                SearchText    = searchText,
-                Division      = division,
-                District      = district,
-                MinPrice      = minPrice,
-                MaxPrice      = maxPrice,
-                HasWifi       = hasWifi,
-                HasMeal       = hasMeal,
-                HasMaid       = hasMaid,
-                AvailableOnly = availableOnly,
-                SortBy        = sortBy,
-                Page          = page
+                SearchText    = searchText, Division = division,
+                District      = district, MinPrice = minPrice, MaxPrice = maxPrice,
+                HasWifi       = hasWifi, HasMeal = hasMeal, HasMaid = hasMaid,
+                AvailableOnly = availableOnly, SortBy = sortBy, Page = page
             };
-
             var paged = await _roomService.GetFilteredPagedAsync(filter, PageSize);
             ViewBag.Filter     = filter;
             ViewBag.SearchText = searchText;
@@ -81,7 +79,11 @@ namespace Bachelor_s_Point.Controllers
             {
                 int uid = GetCurrentUserId();
                 if (uid != 0 && room.UserId == uid)
+                {
                     ViewBag.RoomSelections = await _roomService.GetSelectionsForRoomAsync(room.Id);
+                    // Pass payment info so owner can see posting fee status
+                    ViewBag.RoomPayment = await _paymentService.GetRoomPaymentAsync(room.Id);
+                }
             }
             return View(room);
         }
@@ -105,53 +107,41 @@ namespace Bachelor_s_Point.Controllers
         {
             var gate = await RequireKycAsync("post a room");
             if (gate != null) return gate;
-
             if (!ModelState.IsValid) return View(dto);
 
             int  currentUserId = GetCurrentUserId();
             bool isAdmin       = User.IsInRole("Admin");
 
             var (result, roomId) = await _roomService.CreateRoomAsync(dto, currentUserId, autoApprove: isAdmin);
-            if (result != "Success")
-            {
-                ModelState.AddModelError("", result);
-                return View(dto);
-            }
+            if (result != "Success") { ModelState.AddModelError("", result); return View(dto); }
 
-            // Save uploaded images
             if (roomImages != null && roomImages.Count > 0)
             {
                 var valid = roomImages.Where(f => f != null && f.Length > 0).Take(MaxImageCount).ToList();
                 string webRoot      = !string.IsNullOrEmpty(_env.WebRootPath) ? _env.WebRootPath : Path.Combine(_env.ContentRootPath, "wwwroot");
                 string uploadFolder = Path.Combine(webRoot, "uploads", "rooms");
                 Directory.CreateDirectory(uploadFolder);
-
                 int order = 0;
                 foreach (var file in valid)
                 {
                     string ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-                    if (!AllowedExtensions.Contains(ext)) continue;
-                    if (file.Length > MaxImageBytes) continue;
+                    if (!AllowedExtensions.Contains(ext) || file.Length > MaxImageBytes) continue;
                     if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) continue;
-
                     string fileName = $"room_{roomId}_{DateTime.UtcNow.Ticks}_{order}{ext}";
                     string savePath = Path.Combine(uploadFolder, fileName);
                     using (var stream = new FileStream(savePath, FileMode.Create))
                         await file.CopyToAsync(stream);
-
                     await _roomService.AddRoomImageAsync(roomId, $"/uploads/rooms/{fileName}", isPrimary: order == 0, displayOrder: order);
                     order++;
                 }
             }
 
-            // Admin posts auto-approved — skip payment
             if (isAdmin)
             {
                 TempData["Success"] = "Room posted and published.";
                 return RedirectToAction("Profile", "Auth");
             }
 
-            // Regular owner → must pay 20% posting fee before room is published
             return RedirectToAction("RoomFee", "Payment", new { roomId });
         }
 
@@ -174,9 +164,7 @@ namespace Bachelor_s_Point.Controllers
             if (id == null) return NotFound();
             var room = await _roomService.GetRoomByIdAsync(id.Value);
             if (room == null) return NotFound();
-
-            int  uid     = GetCurrentUserId();
-            bool isAdmin = User.IsInRole("Admin");
+            int uid = GetCurrentUserId(); bool isAdmin = User.IsInRole("Admin");
             if (!isAdmin && room.UserId != uid) return Forbid();
             return View(room);
         }
@@ -187,21 +175,11 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Edit(int id, Room room)
         {
             if (id != room.Id) return NotFound();
-            ModelState.Remove("Owner");
-            ModelState.Remove("Images");
-
+            ModelState.Remove("Owner"); ModelState.Remove("Images");
             if (!ModelState.IsValid) return View(room);
-
-            int  uid     = GetCurrentUserId();
-            bool isAdmin = User.IsInRole("Admin");
-
+            int uid = GetCurrentUserId(); bool isAdmin = User.IsInRole("Admin");
             string result = await _roomService.UpdateRoomAsync(room, uid, isAdmin);
-            if (result != "Success")
-            {
-                ModelState.AddModelError("", result);
-                return View(room);
-            }
-
+            if (result != "Success") { ModelState.AddModelError("", result); return View(room); }
             TempData["Success"] = "Room updated";
             return RedirectToAction("Profile", "Auth");
         }
@@ -215,9 +193,7 @@ namespace Bachelor_s_Point.Controllers
             if (id == null) return NotFound();
             var room = await _roomService.GetRoomByIdAsync(id.Value);
             if (room == null) return NotFound();
-
-            int  uid     = GetCurrentUserId();
-            bool isAdmin = User.IsInRole("Admin");
+            int uid = GetCurrentUserId(); bool isAdmin = User.IsInRole("Admin");
             if (!isAdmin && room.UserId != uid) return Forbid();
             return View(room);
         }
@@ -227,9 +203,7 @@ namespace Bachelor_s_Point.Controllers
         [Authorize]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            int  uid     = GetCurrentUserId();
-            bool isAdmin = User.IsInRole("Admin");
-
+            int uid = GetCurrentUserId(); bool isAdmin = User.IsInRole("Admin");
             var room = await _roomService.GetRoomByIdAsync(id);
             if (room != null && room.Images != null && (isAdmin || room.UserId == uid))
             {
@@ -241,14 +215,10 @@ namespace Bachelor_s_Point.Controllers
                     if (System.IO.File.Exists(full)) { try { System.IO.File.Delete(full); } catch { } }
                 }
             }
-
             string result = await _roomService.DeleteRoomAsync(id, uid, isAdmin);
             if (result != "Success") TempData["Error"] = result;
             else TempData["Success"] = "Room deleted";
-
-            return isAdmin
-                ? RedirectToAction(nameof(Pending))
-                : RedirectToAction("Profile", "Auth");
+            return isAdmin ? RedirectToAction(nameof(Pending)) : RedirectToAction("Profile", "Auth");
         }
 
         // ── SELECT ───────────────────────────────────────────────
@@ -258,26 +228,13 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Select(int? id)
         {
             if (id == null) return NotFound();
-
             var gate = await RequireKycAsync("book a room");
             if (gate != null) return gate;
-
-            if (User.IsInRole("Admin"))
-            {
-                TempData["Error"] = "Admin cannot select rooms.";
-                return RedirectToAction(nameof(Details), new { id });
-            }
-
+            if (User.IsInRole("Admin")) { TempData["Error"] = "Admin cannot select rooms."; return RedirectToAction(nameof(Details), new { id }); }
             var room = await _roomService.GetRoomByIdAsync(id.Value);
             if (room == null) return NotFound();
-
             int uid = GetCurrentUserId();
-            if (room.UserId == uid)
-            {
-                TempData["Error"] = "You cannot select your own room.";
-                return RedirectToAction(nameof(Details), new { id = room.Id });
-            }
-
+            if (room.UserId == uid) { TempData["Error"] = "You cannot select your own room."; return RedirectToAction(nameof(Details), new { id = room.Id }); }
             ViewBag.SelectionDto = new SelectRoomDto { RoomId = room.Id };
             return View(room);
         }
@@ -289,25 +246,12 @@ namespace Bachelor_s_Point.Controllers
         {
             var gate = await RequireKycAsync("book a room");
             if (gate != null) return gate;
-
-            if (User.IsInRole("Admin"))
-            {
-                TempData["Error"] = "Admin cannot select rooms.";
-                return RedirectToAction(nameof(Details), new { id = dto.RoomId });
-            }
-
+            if (User.IsInRole("Admin")) { TempData["Error"] = "Admin cannot select rooms."; return RedirectToAction(nameof(Details), new { id = dto.RoomId }); }
             dto.SeekerUserId = GetCurrentUserId();
-            string result    = await _roomService.SelectRoomAsync(dto);
-
+            string result = await _roomService.SelectRoomAsync(dto);
             if (result != "Success" && !result.StartsWith("Room selected"))
-            {
-                TempData["Error"] = result;
-                return RedirectToAction(nameof(Details), new { id = dto.RoomId });
-            }
-
-            TempData["Success"] = result == "Success"
-                ? "Room selected. The owner has been notified by email."
-                : result;
+            { TempData["Error"] = result; return RedirectToAction(nameof(Details), new { id = dto.RoomId }); }
+            TempData["Success"] = result == "Success" ? "Room selected. The owner has been notified." : result;
             return RedirectToAction(nameof(Index));
         }
 
@@ -318,6 +262,13 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> Pending()
         {
             var rooms = await _roomService.GetPendingApprovalAsync();
+
+            // Build payment map: roomId → Payment (for TrxID display)
+            var paymentMap = new Dictionary<int, Payment?>();
+            foreach (var room in rooms)
+                paymentMap[room.Id] = await _paymentService.GetRoomPaymentAsync(room.Id);
+
+            ViewBag.PaymentMap = paymentMap;
             return View(rooms);
         }
 

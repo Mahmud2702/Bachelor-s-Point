@@ -3,44 +3,80 @@
     ViewData["Title"] = "My Listings";
 }
 
-<h2>My Listings</h2>
-<p>
-    <a asp-action="Create" class="btn btn-primary">Post a New Room</a>
-</p>
+<div class="container py-3">
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">You have not posted any rooms yet.</div>
-}
-else
-{
-    <table class="table table-bordered table-striped">
-        <thead>
-            <tr>
-                <th>Title</th>
-                <th>Location</th>
-                <th>Price</th>
-                <th>Available</th>
-                <th>Posted</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var room in Model)
-            {
-                <tr>
-                    <td>@room.Title</td>
-                    <td>@room.Location</td>
-                    <td>BDT @room.Price</td>
-                    <td>@(room.IsAvailable ? "Yes" : "No")</td>
-                    <td>@room.CreatedAt.ToString("dd-MMM-yyyy")</td>
-                    <td>
-                        <a asp-action="Details" asp-route-id="@room.Id" class="btn btn-info btn-sm">Details</a>
-                        <a asp-action="Edit" asp-route-id="@room.Id" class="btn btn-warning btn-sm">Edit</a>
-                        <a asp-action="Delete" asp-route-id="@room.Id" class="btn btn-danger btn-sm">Delete</a>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 style="font-weight:800;margin:0;">
+            <i class="bi bi-house-fill me-2" style="color:var(--primary);"></i>My Listings
+        </h2>
+        <a asp-action="Create" class="btn-nx success">
+            <i class="bi bi-plus-lg"></i> Post a New Room
+        </a>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="nx-alert nx-alert-info">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>You have not posted any rooms yet.</span>
+        </div>
+    }
+    else
+    {
+        <div class="nx-card" style="overflow:hidden;">
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Title</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Location</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Price</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Status</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Posted</th>
+                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var room in Model)
+                        {
+                            <tr style="border-bottom:1px solid var(--border);">
+                                <td style="padding:.85rem 1rem;font-weight:700;font-size:.9rem;">@room.Title</td>
+                                <td style="padding:.85rem 1rem;font-size:.85rem;color:var(--muted);">
+                                    @(!string.IsNullOrWhiteSpace(room.District) ? room.District : room.Location)
+                                </td>
+                                <td style="padding:.85rem 1rem;font-weight:700;color:var(--success);">BDT @room.Price</td>
+                                <td style="padding:.85rem 1rem;">
+                                    @if (room.IsApproved && room.IsAvailable)
+                                    {
+                                        <span class="badge-approved"><i class="bi bi-check-circle-fill me-1"></i>Live</span>
+                                    }
+                                    else if (room.IsApproved && !room.IsAvailable)
+                                    {
+                                        <span style="background:var(--bg);color:var(--muted);border:1px solid var(--border);padding:.25rem .75rem;border-radius:999px;font-size:.75rem;font-weight:600;">Closed</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge-pending"><i class="bi bi-clock me-1"></i>Pending</span>
+                                    }
+                                </td>
+                                <td style="padding:.85rem 1rem;font-size:.82rem;color:var(--muted);">
+                                    @room.CreatedAt.ToString("dd-MMM-yyyy")
+                                </td>
+                                <td style="padding:.85rem 1rem;text-align:right;">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline sm">
+                                            <i class="bi bi-eye"></i> Details
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@room.Id" class="btn-nx outline-danger sm">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
