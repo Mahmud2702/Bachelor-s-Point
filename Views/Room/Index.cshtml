@@ -4,8 +4,16 @@
     ViewData["Title"] = "Browse Rooms";
     var filter = ViewBag.Filter as Bachelor_s_Point.Application.DTOs.RoomFilterDto
                  ?? new Bachelor_s_Point.Application.DTOs.RoomFilterDto();
-    bool isAdmin = User.IsInRole("Admin");
-    bool panelOpen = filter.HasAnyFilter;   // keep panel open if filters are active
+    bool isAdmin  = User.IsInRole("Admin");
+    bool panelOpen = filter.HasAnyFilter;
+
+    // Blur logic:
+    //   - Admin → always full view
+    //   - Authenticated + PaymentVerified=True → full view
+    //   - Everyone else (guest or unverified) → blurred
+    bool isVerified = isAdmin ||
+                      (User.Identity?.IsAuthenticated == true &&
+                       User.FindFirst("PaymentVerified")?.Value == "True");
 
     string GetCoverImage(Room r)
     {
@@ -29,7 +37,57 @@
         border-radius: 999px; padding: 0.25rem 0.7rem;
         font-size: 0.78rem; font-weight: 600;
     }
-    .chip a { color: var(--primary); text-decoration: none; }
+
+    /* ── Paywall blur styles ── */
+    .room-paywall-wrap {
+        position: relative;
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+    }
+    .room-blurred {
+        filter: blur(6px);
+        pointer-events: none;
+        user-select: none;
+    }
+    .room-paywall-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        background: rgba(0,0,0,0.35);
+        backdrop-filter: blur(1px);
+        border-radius: var(--radius-xl);
+        text-align: center;
+        padding: 1.25rem;
+    }
+    .room-paywall-overlay .lock-icon {
+        width: 52px; height: 52px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; color: #fff;
+    }
+    .room-paywall-overlay p { color: #fff; font-size: 0.82rem; margin: 0; opacity: 0.9; }
+    .room-paywall-overlay .unlock-btn {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius-md);
+        padding: 0.45rem 1.1rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background 0.2s;
+    }
+    .room-paywall-overlay .unlock-btn:hover { background: var(--primary-dark); color: #fff; }
 </style>
 
 <div class="container py-3">
@@ -43,11 +101,35 @@
         </span>
     </div>
 
+    @* Paywall banner for unverified authenticated users *@
+    @if (!isVerified && User.Identity?.IsAuthenticated == true)
+    {
+        <div class="nx-alert nx-alert-warning mb-3 fade-up">
+            <i class="bi bi-lock-fill"></i>
+            <div class="flex-grow-1">
+                <strong>Rooms are locked.</strong>
+                Pay <strong>BDT 20</strong> one-time to unlock all listings.
+                <a asp-controller="Payment" asp-action="RegistrationFee" class="auth-link ms-1">
+                    Pay &amp; Unlock &rarr;
+                </a>
+            </div>
+        </div>
+    }
+    else if (!isVerified)
+    {
+        <div class="nx-alert nx-alert-info mb-3 fade-up">
+            <i class="bi bi-info-circle-fill"></i>
+            <div class="flex-grow-1">
+                <a asp-controller="Auth" asp-action="Register" class="auth-link">Create an account</a>
+                and pay a one-time BDT 20 fee to unlock all room listings.
+            </div>
+        </div>
+    }
+
     <!-- ===================== FILTER CARD ===================== -->
     <div class="nx-card p-3 mb-4 fade-up" id="filterCard">
         <form asp-action="Index" method="get" id="filterForm">
 
-            <!-- Search row — always visible -->
             <div class="row g-2 align-items-center">
                 <div class="col-md-7">
                     <input type="text" name="searchText" value="@filter.SearchText" class="form-control"
@@ -65,12 +147,10 @@
                 </div>
             </div>
 
-            <!-- Advanced filters — collapsible -->
             <div class="filter-panel @(panelOpen ? "expanded" : "collapsed")" id="filterPanel">
                 <hr style="border-color: var(--border); margin: 1rem 0;" />
 
                 <div class="row g-3">
-                    <!-- Division -->
                     <div class="col-md-3">
                         <label class="form-label" style="font-size: 0.82rem;">Division</label>
                         <select name="division" id="divisionSelect" class="form-select">
@@ -78,18 +158,12 @@
                             @foreach (var div in BangladeshLocations.Divisions)
                             {
                                 if (filter.Division == div)
-                                {
-                                    <option value="@div" selected>@div</option>
-                                }
+                                { <option value="@div" selected>@div</option> }
                                 else
-                                {
-                                    <option value="@div">@div</option>
-                                }
+                                { <option value="@div">@div</option> }
                             }
                         </select>
                     </div>
-
-                    <!-- District -->
                     <div class="col-md-3">
                         <label class="form-label" style="font-size: 0.82rem;">District</label>
                         <select name="district" id="districtSelect" class="form-select">
@@ -97,18 +171,12 @@
                             @foreach (var dist in BangladeshLocations.GetDistricts(filter.Division))
                             {
                                 if (filter.District == dist)
-                                {
-                                    <option value="@dist" selected>@dist</option>
-                                }
+                                { <option value="@dist" selected>@dist</option> }
                                 else
-                                {
-                                    <option value="@dist">@dist</option>
-                                }
+                                { <option value="@dist">@dist</option> }
                             }
                         </select>
                     </div>
-
-                    <!-- Price range -->
                     <div class="col-md-3">
                         <label class="form-label" style="font-size: 0.82rem;">Min Price (BDT)</label>
                         <input type="number" name="minPrice" value="@(filter.MinPrice?.ToString())"
@@ -119,35 +187,27 @@
                         <input type="number" name="maxPrice" value="@(filter.MaxPrice?.ToString())"
                                class="form-control" placeholder="Any" min="0" />
                     </div>
-
-                    <!-- Sort -->
                     <div class="col-md-3">
                         <label class="form-label" style="font-size: 0.82rem;">Sort By</label>
                         <select name="sortBy" class="form-select">
                             @{
                                 var sorts = new (string val, string label)[]
                                 {
-                                    ("newest", "Newest first"),
-                                    ("oldest", "Oldest first"),
-                                    ("price_asc", "Price: Low to High"),
+                                    ("newest",     "Newest first"),
+                                    ("oldest",     "Oldest first"),
+                                    ("price_asc",  "Price: Low to High"),
                                     ("price_desc", "Price: High to Low")
                                 };
                             }
                             @foreach (var s in sorts)
                             {
                                 if ((filter.SortBy ?? "newest") == s.val)
-                                {
-                                    <option value="@s.val" selected>@s.label</option>
-                                }
+                                { <option value="@s.val" selected>@s.label</option> }
                                 else
-                                {
-                                    <option value="@s.val">@s.label</option>
-                                }
+                                { <option value="@s.val">@s.label</option> }
                             }
                         </select>
                     </div>
-
-                    <!-- Amenity + availability toggles -->
                     <div class="col-md-9">
                         <label class="form-label" style="font-size: 0.82rem;">Amenities &amp; Availability</label>
                         <div class="d-flex flex-wrap gap-3 align-items-center" style="padding-top: 0.35rem;">
@@ -215,73 +275,112 @@
             {
                 string cover = GetCoverImage(room);
                 <div class="col-md-6 col-lg-4 fade-up">
-                    <div class="nx-card h-100">
-                        <div style="height: 200px; background: var(--bg); display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                            @if (!string.IsNullOrEmpty(cover))
-                            {
-                                <img src="@cover" alt="@room.Title" style="width: 100%; height: 100%; object-fit: cover;" />
-                            }
-                            else
-                            {
-                                <i class="bi bi-image" style="color: var(--border); font-size: 3rem;"></i>
-                            }
-                        </div>
-                        <div style="padding: 1.1rem 1.25rem 1.25rem;">
-                            <h5 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem;">@room.Title</h5>
-                            <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 0.55rem;">
-                                <i class="bi bi-geo-alt"></i>
-                                @if (!string.IsNullOrWhiteSpace(room.District))
+                    @if (isVerified)
+                    {
+                        <!-- Full card for verified users -->
+                        <div class="nx-card h-100">
+                            <div style="height:200px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                                @if (!string.IsNullOrEmpty(cover))
                                 {
-                                    <span>@room.District@(string.IsNullOrWhiteSpace(room.Division) ? "" : ", " + room.Division)</span>
+                                    <img src="@cover" alt="@room.Title" style="width:100%;height:100%;object-fit:cover;" />
                                 }
                                 else
                                 {
-                                    <span>@room.Location</span>
+                                    <i class="bi bi-image" style="color:var(--border);font-size:3rem;"></i>
                                 }
-                                <a href="https://www.google.com/maps/search/?api=1&query=@(System.Net.WebUtility.UrlEncode((room.Location ?? room.District ?? "") + ", Bangladesh"))"
-                                   target="_blank" rel="noopener" title="View on Google Maps"
-                                   class="auth-link" style="margin-left: 0.3rem;">
-                                    <i class="bi bi-map"></i>
-                                </a>
-                            </p>
-                            <p style="font-size: 0.88rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-                                @room.Description
-                            </p>
-                            @{
-                                var amenities = new List<string>();
-                                if (room.WifiCost is > 0) amenities.Add("Wifi");
-                                if (room.MealCostPerMonth is > 0) amenities.Add("Meal");
-                                if (room.MaidCostPerMonth is > 0) amenities.Add("Maid");
-                            }
-                            @if (amenities.Any())
-                            {
-                                <div class="d-flex flex-wrap gap-1 mt-1">
-                                    @foreach (var a in amenities)
+                            </div>
+                            <div style="padding:1.1rem 1.25rem 1.25rem;">
+                                <h5 style="font-size:1.05rem;font-weight:700;margin-bottom:0.25rem;">@room.Title</h5>
+                                <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.55rem;">
+                                    <i class="bi bi-geo-alt"></i>
+                                    @if (!string.IsNullOrWhiteSpace(room.District))
                                     {
-                                        <span class="chip">@a</span>
+                                        <span>@room.District@(string.IsNullOrWhiteSpace(room.Division) ? "" : ", " + room.Division)</span>
                                     }
-                                </div>
-                            }
-                            <p style="font-size: 0.78rem; color: var(--muted); margin: 0.5rem 0 0;">
-                                <i class="bi bi-person-circle"></i>
-                                Posted by @(room.Owner?.UserName ?? "Unknown")
-                            </p>
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top: 1px solid var(--border);">
-                                <span style="font-size: 1.1rem; font-weight: 800; color: var(--success);">BDT @room.Price</span>
-                                <div class="d-flex gap-2">
-                                    <a asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline sm">
-                                        Details
+                                    else { <span>@room.Location</span> }
+                                    <a href="https://www.google.com/maps/search/?api=1&query=@(System.Net.WebUtility.UrlEncode((room.Location ?? room.District ?? "") + ", Bangladesh"))"
+                                       target="_blank" rel="noopener" class="auth-link" style="margin-left:0.3rem;">
+                                        <i class="bi bi-map"></i>
                                     </a>
-                                    @if (User.Identity != null && User.Identity.IsAuthenticated && !isAdmin)
-                                    {
-                                        <a asp-action="Select" asp-route-id="@room.Id" class="btn-nx success sm">
-                                            Select
-                                        </a>
-                                    }
+                                </p>
+                                <p style="font-size:0.88rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+                                    @room.Description
+                                </p>
+                                @{
+                                    var amenities = new List<string>();
+                                    if (room.WifiCost is > 0) amenities.Add("Wifi");
+                                    if (room.MealCostPerMonth is > 0) amenities.Add("Meal");
+                                    if (room.MaidCostPerMonth is > 0) amenities.Add("Maid");
+                                }
+                                @if (amenities.Any())
+                                {
+                                    <div class="d-flex flex-wrap gap-1 mt-1">
+                                        @foreach (var a in amenities) { <span class="chip">@a</span> }
+                                    </div>
+                                }
+                                <p style="font-size:0.78rem;color:var(--muted);margin:0.5rem 0 0;">
+                                    <i class="bi bi-person-circle"></i> Posted by @(room.Owner?.UserName ?? "Unknown")
+                                </p>
+                                <div class="d-flex justify-content-between align-items-center mt-3 pt-3" style="border-top:1px solid var(--border);">
+                                    <span style="font-size:1.1rem;font-weight:800;color:var(--success);">BDT @room.Price</span>
+                                    <div class="d-flex gap-2">
+                                        <a asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline sm">Details</a>
+                                        @if (User.Identity?.IsAuthenticated == true && !isAdmin)
+                                        {
+                                            <a asp-action="Select" asp-route-id="@room.Id" class="btn-nx success sm">Select</a>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <!-- Blurred card for unverified/guest users -->
+                        <div class="room-paywall-wrap h-100 nx-card">
+                            <!-- blurred content underneath -->
+                            <div class="room-blurred">
+                                <div style="height:200px;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                                    @if (!string.IsNullOrEmpty(cover))
+                                    {
+                                        <img src="@cover" alt="" style="width:100%;height:100%;object-fit:cover;" />
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-image" style="color:var(--border);font-size:3rem;"></i>
+                                    }
+                                </div>
+                                <div style="padding:1.1rem 1.25rem 1.25rem;">
+                                    <h5 style="font-size:1.05rem;font-weight:700;margin-bottom:0.25rem;">@room.Title</h5>
+                                    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.55rem;">
+                                        <i class="bi bi-geo-alt"></i>
+                                        @if (!string.IsNullOrWhiteSpace(room.District))
+                                        { <span>@room.District</span> }
+                                        else { <span>@room.Location</span> }
+                                    </p>
+                                    <p style="font-size:0.88rem;color:var(--muted);">████████ ██████ ████</p>
+                                    <div style="font-size:1.1rem;font-weight:800;color:var(--success);margin-top:1rem;">BDT ████</div>
+                                </div>
+                            </div>
+                            <!-- lock overlay -->
+                            <div class="room-paywall-overlay">
+                                <div class="lock-icon"><i class="bi bi-lock-fill"></i></div>
+                                <p>Unlock to see full details</p>
+                                @if (User.Identity?.IsAuthenticated == true)
+                                {
+                                    <a asp-controller="Payment" asp-action="RegistrationFee" class="unlock-btn">
+                                        <i class="bi bi-cash-coin"></i> Pay BDT 20
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a asp-controller="Auth" asp-action="Register" class="unlock-btn">
+                                        <i class="bi bi-person-plus"></i> Register &amp; Pay
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
             }
         </div>
@@ -347,55 +446,42 @@
 
 @section Scripts {
     <script>
-        // Division -> District cascading dropdown data
         const divisionDistricts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
             Bachelor_s_Point.Application.Common.BangladeshLocations.DivisionDistricts));
-
-        const divisionSelect = document.getElementById('divisionSelect');
-        const districtSelect = document.getElementById('districtSelect');
+        const divisionSelect  = document.getElementById('divisionSelect');
+        const districtSelect  = document.getElementById('districtSelect');
         const currentDistrict = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(filter.District ?? ""));
 
         function refreshDistricts(keepSelected) {
             const div = divisionSelect.value;
             districtSelect.innerHTML = '<option value="">All Districts</option>';
             if (div && divisionDistricts[div]) {
-                divisionDistricts[div].forEach(function (d) {
+                divisionDistricts[div].forEach(function(d) {
                     const opt = document.createElement('option');
-                    opt.value = d;
-                    opt.textContent = d;
+                    opt.value = d; opt.textContent = d;
                     if (keepSelected && d === currentDistrict) opt.selected = true;
                     districtSelect.appendChild(opt);
                 });
             }
         }
-        divisionSelect.addEventListener('change', function () { refreshDistricts(false); });
+        divisionSelect.addEventListener('change', function() { refreshDistricts(false); });
 
-        // Collapsible filter panel
-        const panel = document.getElementById('filterPanel');
+        const panel     = document.getElementById('filterPanel');
         const toggleBtn = document.getElementById('toggleFilters');
-        const chevron = document.getElementById('filterChevron');
-        toggleBtn.addEventListener('click', function () {
+        const chevron   = document.getElementById('filterChevron');
+        toggleBtn.addEventListener('click', function() {
             if (panel.classList.contains('collapsed')) {
-                panel.classList.remove('collapsed');
-                panel.classList.add('expanded');
-                chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
+                panel.classList.replace('collapsed','expanded');
+                chevron.classList.replace('bi-chevron-down','bi-chevron-up');
             } else {
-                panel.classList.remove('expanded');
-                panel.classList.add('collapsed');
-                chevron.classList.replace('bi-chevron-up', 'bi-chevron-down');
+                panel.classList.replace('expanded','collapsed');
+                chevron.classList.replace('bi-chevron-up','bi-chevron-down');
             }
         });
+        @if (panelOpen) { <text>chevron.classList.replace('bi-chevron-down','bi-chevron-up');</text> }
 
-        // If panel is open on load (filters active), point chevron up
-        @if (panelOpen)
-        {
-            <text>chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');</text>
-        }
-
-        // Support ?openFilters=1 from the navbar Filter button
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('openFilters') === '1' && panel.classList.contains('collapsed')) {
+        if (urlParams.get('openFilters') === '1' && panel.classList.contains('collapsed'))
             toggleBtn.click();
-        }
     </script>
 }

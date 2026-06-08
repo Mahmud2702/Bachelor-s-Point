@@ -8,41 +8,44 @@ namespace Bachelor_s_Point.UnitOfWork
     {
         private readonly AppDbContext _context;
 
-        public IUserRepository UserRepo { get; }
-        public IRoleRepository RoleRepo { get; }
-        public IRoomRepository RoomRepo { get; }
-        public IRoomSelectionRepository SelectionRepo { get; }
-        public IRoomImageRepository RoomImageRepo { get; }
-        public IChatRepository ChatRepo { get; }
-        public IPendingRegistrationRepository PendingRegRepo { get; }
-        public IPasswordResetRepository PasswordResetRepo { get; }
-        public IKycRepository KycRepo { get; }
-        public ILoginHistoryRepository LoginHistoryRepo { get; }
+        public IUserRepository                UserRepo         { get; }
+        public IRoleRepository                RoleRepo         { get; }
+        public IRoomRepository                RoomRepo         { get; }
+        public IRoomSelectionRepository       SelectionRepo    { get; }
+        public IRoomImageRepository           RoomImageRepo    { get; }
+        public IChatRepository                ChatRepo         { get; }
+        public IPendingRegistrationRepository PendingRegRepo   { get; }
+        public IPasswordResetRepository       PasswordResetRepo{ get; }
+        public IKycRepository                 KycRepo          { get; }
+        public ILoginHistoryRepository        LoginHistoryRepo { get; }
+        public IPaymentRepository             PaymentRepo      { get; }
 
         public UnitOfWork(
             AppDbContext context,
-            IUserRepository userRepo,
-            IRoleRepository roleRepo,
-            IRoomRepository roomRepo,
-            IRoomSelectionRepository selectionRepo,
-            IRoomImageRepository roomImageRepo,
-            IChatRepository chatRepo,
+            IUserRepository                userRepo,
+            IRoleRepository                roleRepo,
+            IRoomRepository                roomRepo,
+            IRoomSelectionRepository       selectionRepo,
+            IRoomImageRepository           roomImageRepo,
+            IChatRepository                chatRepo,
             IPendingRegistrationRepository pendingRegRepo,
-            IPasswordResetRepository passwordResetRepo,
-            IKycRepository kycRepo,
-            ILoginHistoryRepository loginHistoryRepo)
+            IPasswordResetRepository       passwordResetRepo,
+            IKycRepository                 kycRepo,
+            ILoginHistoryRepository        loginHistoryRepo,
+            IPaymentRepository             paymentRepo)
         {
-            _context = context;
-            UserRepo = userRepo;
-            RoleRepo = roleRepo;
-            RoomRepo = roomRepo;
-            SelectionRepo = selectionRepo;
-            RoomImageRepo = roomImageRepo;
-            ChatRepo = chatRepo;
-            PendingRegRepo = pendingRegRepo;
-            PasswordResetRepo = passwordResetRepo;
-            KycRepo = kycRepo;
+            _context         = context;
+            UserRepo         = userRepo;
+            RoleRepo         = roleRepo;
+            RoomRepo         = roomRepo;
+            SelectionRepo    = selectionRepo;
+            RoomImageRepo    = roomImageRepo;
+            ChatRepo         = chatRepo;
+            PendingRegRepo   = pendingRegRepo;
+            PasswordResetRepo= passwordResetRepo;
+            KycRepo          = kycRepo;
             LoginHistoryRepo = loginHistoryRepo;
+            PaymentRepo      = paymentRepo;
         }
 
         public async Task<int> SaveAsync() => await _context.SaveChangesAsync();

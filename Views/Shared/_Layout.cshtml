@@ -3,11 +3,13 @@
 @inject IChatService ChatService
 @inject IRoomService RoomService
 @inject IKycService KycService
+@inject IPaymentService PaymentService
 @{
     string? currentUserPic = null;
     int unreadCount = 0;
     int pendingRoomCount = 0;
     int pendingKycCount = 0;
+    int pendingPaymentCount = 0;
     bool isAuthed = User.Identity != null && User.Identity.IsAuthenticated;
     bool isAdminUser = isAuthed && User.IsInRole("Admin");
 
@@ -26,6 +28,7 @@
             var pending = await RoomService.GetPendingApprovalAsync();
             pendingRoomCount = pending.Count;
             pendingKycCount = await KycService.CountPendingAsync();
+            pendingPaymentCount = await PaymentService.CountPendingPaymentsAsync();
         }
     }
 }
@@ -716,6 +719,16 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
+                                    <a class="nx-nav-link" asp-controller="Payment" asp-action="AdminPayments"
+                                       title="@(pendingPaymentCount > 0 ? $"{pendingPaymentCount} payment(s) awaiting verification" : "Payment verification")">
+                                        <i class="bi bi-cash-coin"></i> Payments
+                                        @if (pendingPaymentCount > 0)
+                                        {
+                                            <span class="nx-badge pulse">@pendingPaymentCount</span>
+                                        }
+                                    </a>
+                                </li>
+                                <li class="nav-item">
                                     <a class="nx-nav-link" asp-controller="User" asp-action="Index">
                                         <i class="bi bi-people-fill"></i> Users
                                     </a>
@@ -870,6 +883,17 @@
                     <div class="flex-grow-1">
                         <strong>@pendingRoomCount new post@(pendingRoomCount == 1 ? "" : "s")</strong> waiting for your approval.
                         <a asp-controller="Room" asp-action="Pending" class="auth-link">Review now &rarr;</a>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (isAdminUser && pendingPaymentCount > 0 && Context.Request.Path != "/Payment/AdminPayments")
+            {
+                <div class="nx-alert nx-alert-info alert-dismissible fade show fade-up" role="alert">
+                    <i class="bi bi-cash-coin"></i>
+                    <div class="flex-grow-1">
+                        <strong>@pendingPaymentCount payment@(pendingPaymentCount == 1 ? "" : "s")</strong> awaiting verification.
+                        <a asp-controller="Payment" asp-action="AdminPayments" class="auth-link">Verify now &rarr;</a>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>

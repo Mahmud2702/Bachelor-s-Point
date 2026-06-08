@@ -22,10 +22,10 @@ namespace Bachelor_s_Point.Services
             IEmailService emailService,
             ILogger<AuthService> logger)
         {
-            _unitOfWork = unitOfWork;
-            _emailService = emailService;
-            _logger = logger;
-            _passwordHasher = new PasswordHasher<User>();
+            _unitOfWork      = unitOfWork;
+            _emailService    = emailService;
+            _logger          = logger;
+            _passwordHasher  = new PasswordHasher<User>();
         }
 
         public async Task<string> StartRegistrationAsync(RegisterDto dto)
@@ -34,60 +34,53 @@ namespace Bachelor_s_Point.Services
             if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
                 return "Email and password are required";
 
-            // Validate role exists
             var role = await _unitOfWork.RoleRepo.GetByIdAsync(dto.RoleId);
             if (role == null) return "Selected role does not exist";
 
-            // Email must not already belong to a real user
             var existingUser = await _unitOfWork.UserRepo.GetUserByEmailAsync(dto.Email);
             if (existingUser != null) return "An account with this email already exists";
 
-            // Generate secure 6-digit OTP
-            string plainOtp = GenerateOtp();
-            string otpHash = HashOtp(dto.Email, plainOtp);
-
-            // Hash the password now — never store plain text, even temporarily
+            string plainOtp    = GenerateOtp();
+            string otpHash     = HashOtp(dto.Email, plainOtp);
             string passwordHash = _passwordHasher.HashPassword(new User(), dto.Password);
 
-            // Insert or update pending registration for this email
             var pending = await _unitOfWork.PendingRegRepo.GetByEmailAsync(dto.Email);
             if (pending == null)
             {
                 pending = new PendingRegistration
                 {
-                    FullName = dto.FullName,
-                    UserName = dto.UserName ?? string.Empty,
-                    DateOfBirth = dto.DateOfBirth,
-                    Email = dto.Email,
-                    PhoneNumber = dto.PhoneNumber,
-                    Address = dto.Address,
-                    PasswordHash = passwordHash,
-                    TargetRoleId = dto.RoleId,
-                    OtpHash = otpHash,
-                    OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes),
-                    CreatedAt = DateTime.Now,
-                    AttemptCount = 0
+                    FullName      = dto.FullName,
+                    UserName      = dto.UserName ?? string.Empty,
+                    DateOfBirth   = dto.DateOfBirth,
+                    Email         = dto.Email,
+                    PhoneNumber   = dto.PhoneNumber,
+                    Address       = dto.Address,
+                    PasswordHash  = passwordHash,
+                    TargetRoleId  = dto.RoleId,
+                    OtpHash       = otpHash,
+                    OtpExpiresAt  = DateTime.Now.AddMinutes(OtpValidityMinutes),
+                    CreatedAt     = DateTime.Now,
+                    AttemptCount  = 0
                 };
                 await _unitOfWork.PendingRegRepo.AddAsync(pending);
             }
             else
             {
-                pending.FullName = dto.FullName;
-                pending.UserName = dto.UserName ?? string.Empty;
-                pending.DateOfBirth = dto.DateOfBirth;
-                pending.PhoneNumber = dto.PhoneNumber;
-                pending.Address = dto.Address;
-                pending.PasswordHash = passwordHash;
-                pending.TargetRoleId = dto.RoleId;
-                pending.OtpHash = otpHash;
-                pending.OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes);
-                pending.AttemptCount = 0;
+                pending.FullName      = dto.FullName;
+                pending.UserName      = dto.UserName ?? string.Empty;
+                pending.DateOfBirth   = dto.DateOfBirth;
+                pending.PhoneNumber   = dto.PhoneNumber;
+                pending.Address       = dto.Address;
+                pending.PasswordHash  = passwordHash;
+                pending.TargetRoleId  = dto.RoleId;
+                pending.OtpHash       = otpHash;
+                pending.OtpExpiresAt  = DateTime.Now.AddMinutes(OtpValidityMinutes);
+                pending.AttemptCount  = 0;
                 _unitOfWork.PendingRegRepo.Update(pending);
             }
 
             await _unitOfWork.SaveAsync();
 
-            // Send the OTP email
             try
             {
                 await _emailService.SendOtpEmailAsync(dto.Email, dto.FullName ?? dto.UserName ?? "there", plainOtp, OtpValidityMinutes);
@@ -95,7 +88,6 @@ namespace Bachelor_s_Point.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send OTP email to {Email}", dto.Email);
-                // Surface the underlying error so the developer can see what's wrong
                 string innerMsg = ex.InnerException?.Message ?? ex.Message;
                 return $"Email send failed: {innerMsg}";
             }
@@ -103,17 +95,17 @@ namespace Bachelor_s_Point.Services
             return "Success";
         }
 
-        public async Task<string> VerifyOtpAndCreateUserAsync(string email, string otp)
+        public async Task<(string Result, User? User)> VerifyOtpAndCreateUserAsync(string email, string otp)
         {
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(otp))
-                return "Email and OTP are required";
+                return ("Email and OTP are required", null);
 
             var pending = await _unitOfWork.PendingRegRepo.GetByEmailAsync(email);
             if (pending == null)
-                return "No pending registration found. Please register again.";
+                return ("No pending registration found. Please register again.", null);
 
             if (DateTime.Now > pending.OtpExpiresAt)
-                return "OTP has expired. Please request a new one.";
+                return ("OTP has expired. Please request a new one.", null);
 
             string expectedHash = HashOtp(pending.Email, otp);
             if (!CryptographicEquals(expectedHash, pending.OtpHash))
@@ -121,39 +113,41 @@ namespace Bachelor_s_Point.Services
                 pending.AttemptCount += 1;
                 _unitOfWork.PendingRegRepo.Update(pending);
                 await _unitOfWork.SaveAsync();
-                return "Incorrect OTP. Please check your email and try again.";
+                return ("Incorrect OTP. Please check your email and try again.", null);
             }
 
-            // Race-condition safety: re-check that no user with this email exists
             var existingUser = await _unitOfWork.UserRepo.GetUserByEmailAsync(pending.Email);
             if (existingUser != null)
             {
                 _unitOfWork.PendingRegRepo.Delete(pending);
                 await _unitOfWork.SaveAsync();
-                return "An account with this email already exists";
+                return ("An account with this email already exists", null);
             }
 
-            // Create the actual user
+            // Admins are pre-verified — they don't pay the registration fee
+            var targetRole = await _unitOfWork.RoleRepo.GetByIdAsync(pending.TargetRoleId);
+            bool isAdmin   = targetRole?.RoleName == "Admin";
+
             var user = new User
             {
-                FullName = pending.FullName,
-                UserName = pending.UserName,
-                DateOfBirth = pending.DateOfBirth,
-                Email = pending.Email,
-                PhoneNumber = pending.PhoneNumber,
-                Address = pending.Address,
-                PasswordHash = pending.PasswordHash,
-                RoleId = pending.TargetRoleId,
-                LastLogin = null
+                FullName          = pending.FullName,
+                UserName          = pending.UserName,
+                DateOfBirth       = pending.DateOfBirth,
+                Email             = pending.Email,
+                PhoneNumber       = pending.PhoneNumber,
+                Address           = pending.Address,
+                PasswordHash      = pending.PasswordHash,
+                RoleId            = pending.TargetRoleId,
+                LastLogin         = null,
+                IsPaymentVerified = isAdmin
             };
             await _unitOfWork.UserRepo.AddAsync(user);
-
-            // Clean up pending row
             _unitOfWork.PendingRegRepo.Delete(pending);
-
             await _unitOfWork.SaveAsync();
 
-            // Send confirmation email (don't fail registration if this throws)
+            // Reload with role for claims
+            var createdUser = await _unitOfWork.UserRepo.GetUserWithRoleByIdAsync(user.Id);
+
             try
             {
                 await _emailService.SendRegistrationConfirmationAsync(user.Email!, user.FullName ?? user.UserName ?? "there");
@@ -163,7 +157,7 @@ namespace Bachelor_s_Point.Services
                 _logger.LogWarning(ex, "Failed to send confirmation email to {Email}", user.Email);
             }
 
-            return "Success";
+            return ("Success", createdUser);
         }
 
         public async Task<string> ResendOtpAsync(string email)
@@ -174,8 +168,8 @@ namespace Bachelor_s_Point.Services
             if (pending == null)
                 return "No pending registration found. Please register again.";
 
-            string plainOtp = GenerateOtp();
-            pending.OtpHash = HashOtp(pending.Email, plainOtp);
+            string plainOtp   = GenerateOtp();
+            pending.OtpHash      = HashOtp(pending.Email, plainOtp);
             pending.OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes);
             pending.AttemptCount = 0;
             _unitOfWork.PendingRegRepo.Update(pending);
@@ -208,11 +202,10 @@ namespace Bachelor_s_Point.Services
             user.LastLogin = DateTime.Now;
             _unitOfWork.UserRepo.Update(user);
 
-            // Record this login in the history table (for admin activity view)
             await _unitOfWork.LoginHistoryRepo.AddAsync(new LoginHistory
             {
-                UserId = user.Id,
-                Email = user.Email,
+                UserId  = user.Id,
+                Email   = user.Email,
                 LoginAt = DateTime.Now
             });
 
@@ -220,43 +213,33 @@ namespace Bachelor_s_Point.Services
             return user;
         }
 
-
-        // ============================================================
-        // FORGOT PASSWORD FLOW
-        // ============================================================
+        // ── FORGOT PASSWORD ──────────────────────────────────────
 
         public async Task<string> StartPasswordResetAsync(string email)
         {
             if (string.IsNullOrWhiteSpace(email)) return "Email is required";
 
             var user = await _unitOfWork.UserRepo.GetUserByEmailAsync(email);
-            if (user == null)
-            {
-                // For security: don't reveal whether email exists. Return Success anyway
-                // so attackers can't enumerate registered emails. Just don't send the OTP.
-                return "Success";
-            }
+            if (user == null) return "Success"; // don't reveal whether email exists
 
             string plainOtp = GenerateOtp();
-            string otpHash = HashOtp(email, plainOtp);
+            string otpHash  = HashOtp(email, plainOtp);
 
-            // Upsert reset token for this email
             var existing = await _unitOfWork.PasswordResetRepo.GetByEmailAsync(email);
             if (existing == null)
             {
-                var token = new PasswordResetToken
+                await _unitOfWork.PasswordResetRepo.AddAsync(new PasswordResetToken
                 {
-                    Email = email,
-                    OtpHash = otpHash,
+                    Email        = email,
+                    OtpHash      = otpHash,
                     OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes),
-                    CreatedAt = DateTime.Now,
+                    CreatedAt    = DateTime.Now,
                     AttemptCount = 0
-                };
-                await _unitOfWork.PasswordResetRepo.AddAsync(token);
+                });
             }
             else
             {
-                existing.OtpHash = otpHash;
+                existing.OtpHash      = otpHash;
                 existing.OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes);
                 existing.AttemptCount = 0;
                 _unitOfWork.PasswordResetRepo.Update(existing);
@@ -284,11 +267,8 @@ namespace Bachelor_s_Point.Services
                 return "All fields are required";
 
             var token = await _unitOfWork.PasswordResetRepo.GetByEmailAsync(dto.Email);
-            if (token == null)
-                return "No password reset request found. Please start again.";
-
-            if (DateTime.Now > token.OtpExpiresAt)
-                return "OTP has expired. Please request a new one.";
+            if (token == null) return "No password reset request found. Please start again.";
+            if (DateTime.Now > token.OtpExpiresAt) return "OTP has expired. Please request a new one.";
 
             string expectedHash = HashOtp(token.Email, dto.Otp);
             if (!CryptographicEquals(expectedHash, token.OtpHash))
@@ -307,24 +287,13 @@ namespace Bachelor_s_Point.Services
                 return "User account no longer exists.";
             }
 
-            // Hash and save the new password
             user.PasswordHash = _passwordHasher.HashPassword(user, dto.NewPassword);
             _unitOfWork.UserRepo.Update(user);
-
-            // Consume the token
             _unitOfWork.PasswordResetRepo.Delete(token);
-
             await _unitOfWork.SaveAsync();
 
-            // Send confirmation (don't fail reset if email errors)
-            try
-            {
-                await _emailService.SendPasswordChangedConfirmationAsync(user.Email!, user.FullName ?? user.UserName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to send password-changed confirmation to {Email}", user.Email);
-            }
+            try { await _emailService.SendPasswordChangedConfirmationAsync(user.Email!, user.FullName ?? user.UserName); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to send password-changed confirmation"); }
 
             return "Success";
         }
@@ -334,8 +303,7 @@ namespace Bachelor_s_Point.Services
             if (string.IsNullOrWhiteSpace(email)) return "Email is required";
 
             var token = await _unitOfWork.PasswordResetRepo.GetByEmailAsync(email);
-            if (token == null)
-                return "No password reset request found. Please start again.";
+            if (token == null) return "No password reset request found. Please start again.";
 
             var user = await _unitOfWork.UserRepo.GetUserByEmailAsync(email);
             if (user == null)
@@ -345,8 +313,8 @@ namespace Bachelor_s_Point.Services
                 return "User account no longer exists.";
             }
 
-            string plainOtp = GenerateOtp();
-            token.OtpHash = HashOtp(email, plainOtp);
+            string plainOtp   = GenerateOtp();
+            token.OtpHash      = HashOtp(email, plainOtp);
             token.OtpExpiresAt = DateTime.Now.AddMinutes(OtpValidityMinutes);
             token.AttemptCount = 0;
             _unitOfWork.PasswordResetRepo.Update(token);
@@ -366,10 +334,7 @@ namespace Bachelor_s_Point.Services
             return "Success";
         }
 
-
-        // ============================================================
-        // CHANGE PASSWORD (logged-in user, verify current password)
-        // ============================================================
+        // ── CHANGE PASSWORD ──────────────────────────────────────
 
         public async Task<string> ChangePasswordAsync(int userId, ChangePasswordDto dto)
         {
@@ -384,23 +349,18 @@ namespace Bachelor_s_Point.Services
             if (user == null || string.IsNullOrEmpty(user.PasswordHash))
                 return "User not found";
 
-            // Verify current password
             var verifyResult = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.CurrentPassword);
             if (verifyResult == PasswordVerificationResult.Failed)
                 return "Current password is incorrect";
 
-            // Hash and save new password
             user.PasswordHash = _passwordHasher.HashPassword(user, dto.NewPassword);
             _unitOfWork.UserRepo.Update(user);
             await _unitOfWork.SaveAsync();
 
-            // Send confirmation email (don't fail if email errors)
             try
             {
                 if (!string.IsNullOrWhiteSpace(user.Email))
-                {
                     await _emailService.SendPasswordChangedConfirmationAsync(user.Email, user.FullName ?? user.UserName);
-                }
             }
             catch (Exception ex)
             {
@@ -410,15 +370,13 @@ namespace Bachelor_s_Point.Services
             return "Success";
         }
 
-        // ---------- helpers ----------
+        // ── helpers ──────────────────────────────────────────────
 
         private static string GenerateOtp()
         {
-            // Cryptographically secure 6-digit OTP in [100000, 999999]
             byte[] bytes = RandomNumberGenerator.GetBytes(4);
             uint num = BitConverter.ToUInt32(bytes, 0);
-            int otp = (int)(100000 + (num % 900000));
-            return otp.ToString();
+            return (100000 + (int)(num % 900000)).ToString();
         }
 
         private static string HashOtp(string email, string otp)
@@ -428,7 +386,6 @@ namespace Bachelor_s_Point.Services
             return Convert.ToBase64String(sha.ComputeHash(data));
         }
 
-        /// <summary>Constant-time comparison to avoid timing attacks.</summary>
         private static bool CryptographicEquals(string a, string b)
         {
             if (a == null || b == null || a.Length != b.Length) return false;

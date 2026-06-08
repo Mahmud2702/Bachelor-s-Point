@@ -7,16 +7,17 @@ namespace Bachelor_s_Point.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        public DbSet<User> Users { get; set; }
-        public DbSet<Role> Roles { get; set; }
-        public DbSet<Room> Rooms { get; set; }
-        public DbSet<RoomSelection> RoomSelections { get; set; }
-        public DbSet<RoomImage> RoomImages { get; set; }
-        public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<User>                Users                { get; set; }
+        public DbSet<Role>                Roles                { get; set; }
+        public DbSet<Room>                Rooms                { get; set; }
+        public DbSet<RoomSelection>       RoomSelections       { get; set; }
+        public DbSet<RoomImage>           RoomImages           { get; set; }
+        public DbSet<ChatMessage>         ChatMessages         { get; set; }
         public DbSet<PendingRegistration> PendingRegistrations { get; set; }
-        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
-        public DbSet<KycVerification> KycVerifications { get; set; }
-        public DbSet<LoginHistory> LoginHistories { get; set; }
+        public DbSet<PasswordResetToken>  PasswordResetTokens  { get; set; }
+        public DbSet<KycVerification>     KycVerifications     { get; set; }
+        public DbSet<LoginHistory>        LoginHistories       { get; set; }
+        public DbSet<Payment>             Payments             { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -68,15 +69,12 @@ namespace Bachelor_s_Point.Data
                 .HasForeignKey(m => m.ReceiverId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // Pending registration — index email for fast lookup
             modelBuilder.Entity<PendingRegistration>()
                 .HasIndex(p => p.Email);
 
-            // Password reset token — index email for fast lookup
             modelBuilder.Entity<PasswordResetToken>()
                 .HasIndex(p => p.Email);
 
-            // KYC — one verification record per user
             modelBuilder.Entity<KycVerification>()
                 .HasIndex(k => k.UserId)
                 .IsUnique();
@@ -86,12 +84,27 @@ namespace Bachelor_s_Point.Data
                 .HasForeignKey(k => k.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Login history — many rows per user
             modelBuilder.Entity<LoginHistory>()
                 .HasOne(l => l.User)
                 .WithMany()
                 .HasForeignKey(l => l.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // Payment
+            modelBuilder.Entity<Payment>()
+                .HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Payment>()
+                .HasOne(p => p.Room)
+                .WithMany()
+                .HasForeignKey(p => p.RoomId)
+                .OnDelete(DeleteBehavior.SetNull); // keep payment record if room deleted
+
+            modelBuilder.Entity<Payment>()
+                .HasIndex(p => new { p.UserId, p.Type });
 
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },

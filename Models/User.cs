@@ -41,6 +41,13 @@ namespace Bachelor_s_Point.Models
         [MaxLength(500)]
         public string? ProfilePicturePath { get; set; }
 
+        /// <summary>
+        /// True once admin verifies the 20 BDT registration payment.
+        /// Admin accounts are set to true automatically on creation.
+        /// Regular users cannot log in until this is true.
+        /// </summary>
+        public bool IsPaymentVerified { get; set; } = false;
+
         public ICollection<Room>? Rooms { get; set; }
     }
 }
