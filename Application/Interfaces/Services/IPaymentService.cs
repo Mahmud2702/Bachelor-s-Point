@@ -7,6 +7,7 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
         Task<string> SubmitRegistrationPaymentAsync(int userId, string transactionId);
         Task<string> SubmitRoomPaymentAsync(int userId, int roomId, string transactionId, decimal amount);
         Task<string> VerifyPaymentAsync(int paymentId);
+        Task<string> VerifyPaymentByTranIdAsync(string transactionId);
         Task<string> RejectPaymentAsync(int paymentId, string? note);
         Task<List<Payment>> GetAllPendingAsync();
         Task<Payment?> GetRegistrationPaymentAsync(int userId);

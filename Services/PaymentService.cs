@@ -12,13 +12,12 @@ namespace Bachelor_s_Point.Services
         public PaymentService(IUnitOfWork unitOfWork, ILogger<PaymentService> logger)
         {
             _unitOfWork = unitOfWork;
-            _logger = logger;
+            _logger     = logger;
         }
 
         public async Task<string> SubmitRegistrationPaymentAsync(int userId, string transactionId)
         {
-            if (string.IsNullOrWhiteSpace(transactionId))
-                return "Transaction ID is required";
+            if (string.IsNullOrWhiteSpace(transactionId)) return "Transaction ID is required";
 
             var user = await _unitOfWork.UserRepo.GetByIdAsync(userId);
             if (user == null) return "User not found";
@@ -26,10 +25,7 @@ namespace Bachelor_s_Point.Services
             var existing = await _unitOfWork.PaymentRepo.GetRegistrationPaymentByUserIdAsync(userId);
             if (existing != null)
             {
-                if (existing.Status == PaymentStatus.Verified)
-                    return "Your registration payment is already verified.";
-
-                // Pending or Rejected — allow update/resubmit
+                if (existing.Status == PaymentStatus.Verified) return "Already verified";
                 existing.TransactionId = transactionId.Trim();
                 existing.Status        = PaymentStatus.Pending;
                 existing.SubmittedAt   = DateTime.Now;
@@ -39,7 +35,7 @@ namespace Bachelor_s_Point.Services
                 return "Success";
             }
 
-            var payment = new Payment
+            await _unitOfWork.PaymentRepo.AddAsync(new Payment
             {
                 UserId        = userId,
                 Type          = PaymentType.Registration,
@@ -47,16 +43,14 @@ namespace Bachelor_s_Point.Services
                 TransactionId = transactionId.Trim(),
                 Status        = PaymentStatus.Pending,
                 SubmittedAt   = DateTime.Now
-            };
-            await _unitOfWork.PaymentRepo.AddAsync(payment);
+            });
             await _unitOfWork.SaveAsync();
             return "Success";
         }
 
         public async Task<string> SubmitRoomPaymentAsync(int userId, int roomId, string transactionId, decimal amount)
         {
-            if (string.IsNullOrWhiteSpace(transactionId))
-                return "Transaction ID is required";
+            if (string.IsNullOrWhiteSpace(transactionId)) return "Transaction ID is required";
 
             var room = await _unitOfWork.RoomRepo.GetByIdAsync(roomId);
             if (room == null) return "Room not found";
@@ -65,9 +59,7 @@ namespace Bachelor_s_Point.Services
             var existing = await _unitOfWork.PaymentRepo.GetRoomPaymentByRoomIdAsync(roomId);
             if (existing != null)
             {
-                if (existing.Status == PaymentStatus.Verified)
-                    return "Payment for this room is already verified.";
-
+                if (existing.Status == PaymentStatus.Verified) return "Already verified";
                 existing.TransactionId = transactionId.Trim();
                 existing.Amount        = amount;
                 existing.Status        = PaymentStatus.Pending;
@@ -78,7 +70,7 @@ namespace Bachelor_s_Point.Services
                 return "Success";
             }
 
-            var payment = new Payment
+            await _unitOfWork.PaymentRepo.AddAsync(new Payment
             {
                 UserId        = userId,
                 Type          = PaymentType.RoomPosting,
@@ -87,8 +79,7 @@ namespace Bachelor_s_Point.Services
                 RoomId        = roomId,
                 Status        = PaymentStatus.Pending,
                 SubmittedAt   = DateTime.Now
-            };
-            await _unitOfWork.PaymentRepo.AddAsync(payment);
+            });
             await _unitOfWork.SaveAsync();
             return "Success";
         }
@@ -103,29 +94,37 @@ namespace Bachelor_s_Point.Services
             payment.VerifiedAt = DateTime.Now;
             _unitOfWork.PaymentRepo.Update(payment);
 
-            // Side-effects
             if (payment.Type == PaymentType.Registration)
             {
                 var user = await _unitOfWork.UserRepo.GetByIdAsync(payment.UserId);
-                if (user != null)
-                {
-                    user.IsPaymentVerified = true;
-                    _unitOfWork.UserRepo.Update(user);
-                }
+                if (user != null) { user.IsPaymentVerified = true; _unitOfWork.UserRepo.Update(user); }
             }
             else if (payment.Type == PaymentType.RoomPosting && payment.RoomId.HasValue)
             {
                 var room = await _unitOfWork.RoomRepo.GetByIdAsync(payment.RoomId.Value);
                 if (room != null && !room.IsApproved)
                 {
-                    room.IsApproved  = true;
-                    room.ApprovedAt  = DateTime.Now;
+                    room.IsApproved = true;
+                    room.ApprovedAt = DateTime.Now;
                     _unitOfWork.RoomRepo.Update(room);
                 }
             }
 
             await _unitOfWork.SaveAsync();
             return "Success";
+        }
+
+        /// <summary>
+        /// Called by SSLCommerz callback — finds payment by TransactionId then verifies it.
+        /// </summary>
+        public async Task<string> VerifyPaymentByTranIdAsync(string transactionId)
+        {
+            if (string.IsNullOrWhiteSpace(transactionId)) return "Invalid transaction ID";
+
+            var payment = await _unitOfWork.PaymentRepo.GetByTransactionIdAsync(transactionId);
+            if (payment == null) return "Payment record not found";
+
+            return await VerifyPaymentAsync(payment.Id);
         }
 
         public async Task<string> RejectPaymentAsync(int paymentId, string? note)

@@ -20,14 +20,17 @@ builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath        = "/Auth/Login";
-        options.AccessDeniedPath = "/Auth/AccessDenied";
-        options.ExpireTimeSpan   = TimeSpan.FromHours(8);
+        options.LoginPath         = "/Auth/Login";
+        options.AccessDeniedPath  = "/Auth/AccessDenied";
+        options.ExpireTimeSpan    = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
     });
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+
+// HttpClient for SSLCommerz
+builder.Services.AddHttpClient<ISSLCommerzService, SSLCommerzService>();
 
 // ── Repositories ────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository,               UserRepository>();
@@ -57,8 +60,9 @@ builder.Services.AddScoped<ISmtpEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 // ── Settings ────────────────────────────────────────────────
-builder.Services.Configure<SmtpOptions>(    builder.Configuration.GetSection("Smtp"));
-builder.Services.Configure<PaymentSettings>(builder.Configuration.GetSection("Payment"));
+builder.Services.Configure<SmtpOptions>(        builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<PaymentSettings>(    builder.Configuration.GetSection("Payment"));
+builder.Services.Configure<SSLCommerzSettings>( builder.Configuration.GetSection("SSLCommerz"));
 
 var app = builder.Build();
 
@@ -70,7 +74,6 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();

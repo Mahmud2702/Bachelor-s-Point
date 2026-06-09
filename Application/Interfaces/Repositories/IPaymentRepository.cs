@@ -8,5 +8,6 @@ namespace Bachelor_s_Point.Application.Interfaces.Repositories
         Task<Payment?> GetRegistrationPaymentByUserIdAsync(int userId);
         Task<Payment?> GetRoomPaymentByRoomIdAsync(int roomId);
         Task<List<Payment>> GetByUserIdAsync(int userId);
+        Task<Payment?> GetByTransactionIdAsync(string transactionId);
     }
 }

@@ -42,5 +42,13 @@ namespace Bachelor_s_Point.Repositories
                 .OrderByDescending(p => p.SubmittedAt)
                 .ToListAsync();
         }
+
+        public async Task<Payment?> GetByTransactionIdAsync(string transactionId)
+        {
+            return await _context.Payments
+                .Include(p => p.User)
+                .Include(p => p.Room)
+                .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
+        }
     }
 }

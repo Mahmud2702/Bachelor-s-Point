@@ -9,26 +9,31 @@ namespace Bachelor_s_Point.Controllers
 {
     public class PaymentController : Controller
     {
-        private readonly IPaymentService _paymentService;
-        private readonly IRoomService    _roomService;
-        private readonly IUserService    _userService;
-        private readonly IOptions<PaymentSettings> _paySettings;
+        private readonly IPaymentService      _paymentService;
+        private readonly IRoomService         _roomService;
+        private readonly IUserService         _userService;
+        private readonly ISSLCommerzService   _sslCommerz;
+        private readonly IOptions<PaymentSettings>    _paySettings;
+        private readonly IOptions<SSLCommerzSettings> _sslSettings;
 
         public PaymentController(
-            IPaymentService paymentService,
-            IRoomService    roomService,
-            IUserService    userService,
-            IOptions<PaymentSettings> paySettings)
+            IPaymentService      paymentService,
+            IRoomService         roomService,
+            IUserService         userService,
+            ISSLCommerzService   sslCommerz,
+            IOptions<PaymentSettings>    paySettings,
+            IOptions<SSLCommerzSettings> sslSettings)
         {
             _paymentService = paymentService;
             _roomService    = roomService;
             _userService    = userService;
+            _sslCommerz     = sslCommerz;
             _paySettings    = paySettings;
+            _sslSettings    = sslSettings;
         }
 
-        // ── REGISTRATION FEE (seeker unlocks blurred rooms) ─────────────
+        // ── REGISTRATION FEE PAGE ────────────────────────────────
 
-        // GET /Payment/RegistrationFee
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> RegistrationFee()
@@ -37,14 +42,13 @@ namespace Bachelor_s_Point.Controllers
             var user   = await _userService.GetUserByIdAsync(userId);
             if (user == null) return RedirectToAction("Login", "Auth");
 
-            // DB says verified but cookie claim is stale → refresh cookie then show rooms
             bool claimVerified = User.FindFirst("PaymentVerified")?.Value == "True";
             if (user.IsPaymentVerified && !claimVerified)
                 return RedirectToAction("RefreshSession", "Auth");
 
             if (user.IsPaymentVerified)
             {
-                TempData["Success"] = "Your account is already unlocked. Browse all rooms!";
+                TempData["Success"] = "Your account is already unlocked!";
                 return RedirectToAction("Index", "Room");
             }
 
@@ -53,26 +57,47 @@ namespace Bachelor_s_Point.Controllers
             return View();
         }
 
-        // POST /Payment/RegistrationFee
+        // ── PAY REGISTRATION FEE via SSLCommerz ──────────────────
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
-        public async Task<IActionResult> RegistrationFee(string transactionId)
+        public async Task<IActionResult> PayRegistrationFee()
         {
-            int    userId = GetCurrentUserId();
-            string result = await _paymentService.SubmitRegistrationPaymentAsync(userId, transactionId);
+            int userId = GetCurrentUserId();
+            var user   = await _userService.GetUserByIdAsync(userId);
+            if (user == null || user.IsPaymentVerified)
+                return RedirectToAction(nameof(RegistrationFee));
 
-            if (result == "Success")
-                TempData["Success"] = "Transaction ID submitted! Admin will verify and unlock your account shortly.";
-            else
-                TempData["Error"] = result;
+            decimal amount  = _paySettings.Value.RegistrationFee;
+            string  tranId  = $"BP-REG-{userId}-{DateTime.Now.Ticks}";
+            string  baseUrl = _sslSettings.Value.BaseUrl.TrimEnd('/');
 
-            return RedirectToAction(nameof(RegistrationFee));
+            // Create pending payment record first
+            await _paymentService.SubmitRegistrationPaymentAsync(userId, tranId);
+
+            string? gatewayUrl = await _sslCommerz.InitiatePaymentAsync(
+                tranId, amount,
+                successUrl:    $"{baseUrl}/Payment/SSLCommerzSuccess",
+                failUrl:       $"{baseUrl}/Payment/SSLCommerzFail",
+                cancelUrl:     $"{baseUrl}/Payment/SSLCommerzCancel",
+                ipnUrl:        $"{baseUrl}/Payment/SSLCommerzIpn",
+                customerName:  user.FullName  ?? user.UserName ?? "Customer",
+                customerEmail: user.Email     ?? "customer@email.com",
+                customerPhone: user.PhoneNumber ?? "01700000000",
+                productName:   "Registration Fee - Bachelor's Point");
+
+            if (gatewayUrl == null)
+            {
+                TempData["Error"] = "Payment gateway is currently unavailable. Please try again.";
+                return RedirectToAction(nameof(RegistrationFee));
+            }
+
+            return Redirect(gatewayUrl);
         }
 
-        // ── ROOM POSTING FEE (owner pays 20% of rent per room) ──────────
+        // ── ROOM FEE PAGE ────────────────────────────────────────
 
-        // GET /Payment/RoomFee?roomId=X
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> RoomFee(int roomId)
@@ -93,33 +118,138 @@ namespace Bachelor_s_Point.Controllers
             return View();
         }
 
-        // POST /Payment/RoomFee
+        // ── PAY ROOM FEE via SSLCommerz ──────────────────────────
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
-        public async Task<IActionResult> RoomFee(int roomId, string transactionId)
+        public async Task<IActionResult> PayRoomFee(int roomId)
         {
             int userId = GetCurrentUserId();
             var room   = await _roomService.GetRoomByIdAsync(roomId);
             if (room == null) return NotFound();
             if (room.UserId != userId) return Forbid();
 
-            int     pct = _paySettings.Value.RoomFeePercent;
-            decimal fee = Math.Ceiling(room.Price * pct / 100.0m);
+            int     pct    = _paySettings.Value.RoomFeePercent;
+            decimal fee    = Math.Ceiling(room.Price * pct / 100.0m);
+            string  tranId = $"BP-ROOM-{roomId}-{userId}-{DateTime.Now.Ticks}";
+            string  baseUrl= _sslSettings.Value.BaseUrl.TrimEnd('/');
 
-            string result = await _paymentService.SubmitRoomPaymentAsync(userId, roomId, transactionId, fee);
+            var user = await _userService.GetUserByIdAsync(userId);
 
-            if (result == "Success")
-                TempData["Success"] = "Payment TrxID submitted! Admin will verify and publish your room shortly.";
-            else
-                TempData["Error"] = result;
+            // Create pending payment record first
+            await _paymentService.SubmitRoomPaymentAsync(userId, roomId, tranId, fee);
 
-            return RedirectToAction(nameof(RoomFee), new { roomId });
+            string? gatewayUrl = await _sslCommerz.InitiatePaymentAsync(
+                tranId, fee,
+                successUrl:    $"{baseUrl}/Payment/SSLCommerzSuccess",
+                failUrl:       $"{baseUrl}/Payment/SSLCommerzFail",
+                cancelUrl:     $"{baseUrl}/Payment/SSLCommerzCancel",
+                ipnUrl:        $"{baseUrl}/Payment/SSLCommerzIpn",
+                customerName:  user?.FullName  ?? user?.UserName ?? "Customer",
+                customerEmail: user?.Email     ?? "customer@email.com",
+                customerPhone: user?.PhoneNumber ?? "01700000000",
+                productName:   $"Room Posting Fee - {room.Title}");
+
+            if (gatewayUrl == null)
+            {
+                TempData["Error"] = "Payment gateway is currently unavailable. Please try again.";
+                return RedirectToAction(nameof(RoomFee), new { roomId });
+            }
+
+            return Redirect(gatewayUrl);
         }
 
-        // ── ADMIN PANEL ─────────────────────────────────────────────────
+        // ── SSLCOMMERZ CALLBACKS ─────────────────────────────────
 
-        // GET /Payment/AdminPayments
+        // SSLCommerz POSTs here after successful payment
+        [HttpPost]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> SSLCommerzSuccess(IFormCollection form)
+        {
+            string? valId  = form["val_id"];
+            string? tranId = form["tran_id"];
+
+            if (string.IsNullOrEmpty(valId) || string.IsNullOrEmpty(tranId))
+            {
+                TempData["Error"] = "Payment validation failed.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            var (isValid, validatedTranId) = await _sslCommerz.ValidatePaymentAsync(valId);
+
+            if (!isValid)
+            {
+                TempData["Error"] = "Payment could not be verified. Please contact support.";
+                return RedirectToAction("Index", "Home");
+            }
+
+            string result = await _paymentService.VerifyPaymentByTranIdAsync(validatedTranId);
+
+            if (result == "Success" || result == "Already verified")
+            {
+                if (validatedTranId.StartsWith("BP-REG-"))
+                {
+                    // Registration fee paid → refresh cookie so rooms unlock
+                    if (User.Identity?.IsAuthenticated == true)
+                        return RedirectToAction("RefreshSession", "Auth");
+
+                    TempData["Success"] = "Payment successful! Please log in to unlock all rooms.";
+                    return RedirectToAction("Login", "Auth");
+                }
+                else
+                {
+                    TempData["Success"] = "Room posting fee paid! Your room is under review and will be published shortly.";
+                    return RedirectToAction("MyListings", "Room");
+                }
+            }
+
+            TempData["Error"] = "Payment processed but could not be recorded. Please contact support.";
+            return RedirectToAction("Index", "Home");
+        }
+
+        // SSLCommerz POSTs here on payment failure
+        [HttpPost]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken]
+        public IActionResult SSLCommerzFail()
+        {
+            TempData["Error"] = "Payment failed. Please try again.";
+            return RedirectToAction(nameof(RegistrationFee));
+        }
+
+        // SSLCommerz POSTs here when user cancels
+        [HttpPost]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken]
+        public IActionResult SSLCommerzCancel()
+        {
+            TempData["Error"] = "Payment cancelled.";
+            return RedirectToAction(nameof(RegistrationFee));
+        }
+
+        // SSLCommerz IPN — background notification (backup verification)
+        [HttpPost]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> SSLCommerzIpn(IFormCollection form)
+        {
+            string? valId  = form["val_id"];
+            string? tranId = form["tran_id"];
+
+            if (!string.IsNullOrEmpty(valId) && !string.IsNullOrEmpty(tranId))
+            {
+                var (isValid, validatedTranId) = await _sslCommerz.ValidatePaymentAsync(valId);
+                if (isValid)
+                    await _paymentService.VerifyPaymentByTranIdAsync(validatedTranId);
+            }
+
+            return Ok();
+        }
+
+        // ── ADMIN PANEL ─────────────────────────────────────────
+
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AdminPayments()
@@ -128,37 +258,29 @@ namespace Bachelor_s_Point.Controllers
             return View(payments);
         }
 
-        // POST /Payment/Verify/{id}
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Verify(int id)
         {
             string result = await _paymentService.VerifyPaymentAsync(id);
-            if (result == "Success")
-                TempData["Success"] = "Payment verified. Account/Room activated.";
-            else
-                TempData["Error"] = result;
-
+            TempData[result == "Success" ? "Success" : "Error"] =
+                result == "Success" ? "Payment verified." : result;
             return RedirectToAction(nameof(AdminPayments));
         }
 
-        // POST /Payment/Reject/{id}
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Reject(int id, string? note)
         {
             string result = await _paymentService.RejectPaymentAsync(id, note);
-            if (result == "Success")
-                TempData["Success"] = "Payment rejected.";
-            else
-                TempData["Error"] = result;
-
+            TempData[result == "Success" ? "Success" : "Error"] =
+                result == "Success" ? "Payment rejected." : result;
             return RedirectToAction(nameof(AdminPayments));
         }
 
-        // ── helper ──────────────────────────────────────────────────────
+        // ── helper ──────────────────────────────────────────────
         private int GetCurrentUserId()
         {
             var val = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
