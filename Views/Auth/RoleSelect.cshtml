@@ -2,55 +2,636 @@
     ViewData["Title"] = "Welcome";
 }
 
-<div class="container py-5">
-    <div class="text-center mb-5 fade-up">
-        <div style="display:inline-flex; align-items:center; gap:10px; padding: 6px 18px; background: var(--primary-light); border-radius: 999px; margin-bottom: 1.5rem;">
-            <i class="bi bi-house-heart-fill" style="color: var(--primary);"></i>
-            <span style="color: var(--primary); font-weight: 700; font-size: 0.85rem;">Bachelor's Point</span>
-        </div>
-        <h1 style="font-size: 2.6rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 0.75rem;">
-            Find your perfect bachelor room
-        </h1>
-        <p style="font-size: 1.05rem; color: var(--muted); max-width: 560px; margin: 0 auto;">
-            Choose how you'd like to continue.
-        </p>
-    </div>
+<style>
+    /*
+            Color palette used:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
 
-    <div class="row g-4 justify-content-center" style="max-width: 880px; margin: 0 auto;">
-        <div class="col-md-6 fade-up">
-            <a asp-action="Login" asp-route-as="admin" class="role-card h-100">
-                <div class="icon-wrap icon-admin">
-                    <i class="bi bi-shield-lock-fill"></i>
-                </div>
-                <h4 style="font-weight: 800; margin-bottom: 0.5rem; font-size: 1.25rem;">Admin</h4>
-                <p style="color: var(--muted); margin: 0 0 1.5rem; font-size: 0.92rem;">
-                    Approve room postings, manage users and roles.
-                </p>
-                <span class="btn-nx" style="pointer-events: none;">
-                    Continue as Admin <i class="bi bi-arrow-right"></i>
-                </span>
-            </a>
-        </div>
-        <div class="col-md-6 fade-up">
-            <a asp-action="Login" asp-route-as="user" class="role-card h-100">
-                <div class="icon-wrap icon-user">
-                    <i class="bi bi-person-fill"></i>
-                </div>
-                <h4 style="font-weight: 800; margin-bottom: 0.5rem; font-size: 1.25rem;">User</h4>
-                <p style="color: var(--muted); margin: 0 0 1.5rem; font-size: 0.92rem;">
-                    Post a room or find a bachelor room to rent.
-                </p>
-                <span class="btn-nx success" style="pointer-events: none;">
-                    Continue as User <i class="bi bi-arrow-right"></i>
-                </span>
-            </a>
-        </div>
-    </div>
+            Goal:
+            - No unnecessary desktop scrolling
+            - Bigger, more attractive role cards
+            - Better use of full screen height
+            - Responsive layout for tablet and mobile
+        */
 
-    <div class="text-center mt-5">
-        <p style="color: var(--muted); font-size: 0.92rem; margin: 0;">
-            Don't have an account?
-            <a asp-action="Register" asp-route-as="user" class="auth-link">Create one free</a>
-        </p>
+    :root {
+        --bp-navy: #111844;
+        --bp-indigo: #4B5694;
+        --bp-bluegray: #7288AE;
+        --bp-beige: #EAE0CF;
+        --bp-bg: #f8f7f3;
+        --bp-card: rgba(255, 255, 255, .86);
+        --bp-border: rgba(17, 24, 68, .14);
+        --bp-shadow: 0 28px 80px rgba(17, 24, 68, .18);
+        --bp-soft-shadow: 0 18px 45px rgba(17, 24, 68, .12);
+    }
+
+    body:has(.role-select-screen) {
+        min-height: 100dvh;
+        overflow: hidden;
+        background: radial-gradient(circle at 6% 18%, rgba(75, 86, 148, .24), transparent 30%), radial-gradient(circle at 92% 82%, rgba(234, 224, 207, .72), transparent 32%), linear-gradient(135deg, #f9fafc 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
+
+    [data-theme="dark"] body:has(.role-select-screen) {
+        background: radial-gradient(circle at 7% 15%, rgba(114, 136, 174, .20), transparent 32%), radial-gradient(circle at 90% 82%, rgba(75, 86, 148, .28), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 55%, #151b33 100%);
+    }
+
+    body:has(.role-select-screen) .bp-guest-nav {
+        padding: .55rem 0;
+        background: rgba(255, 255, 255, .82);
+        backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(17, 24, 68, .08);
+    }
+
+    [data-theme="dark"] body:has(.role-select-screen) .bp-guest-nav {
+        background: rgba(7, 11, 24, .76);
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    body:has(.role-select-screen) .bp-brand {
+        padding-top: .35rem;
+        padding-bottom: .35rem;
+    }
+
+    body:has(.role-select-screen) .bp-brand-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--bp-navy), var(--bp-indigo));
+        box-shadow: 0 14px 32px rgba(17, 24, 68, .25);
+    }
+
+    body:has(.role-select-screen) .nx-footer {
+        padding: .65rem 0;
+        font-size: .82rem;
+        background: rgba(255, 255, 255, .78);
+        backdrop-filter: blur(14px);
+        border-top: 1px solid rgba(17, 24, 68, .08);
+    }
+
+    [data-theme="dark"] body:has(.role-select-screen) .nx-footer {
+        background: rgba(7, 11, 24, .72);
+        border-top-color: rgba(234, 224, 207, .10);
+    }
+
+    .role-select-screen {
+        position: relative;
+        min-height: calc(100dvh - 132px);
+        display: flex;
+        align-items: stretch;
+        padding: clamp(.8rem, 1.6vh, 1.2rem) 0;
+        overflow: hidden;
+    }
+
+        .role-select-screen::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 76%);
+            pointer-events: none;
+        }
+
+    [data-theme="dark"] .role-select-screen::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .role-select-screen::after {
+        content: "";
+        position: absolute;
+        width: 420px;
+        height: 420px;
+        right: -160px;
+        bottom: -170px;
+        border-radius: 50%;
+        background: rgba(234, 224, 207, .62);
+        filter: blur(8px);
+        pointer-events: none;
+    }
+
+    .role-select-shell {
+        position: relative;
+        z-index: 1;
+        width: min(100%, 1260px);
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: clamp(1rem, 2vh, 1.4rem);
+    }
+
+    .role-hero {
+        text-align: center;
+    }
+
+    .role-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .48rem 1rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .72);
+        color: var(--bp-navy);
+        font-size: .86rem;
+        font-weight: 900;
+        margin-bottom: .75rem;
+        border: 1px solid rgba(17, 24, 68, .10);
+        box-shadow: 0 12px 28px rgba(17, 24, 68, .08);
+    }
+
+    [data-theme="dark"] .role-kicker {
+        background: rgba(234, 224, 207, .10);
+        color: #EAE0CF;
+        border-color: rgba(234, 224, 207, .14);
+    }
+
+    .role-title {
+        max-width: 900px;
+        margin: 0 auto .45rem;
+        font-size: clamp(2.05rem, 4.4vw, 4.2rem);
+        line-height: .98;
+        font-weight: 950;
+        letter-spacing: -2px;
+        color: var(--bp-navy);
+    }
+
+    [data-theme="dark"] .role-title {
+        color: #f8fafc;
+    }
+
+    .role-subtitle {
+        max-width: 620px;
+        margin: 0 auto;
+        color: var(--bp-indigo);
+        font-size: clamp(.98rem, 1.35vw, 1.16rem);
+        line-height: 1.45;
+        font-weight: 500;
+    }
+
+    [data-theme="dark"] .role-subtitle {
+        color: #cbd5e1;
+    }
+
+    .role-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: clamp(1.1rem, 2.8vw, 2rem);
+        align-items: stretch;
+    }
+
+    .role-option {
+        position: relative;
+        min-height: clamp(330px, 42vh, 430px);
+        padding: clamp(1.7rem, 3.8vh, 2.7rem);
+        border-radius: 34px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        text-decoration: none;
+        color: var(--bp-navy);
+        background: linear-gradient(180deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .78)), var(--bp-card);
+        border: 1px solid var(--bp-border);
+        box-shadow: var(--bp-soft-shadow);
+        overflow: hidden;
+        isolation: isolate;
+        transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    [data-theme="dark"] .role-option {
+        color: #f8fafc;
+        background: linear-gradient(180deg, rgba(21, 27, 51, .94), rgba(17, 24, 68, .82));
+        border-color: rgba(234, 224, 207, .12);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, .32);
+    }
+
+    .role-option::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -2;
+        opacity: .96;
+        transition: opacity .25s ease;
+    }
+
+    .role-option.admin::before {
+        background: radial-gradient(circle at 15% 15%, rgba(114, 136, 174, .42), transparent 35%), radial-gradient(circle at 90% 95%, rgba(234, 224, 207, .55), transparent 38%);
+    }
+
+    .role-option.user::before {
+        background: radial-gradient(circle at 18% 16%, rgba(234, 224, 207, .62), transparent 34%), radial-gradient(circle at 90% 92%, rgba(114, 136, 174, .36), transparent 40%);
+    }
+
+    .role-option::after {
+        content: "";
+        position: absolute;
+        width: 170px;
+        height: 170px;
+        border-radius: 42px;
+        right: -72px;
+        top: -72px;
+        background: rgba(255, 255, 255, .45);
+        transform: rotate(20deg);
+        z-index: -1;
+        transition: transform .25s ease;
+    }
+
+    [data-theme="dark"] .role-option::after {
+        background: rgba(234, 224, 207, .08);
+    }
+
+    .role-option:hover {
+        transform: translateY(-8px);
+        color: var(--bp-navy);
+        border-color: rgba(17, 24, 68, .32);
+        box-shadow: var(--bp-shadow);
+    }
+
+    [data-theme="dark"] .role-option:hover {
+        color: #f8fafc;
+        border-color: rgba(234, 224, 207, .26);
+    }
+
+    .role-option:hover::after {
+        transform: rotate(20deg) scale(1.12);
+    }
+
+    .role-icon {
+        width: clamp(86px, 9vw, 112px);
+        height: clamp(86px, 9vw, 112px);
+        border-radius: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: clamp(1rem, 2.3vh, 1.45rem);
+        font-size: clamp(2rem, 3vw, 2.8rem);
+    }
+
+    .role-option.admin .role-icon {
+        background: linear-gradient(135deg, var(--bp-navy), var(--bp-indigo));
+        color: #ffffff;
+        box-shadow: 0 18px 40px rgba(17, 24, 68, .26);
+    }
+
+    .role-option.user .role-icon {
+        background: linear-gradient(135deg, var(--bp-bluegray), var(--bp-indigo));
+        color: #ffffff;
+        box-shadow: 0 18px 40px rgba(75, 86, 148, .24);
+    }
+
+    .role-option h2 {
+        font-size: clamp(1.5rem, 2.1vw, 2rem);
+        font-weight: 950;
+        letter-spacing: -.6px;
+        margin: 0 0 .6rem;
+    }
+
+    .role-option p {
+        max-width: 470px;
+        margin: 0 0 clamp(1.3rem, 2.8vh, 2rem);
+        color: var(--bp-indigo);
+        font-size: clamp(1rem, 1.35vw, 1.12rem);
+        line-height: 1.6;
+        font-weight: 500;
+    }
+
+    [data-theme="dark"] .role-option p {
+        color: #cbd5e1;
+    }
+
+    .role-action {
+        min-height: 50px;
+        padding: .85rem 1.35rem;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .7rem;
+        color: #ffffff;
+        font-size: clamp(.95rem, 1.2vw, 1.05rem);
+        font-weight: 900;
+        letter-spacing: -.15px;
+        box-shadow: 0 14px 30px rgba(17, 24, 68, .18);
+        transition: box-shadow .22s ease, filter .22s ease;
+    }
+
+    .role-option.admin .role-action {
+        background: linear-gradient(135deg, var(--bp-navy), var(--bp-indigo));
+    }
+
+    .role-option.user .role-action {
+        background: linear-gradient(135deg, var(--bp-indigo), var(--bp-bluegray));
+    }
+
+    .role-action:hover {
+        filter: brightness(1.04);
+        box-shadow: 0 16px 34px rgba(17, 24, 68, .24), 0 0 0 4px rgba(114, 136, 174, .14);
+    }
+
+    .role-register {
+        text-align: center;
+        color: var(--bp-indigo);
+        font-size: clamp(.95rem, 1.2vw, 1.05rem);
+        font-weight: 500;
+    }
+
+    [data-theme="dark"] .role-register {
+        color: #cbd5e1;
+    }
+
+    .role-register a {
+        color: var(--bp-navy);
+        font-weight: 950;
+        text-decoration: none;
+        margin-left: .25rem;
+    }
+
+    [data-theme="dark"] .role-register a {
+        color: #EAE0CF;
+    }
+
+    .role-register a:hover {
+        text-decoration: underline;
+    }
+
+    .role-mobile-note {
+        display: none;
+    }
+
+    @@media (max-width: 991.98px) {
+        body:has(.role-select-screen) {
+            overflow: auto;
+        }
+
+        .role-select-screen {
+            min-height: auto;
+            padding: 1.5rem 0 1.8rem;
+        }
+
+        .role-select-shell {
+            justify-content: flex-start;
+        }
+
+        .role-grid {
+            grid-template-columns: 1fr;
+            max-width: 620px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .role-option {
+            min-height: 300px;
+            border-radius: 30px;
+        }
+
+        .role-title {
+            letter-spacing: -1.3px;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        body:has(.role-select-screen) .bp-guest-nav {
+            padding: .45rem 0;
+        }
+
+        .role-select-screen {
+            padding: 1.1rem 0 1.4rem;
+        }
+
+        .role-kicker {
+            font-size: .78rem;
+            padding: .38rem .78rem;
+            margin-bottom: .6rem;
+        }
+
+        .role-title {
+            font-size: 2rem;
+            line-height: 1.05;
+        }
+
+        .role-subtitle {
+            font-size: .92rem;
+        }
+
+        .role-grid {
+            gap: .95rem;
+        }
+
+        .role-option {
+            min-height: auto;
+            padding: 1.35rem 1rem;
+            border-radius: 24px;
+        }
+
+        .role-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 22px;
+            font-size: 1.65rem;
+            margin-bottom: .85rem;
+        }
+
+        .role-option h2 {
+            font-size: 1.35rem;
+        }
+
+        .role-option p {
+            font-size: .93rem;
+            margin-bottom: 1rem;
+        }
+
+        .role-action {
+            min-height: 46px;
+            width: 100%;
+            max-width: 260px;
+        }
+
+        .role-register {
+            font-size: .9rem;
+        }
+    }
+
+    @@media (max-height: 760px) and (min-width: 992px) {
+        .role-select-screen {
+            padding: .7rem 0;
+        }
+
+        .role-select-shell {
+            gap: .85rem;
+        }
+
+        .role-kicker {
+            margin-bottom: .45rem;
+        }
+
+        .role-title {
+            font-size: clamp(2rem, 3.5vw, 3.15rem);
+            margin-bottom: .25rem;
+        }
+
+        .role-subtitle {
+            font-size: .98rem;
+        }
+
+        .role-option {
+            min-height: 315px;
+            padding: 1.55rem;
+        }
+
+        .role-icon {
+            width: 78px;
+            height: 78px;
+            font-size: 1.85rem;
+            margin-bottom: .85rem;
+        }
+
+        .role-option h2 {
+            font-size: 1.45rem;
+        }
+
+        .role-option p {
+            font-size: .96rem;
+            margin-bottom: 1rem;
+            line-height: 1.48;
+        }
+
+        .role-action {
+            min-height: 46px;
+            padding: .72rem 1.1rem;
+        }
+    }
+
+    @@media (max-height: 660px) and (min-width: 992px) {
+        body:has(.role-select-screen) {
+            overflow: auto;
+        }
+
+        .role-select-screen {
+            min-height: auto;
+        }
+    }
+
+    /* FINAL FIX: remove odd icon movement/tilt and make button glow visible */
+
+    /* Stop all icon box rotation, pop, tilt, or shape distortion */
+    .role-icon,
+    .role-option:hover .role-icon,
+    body:has(.role-select-screen) .bp-brand-icon,
+    body:has(.role-select-screen) .bp-brand:hover .bp-brand-icon {
+        transform: none !important;
+        rotate: 0deg !important;
+        animation: none !important;
+    }
+
+    /* Make icon containers clean rounded-square, not weird tilted blob */
+    .role-icon,
+    body:has(.role-select-screen) .bp-brand-icon {
+        border-radius: 18px !important;
+    }
+
+    /* Keep role icon shadow stable */
+    .role-option:hover .role-icon {
+        box-shadow: 0 18px 40px rgba(17, 24, 68, .26) !important;
+    }
+
+    /* Button normal state */
+    .role-action {
+        position: relative;
+        overflow: visible;
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .22) !important;
+        transition: box-shadow .22s ease, filter .22s ease, outline-color .22s ease !important;
+    }
+
+    /* Remove previous button movement */
+    .role-option:hover .role-action {
+        transform: none !important;
+    }
+
+    /* Visible but controlled glow when hovering button */
+    .role-action:hover {
+        filter: brightness(1.07);
+        box-shadow: 0 14px 28px rgba(17, 24, 68, .28), 0 0 0 5px rgba(234, 224, 207, .90), 0 0 0 9px rgba(114, 136, 174, .30), 0 0 24px rgba(75, 86, 148, .48) !important;
+    }
+
+    /* Arrow should move slightly only inside button */
+    .role-action i {
+        transition: transform .2s ease;
+    }
+
+    .role-action:hover i {
+        transform: translateX(4px);
+    }
+
+</style>
+
+<section class="role-select-screen">
+    <div class="container-fluid px-3 px-md-4 px-xl-5">
+        <div class="role-select-shell">
+
+            <div class="role-hero fade-up">
+                <div class="role-kicker">
+                    <i class="fa-solid fa-house-chimney"></i>
+                    <span>Bachelor's Point</span>
+                </div>
+
+                <h1 class="role-title">
+                    Find your perfect bachelor room
+                </h1>
+
+                <p class="role-subtitle">
+                    Choose your role and continue to the right dashboard.
+                </p>
+            </div>
+
+            <div class="role-grid">
+                <a asp-action="Login" asp-route-as="admin" class="role-option admin fade-up" aria-label="Continue as Admin">
+                    <div class="role-icon">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+
+                    <h2>Admin</h2>
+
+                    <p>
+                        Approve room posts, verify users, manage roles, and monitor platform activity.
+                    </p>
+
+                    <span class="role-action">
+                        Continue as Admin
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </span>
+                </a>
+
+                <a asp-action="Login" asp-route-as="user" class="role-option user fade-up" aria-label="Continue as User">
+                    <div class="role-icon">
+                        <i class="fa-solid fa-user-group"></i>
+                    </div>
+
+                    <h2>User</h2>
+
+                    <p>
+                        Search bachelor rooms, post available rooms, chat with owners, and manage bookings.
+                    </p>
+
+                    <span class="role-action">
+                        Continue as User
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </span>
+                </a>
+            </div>
+
+            <div class="role-register">
+                Don’t have an account?
+                <a asp-action="Register" asp-route-as="user">
+                    <i class="fa-solid fa-user-plus me-1"></i>
+                    Create one free
+                </a>
+            </div>
+
+        </div>
     </div>
-</div>
+</section>

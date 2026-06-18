@@ -9,6 +9,266 @@
 }
 
 <style>
+    /*
+            Login page polish
+            Palette:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
+        */
+
+    :root {
+        --login-navy: #111844;
+        --login-indigo: #4B5694;
+        --login-bluegray: #7288AE;
+        --login-beige: #EAE0CF;
+        --login-card: rgba(255, 255, 255, .90);
+        --login-border: rgba(17, 24, 68, .14);
+        --login-shadow: 0 28px 80px rgba(17, 24, 68, .16);
+    }
+
+    body:has(.auth-fit-screen) {
+        overflow: hidden;
+        background: radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .20), transparent 30%), radial-gradient(circle at 92% 80%, rgba(234, 224, 207, .70), transparent 34%), linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
+
+    [data-theme="dark"] body:has(.auth-fit-screen) {
+        background: radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .18), transparent 30%), radial-gradient(circle at 90% 82%, rgba(75, 86, 148, .26), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
+    }
+
+    body:has(.auth-fit-screen) .bp-guest-nav {
+        padding: .55rem 0;
+        background: rgba(255, 255, 255, .86);
+        backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(17, 24, 68, .09);
+    }
+
+    [data-theme="dark"] body:has(.auth-fit-screen) .bp-guest-nav {
+        background: rgba(7, 11, 24, .78);
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    body:has(.auth-fit-screen) .nx-footer {
+        padding: .65rem 0;
+        font-size: .82rem;
+        background: rgba(255, 255, 255, .78);
+        backdrop-filter: blur(14px);
+        border-top: 1px solid rgba(17, 24, 68, .08);
+    }
+
+    [data-theme="dark"] body:has(.auth-fit-screen) .nx-footer {
+        background: rgba(7, 11, 24, .72);
+        border-top-color: rgba(234, 224, 207, .10);
+    }
+
+    /* Fix navbar logo: no rotate, only soft glow */
+    body:has(.auth-fit-screen) .bp-brand-icon,
+    body:has(.auth-fit-screen) .bp-brand:hover .bp-brand-icon {
+        transform: none !important;
+        rotate: 0deg !important;
+        animation: none !important;
+        border-radius: 16px !important;
+        background: linear-gradient(135deg, var(--login-navy), var(--login-indigo)) !important;
+        box-shadow: 0 12px 26px rgba(17, 24, 68, .22) !important;
+        transition: box-shadow .22s ease, filter .22s ease !important;
+    }
+
+    body:has(.auth-fit-screen) .bp-brand:hover .bp-brand-icon {
+        filter: brightness(1.08);
+        box-shadow: 0 14px 28px rgba(17, 24, 68, .26), 0 0 0 5px rgba(234, 224, 207, .75), 0 0 22px rgba(75, 86, 148, .42) !important;
+    }
+
+    .auth-fit-screen {
+        position: relative;
+        min-height: calc(100dvh - 132px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: .8rem 1rem;
+        overflow: hidden;
+    }
+
+        .auth-fit-screen::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 76%);
+            pointer-events: none;
+        }
+
+    [data-theme="dark"] .auth-fit-screen::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .auth-fit-card {
+        position: relative;
+        z-index: 1;
+        width: min(100%, 520px);
+        margin: 0 auto;
+        padding: clamp(1.45rem, 3.5vh, 2.25rem);
+        border-radius: 30px;
+        background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(255,255,255,.84)), var(--login-card);
+        border: 1px solid var(--login-border);
+        box-shadow: var(--login-shadow);
+        overflow: hidden;
+    }
+
+        .auth-fit-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 10% 10%, rgba(234, 224, 207, .62), transparent 32%), radial-gradient(circle at 95% 90%, rgba(114, 136, 174, .24), transparent 34%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+    [data-theme="dark"] .auth-fit-card {
+        background: linear-gradient(180deg, rgba(21, 27, 51, .96), rgba(17, 24, 68, .88));
+        border-color: rgba(234, 224, 207, .12);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, .34);
+    }
+
+        [data-theme="dark"] .auth-fit-card::before {
+            background: radial-gradient(circle at 10% 10%, rgba(234, 224, 207, .08), transparent 32%), radial-gradient(circle at 95% 90%, rgba(114, 136, 174, .16), transparent 34%);
+        }
+
+    .auth-brand-mini {
+        display: inline-flex;
+        align-items: center;
+        gap: .65rem;
+        color: var(--login-navy);
+        font-weight: 700;
+        font-size: .98rem;
+        margin-bottom: 1.1rem;
+    }
+
+    [data-theme="dark"] .auth-brand-mini {
+        color: #f8fafc;
+    }
+
+    .auth-brand-mini i {
+        color: var(--login-navy);
+    }
+
+    [data-theme="dark"] .auth-brand-mini i {
+        color: var(--login-beige);
+    }
+
+    .auth-title {
+        margin: 0 0 .35rem;
+        color: var(--login-navy);
+        font-size: clamp(1.65rem, 2.4vw, 2.1rem);
+        line-height: 1.05;
+        font-weight: 950;
+        letter-spacing: -.8px;
+    }
+
+    [data-theme="dark"] .auth-title {
+        color: #f8fafc;
+    }
+
+    .auth-subtitle {
+        color: var(--login-indigo);
+        font-size: .98rem;
+        margin-bottom: clamp(1.1rem, 2.2vh, 1.55rem);
+        font-weight: 500;
+    }
+
+    [data-theme="dark"] .auth-subtitle {
+        color: #cbd5e1;
+    }
+
+    .login-form-group {
+        margin-bottom: .95rem;
+    }
+
+    .login-form-label {
+        display: block;
+        font-size: .86rem;
+        font-weight: 800;
+        color: var(--login-navy);
+        margin-bottom: .45rem;
+    }
+
+    [data-theme="dark"] .login-form-label {
+        color: #f8fafc;
+    }
+
+    .auth-fit-card .form-control {
+        height: 50px;
+        border-radius: 16px;
+        border: 1px solid rgba(17, 24, 68, .13);
+        background: rgba(234, 224, 207, .34);
+        color: var(--login-navy);
+        font-size: .94rem;
+        font-weight: 500;
+        padding: .72rem 1rem;
+        box-shadow: none;
+        transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+        .auth-fit-card .form-control:focus {
+            border-color: var(--login-bluegray);
+            background: rgba(255, 255, 255, .94);
+            box-shadow: 0 0 0 4px rgba(114, 136, 174, .20), 0 12px 28px rgba(17, 24, 68, .10);
+            outline: none;
+        }
+
+    [data-theme="dark"] .auth-fit-card .form-control {
+        background: rgba(234, 224, 207, .08);
+        color: #f8fafc;
+        border-color: rgba(234, 224, 207, .14);
+    }
+
+        [data-theme="dark"] .auth-fit-card .form-control:focus {
+            background: rgba(17, 24, 68, .88);
+            border-color: var(--login-beige);
+            box-shadow: 0 0 0 4px rgba(234, 224, 207, .12), 0 12px 28px rgba(0, 0, 0, .24);
+        }
+
+    .password-wrap {
+        position: relative;
+    }
+
+        .password-wrap .form-control {
+            padding-right: 3rem;
+        }
+
+    .password-toggle {
+        position: absolute;
+        right: .95rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--login-indigo);
+        cursor: pointer;
+        font-size: .95rem;
+        transition: color .2s ease, filter .2s ease;
+    }
+
+        .password-toggle:hover {
+            color: var(--login-navy);
+            filter: brightness(1.15);
+        }
+
+    [data-theme="dark"] .password-toggle {
+        color: #cbd5e1;
+    }
+
+        [data-theme="dark"] .password-toggle:hover {
+            color: var(--login-beige);
+        }
+
+    .login-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin: .75rem 0 1.15rem;
+    }
+
     .nx-checkbox {
         display: inline-flex;
         align-items: center;
@@ -22,23 +282,24 @@
             -webkit-appearance: none;
             width: 18px;
             height: 18px;
-            border: 2px solid var(--border);
-            border-radius: 5px;
-            background: var(--white);
+            border: 2px solid rgba(114, 136, 174, .36);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, .72);
             cursor: pointer;
             position: relative;
-            transition: var(--transition);
+            transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
             margin: 0;
             flex-shrink: 0;
         }
 
             .nx-checkbox input[type="checkbox"]:hover {
-                border-color: var(--primary-mid);
+                border-color: var(--login-indigo);
+                box-shadow: 0 0 0 4px rgba(114, 136, 174, .14);
             }
 
             .nx-checkbox input[type="checkbox"]:checked {
-                background: var(--primary);
-                border-color: var(--primary);
+                background: var(--login-navy);
+                border-color: var(--login-navy);
             }
 
                 .nx-checkbox input[type="checkbox"]:checked::after {
@@ -54,88 +315,288 @@
                 }
 
         .nx-checkbox label {
-            font-size: 0.88rem;
-            color: var(--text);
+            font-size: .9rem;
+            color: var(--login-navy);
             cursor: pointer;
-            font-weight: 500;
+            font-weight: 600;
             margin: 0;
         }
+
+    [data-theme="dark"] .nx-checkbox label {
+        color: #f8fafc;
+    }
+
+    .auth-link {
+        color: var(--login-indigo);
+        font-weight: 850;
+        text-decoration: none;
+        transition: color .2s ease;
+    }
+
+        .auth-link:hover {
+            color: var(--login-navy);
+            text-decoration: underline;
+        }
+
+    [data-theme="dark"] .auth-link {
+        color: var(--login-beige);
+    }
+
+    .login-action {
+        width: 100%;
+        min-height: 50px;
+        border: none;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .65rem;
+        font-size: .98rem;
+        font-weight: 900;
+        text-decoration: none;
+        transition: box-shadow .22s ease, filter .22s ease, border-color .22s ease, background .22s ease;
+    }
+
+        .login-action.primary {
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--login-navy), var(--login-indigo));
+            box-shadow: 0 14px 30px rgba(17, 24, 68, .22);
+        }
+
+            .login-action.primary:hover {
+                color: #ffffff;
+                filter: brightness(1.07);
+                box-shadow: 0 16px 34px rgba(17, 24, 68, .28), 0 0 0 5px rgba(234, 224, 207, .90), 0 0 0 9px rgba(114, 136, 174, .28), 0 0 24px rgba(75, 86, 148, .42);
+            }
+
+        .login-action.outline {
+            color: var(--login-indigo);
+            background: rgba(255, 255, 255, .70);
+            border: 1px solid rgba(17, 24, 68, .13);
+            margin-top: .65rem;
+        }
+
+            .login-action.outline:hover {
+                color: var(--login-navy);
+                border-color: rgba(75, 86, 148, .36);
+                background: rgba(234, 224, 207, .45);
+                box-shadow: 0 12px 26px rgba(17, 24, 68, .10), 0 0 0 5px rgba(114, 136, 174, .14);
+            }
+
+    [data-theme="dark"] .login-action.outline {
+        color: #f8fafc;
+        background: rgba(234, 224, 207, .08);
+        border-color: rgba(234, 224, 207, .14);
+    }
+
+        [data-theme="dark"] .login-action.outline:hover {
+            background: rgba(234, 224, 207, .13);
+            color: var(--login-beige);
+        }
+
+    .login-action i {
+        transition: transform .2s ease;
+    }
+
+    .login-action.primary:hover i.fa-circle-arrow-right {
+        transform: translateX(3px);
+    }
+
+    .login-action.outline:hover i.fa-arrow-left {
+        transform: translateX(-3px);
+    }
+
+    .auth-bottom {
+        text-align: center;
+        margin-top: 1.15rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(17, 24, 68, .12);
+        font-size: .92rem;
+        color: var(--login-indigo);
+    }
+
+    [data-theme="dark"] .auth-bottom {
+        color: #cbd5e1;
+        border-top-color: rgba(234, 224, 207, .12);
+    }
+
+    @@media (max-width: 575.98px) {
+        body:has(.auth-fit-screen) {
+            overflow: auto;
+        }
+
+        .auth-fit-screen {
+            min-height: auto;
+            padding: 1.1rem .75rem 1.35rem;
+        }
+
+        .auth-fit-card {
+            padding: 1.25rem;
+            border-radius: 24px;
+        }
+
+        .auth-brand-mini {
+            margin-bottom: .9rem;
+        }
+
+        .auth-title {
+            font-size: 1.55rem;
+        }
+
+        .auth-subtitle {
+            font-size: .92rem;
+            margin-bottom: 1.1rem;
+        }
+
+        .login-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: .65rem;
+        }
+
+        .login-action {
+            min-height: 48px;
+        }
+    }
+
+    @@media (max-height: 760px) and (min-width: 768px) {
+        .auth-fit-screen {
+            padding: .6rem 1rem;
+        }
+
+        .auth-fit-card {
+            padding: 1.45rem 2rem;
+        }
+
+        .auth-brand-mini {
+            margin-bottom: .75rem;
+        }
+
+        .auth-title {
+            font-size: 1.7rem;
+        }
+
+        .auth-subtitle {
+            margin-bottom: .95rem;
+            font-size: .9rem;
+        }
+
+        .login-form-group {
+            margin-bottom: .7rem;
+        }
+
+        .auth-fit-card .form-control {
+            height: 46px;
+        }
+
+        .login-row {
+            margin: .55rem 0 .85rem;
+        }
+
+        .login-action {
+            min-height: 46px;
+        }
+
+        .auth-bottom {
+            margin-top: .85rem;
+            padding-top: .75rem;
+        }
+    }
+
+    @@media (max-height: 650px) and (min-width: 768px) {
+        body:has(.auth-fit-screen) {
+            overflow: auto;
+        }
+
+        .auth-fit-screen {
+            min-height: auto;
+        }
+    }
 </style>
 
-<div class="auth-card fade-up">
-    <div class="d-flex align-items-center gap-2 mb-4">
-        <div class="nx-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
-        <span class="nx-brand-name">Bachelor's Point</span>
-    </div>
-
-    <h2 style="font-size: 1.55rem; font-weight: 800; margin-bottom: 0.35rem;">@title</h2>
-    <p style="color: var(--muted); font-size: 0.92rem; margin-bottom: 1.75rem;">@subtitle</p>
-
-    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
-
-    <form asp-action="Login" asp-route-as="@(string.IsNullOrEmpty(loginType) ? null : loginType)" method="post" autocomplete="on">
-        @Html.AntiForgeryToken()
-
-        <div class="mb-3">
-            <label asp-for="Email" class="form-label">Email address</label>
-            <input asp-for="Email" class="form-control" placeholder="you@example.com" autocomplete="email" autofocus />
-            <span asp-validation-for="Email" class="text-danger small"></span>
+<section class="auth-fit-screen">
+    <div class="auth-fit-card fade-up">
+        <div class="auth-brand-mini">
+            <i class="fa-solid fa-house-chimney"></i>
+            <span>Bachelor's Point</span>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="Password" class="form-label">Password</label>
-            <div style="position: relative;">
-                <input asp-for="Password" type="password" class="form-control" style="padding-right: 44px;" placeholder="Your password" id="loginPass" autocomplete="current-password" />
-                <i class="bi bi-eye" id="togglePassIcon" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); cursor: pointer;" onclick="togglePass()"></i>
+        <h2 class="auth-title">@title</h2>
+        <p class="auth-subtitle">@subtitle</p>
+
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+        <form asp-action="Login" asp-route-as="@(string.IsNullOrEmpty(loginType) ? null : loginType)" method="post" autocomplete="on">
+            @Html.AntiForgeryToken()
+
+            <div class="login-form-group">
+                <label asp-for="Email" class="login-form-label">Email address</label>
+                <input asp-for="Email" class="form-control" placeholder="you@example.com" autocomplete="email" autofocus />
+                <span asp-validation-for="Email" class="text-danger small"></span>
             </div>
-            <span asp-validation-for="Password" class="text-danger small"></span>
-        </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div class="nx-checkbox">
-                <input asp-for="RememberMe" id="RememberMe" />
-                <label for="RememberMe">Remember me</label>
+            <div class="login-form-group">
+                <label asp-for="Password" class="login-form-label">Password</label>
+                <div class="password-wrap">
+                    <input asp-for="Password" type="password" class="form-control" placeholder="Your password" id="loginPass" autocomplete="current-password" />
+                    <i class="fa-regular fa-eye password-toggle" id="togglePassIcon" onclick="togglePass()"></i>
+                </div>
+                <span asp-validation-for="Password" class="text-danger small"></span>
             </div>
-            <a asp-action="ForgotPassword" class="auth-link" style="font-size: 0.85rem;">Forgot password?</a>
+
+            <div class="login-row">
+                <div class="nx-checkbox">
+                    <input asp-for="RememberMe" id="RememberMe" />
+                    <label for="RememberMe">Remember me</label>
+                </div>
+
+                <a asp-action="ForgotPassword" class="auth-link">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="login-action primary">
+                <i class="fa-solid fa-circle-arrow-right"></i>
+                Sign In
+            </button>
+
+            <a asp-action="RoleSelect" class="login-action outline">
+                <i class="fa-solid fa-arrow-left"></i>
+                Back
+            </a>
+        </form>
+
+        <div class="auth-bottom">
+            @if (loginType == "admin")
+            {
+                <span>Need an admin account?</span>
+                <a asp-action="Register" asp-route-as="admin" class="auth-link">Register as Admin</a>
+            }
+            else
+            {
+                <span>Don't have an account?</span>
+                <a asp-action="Register" asp-route-as="@(string.IsNullOrEmpty(loginType) ? "user" : loginType)" class="auth-link">Create one free</a>
+            }
         </div>
-
-        <button type="submit" class="btn-auth mb-2">
-            <i class="bi bi-arrow-right-circle"></i> Sign In
-        </button>
-
-        <a asp-action="RoleSelect" class="btn-auth outline">
-            <i class="bi bi-arrow-left"></i> Back
-        </a>
-    </form>
-
-    <div class="text-center mt-4 pt-3" style="border-top: 1px solid var(--border); font-size: 0.9rem; color: var(--muted);">
-        @if (loginType == "admin")
-        {
-            <span>Need an admin account?</span>
-            <a asp-action="Register" asp-route-as="admin" class="auth-link">Register as Admin</a>
-        }
-        else
-        {
-            <span>Don't have an account?</span>
-            <a asp-action="Register" asp-route-as="@(string.IsNullOrEmpty(loginType) ? "user" : loginType)" class="auth-link">Create one free</a>
-        }
     </div>
-</div>
+</section>
 
 @section Scripts {
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+
     <script>
         function togglePass() {
             const inp = document.getElementById('loginPass');
             const icon = document.getElementById('togglePassIcon');
+
             if (inp.type === 'password') {
                 inp.type = 'text';
-                icon.classList.replace('bi-eye', 'bi-eye-slash');
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
             } else {
                 inp.type = 'password';
-                icon.classList.replace('bi-eye-slash', 'bi-eye');
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         }
     </script>
