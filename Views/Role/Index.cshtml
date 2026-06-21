@@ -14,25 +14,25 @@
 
         if (name.Contains("admin", StringComparison.OrdinalIgnoreCase))
         {
-            return "fa-user-shield";
+            return "bi-person-badge-fill";
         }
 
         if (name.Contains("user", StringComparison.OrdinalIgnoreCase))
         {
-            return "fa-user-check";
+            return "bi-person-check-fill";
         }
 
         if (name.Contains("owner", StringComparison.OrdinalIgnoreCase))
         {
-            return "fa-house-user";
+            return "bi-house-gear-fill";
         }
 
         if (name.Contains("moderator", StringComparison.OrdinalIgnoreCase))
         {
-            return "fa-user-lock";
+            return "bi-person-lock";
         }
 
-        return "fa-id-badge";
+        return "bi-person-vcard-fill";
     }
 
     string GetRoleType(string? roleName)
@@ -978,7 +978,7 @@
             <div class="roles-hero-content">
                 <div>
                     <div class="roles-kicker">
-                        <i class="fa-solid fa-user-shield"></i>
+                        <i class="bi bi-person-badge-fill"></i>
                         <span>Role Access Control</span>
                     </div>
 
@@ -990,12 +990,12 @@
 
                     <div class="roles-hero-actions">
                         <a asp-action="Create" class="roles-btn roles-btn-primary">
-                            <i class="fa-solid fa-circle-plus"></i>
+                            <i class="bi bi-plus-circle-fill"></i>
                             Create New Role
                         </a>
 
                         <a asp-controller="User" asp-action="Index" class="roles-btn roles-btn-soft">
-                            <i class="fa-solid fa-users-gear"></i>
+                            <i class="bi bi-people-fill"></i>
                             Manage Users
                         </a>
                     </div>
@@ -1004,7 +1004,7 @@
                 <div class="roles-status-panel">
                     <div class="roles-status-top">
                         <div class="roles-status-icon">
-                            <i class="fa-solid fa-shield-halved"></i>
+                            <i class="bi bi-shield-check"></i>
                         </div>
                         <div>
                             <div class="roles-status-number">@totalRoles</div>
@@ -1034,7 +1034,7 @@
             <div class="roles-section-head">
                 <div>
                     <h2 class="roles-section-title">
-                        <i class="fa-solid fa-chart-simple"></i>
+                        <i class="bi bi-bar-chart-fill"></i>
                         Role Overview
                     </h2>
                     <p class="roles-section-subtitle">Quick summary of access groups currently available in the system.</p>
@@ -1044,7 +1044,7 @@
             <div class="roles-stat-grid">
                 <div class="roles-stat-card">
                     <div class="roles-stat-icon">
-                        <i class="fa-solid fa-layer-group"></i>
+                        <i class="bi bi-layers-fill"></i>
                     </div>
                     <h3 class="roles-stat-value">@totalRoles</h3>
                     <p class="roles-stat-label">Total Roles</p>
@@ -1053,7 +1053,7 @@
 
                 <div class="roles-stat-card">
                     <div class="roles-stat-icon">
-                        <i class="fa-solid fa-user-shield"></i>
+                        <i class="bi bi-person-badge-fill"></i>
                     </div>
                     <h3 class="roles-stat-value">@adminRoles</h3>
                     <p class="roles-stat-label">Admin Roles</p>
@@ -1062,7 +1062,7 @@
 
                 <div class="roles-stat-card">
                     <div class="roles-stat-icon">
-                        <i class="fa-solid fa-user-check"></i>
+                        <i class="bi bi-person-check-fill"></i>
                     </div>
                     <h3 class="roles-stat-value">@userRoles</h3>
                     <p class="roles-stat-label">User Roles</p>
@@ -1071,7 +1071,7 @@
 
                 <div class="roles-stat-card">
                     <div class="roles-stat-icon">
-                        <i class="fa-solid fa-id-badge"></i>
+                        <i class="bi bi-person-badge-fill"></i>
                     </div>
                     <h3 class="roles-stat-value">@customRoles</h3>
                     <p class="roles-stat-label">Custom Roles</p>
@@ -1085,7 +1085,7 @@
                 <div class="roles-panel-header">
                     <div class="roles-panel-heading">
                         <div class="roles-panel-icon">
-                            <i class="fa-solid fa-shield-virus"></i>
+                            <i class="bi bi-shield-fill-exclamation"></i>
                         </div>
                         <div>
                             <h2>Role Directory</h2>
@@ -1094,7 +1094,7 @@
                     </div>
 
                     <span class="roles-count-pill">
-                        <i class="fa-solid fa-database"></i>
+                        <i class="bi bi-database-fill"></i>
                         @totalRoles records
                     </span>
                 </div>
@@ -1103,12 +1103,12 @@
                 {
                     <div class="roles-empty">
                         <div class="roles-empty-icon">
-                            <i class="fa-solid fa-user-lock"></i>
+                            <i class="bi bi-person-lock"></i>
                         </div>
                         <h3>No roles found</h3>
                         <p>No access roles are configured yet. Create the first role to start managing permissions.</p>
                         <a asp-action="Create" class="roles-btn roles-btn-primary">
-                            <i class="fa-solid fa-circle-plus"></i>
+                            <i class="bi bi-plus-circle-fill"></i>
                             Create New Role
                         </a>
                     </div>
@@ -1141,7 +1141,7 @@
                                         <td data-label="Role">
                                             <div class="role-main-cell">
                                                 <div class="role-avatar">
-                                                    <i class="fa-solid @roleIcon"></i>
+                                                    <i class="bi @roleIcon"></i>
                                                 </div>
                                                 <div>
                                                     <p class="role-name-text">@role.RoleName</p>
@@ -1152,14 +1152,14 @@
 
                                         <td data-label="Description">
                                             <div class="role-description">
-                                                <i class="fa-solid fa-align-left"></i>
+                                                <i class="bi bi-text-left"></i>
                                                 <span>@(string.IsNullOrWhiteSpace(role.RoleDescription) ? "No description provided for this role." : role.RoleDescription)</span>
                                             </div>
                                         </td>
 
                                         <td data-label="Access">
                                             <span class="role-security-badge">
-                                                <i class="fa-solid fa-key"></i>
+                                                <i class="bi bi-key-fill"></i>
                                                 @roleHint
                                             </span>
                                         </td>
@@ -1171,7 +1171,7 @@
                                                    class="role-action-btn role-action-details"
                                                    title="View details"
                                                    aria-label="View details for @role.RoleName">
-                                                    <i class="fa-solid fa-eye"></i>
+                                                    <i class="bi bi-eye-fill"></i>
                                                 </a>
 
                                                 <a asp-action="Edit"
@@ -1179,7 +1179,7 @@
                                                    class="role-action-btn role-action-edit"
                                                    title="Edit role"
                                                    aria-label="Edit @role.RoleName">
-                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                    <i class="bi bi-pencil-square"></i>
                                                 </a>
 
                                                 <a asp-action="Delete"
@@ -1187,7 +1187,7 @@
                                                    class="role-action-btn role-action-delete"
                                                    title="Delete role"
                                                    aria-label="Delete @role.RoleName">
-                                                    <i class="fa-solid fa-trash-can"></i>
+                                                    <i class="bi bi-trash-fill"></i>
                                                 </a>
                                             </div>
                                         </td>

@@ -940,7 +940,7 @@
             <div class="pa-hero-grid">
                 <div>
                     <div class="pa-kicker">
-                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <i class="bi bi-clock-history"></i>
                         <span>Room Approval Queue</span>
                     </div>
 
@@ -952,12 +952,12 @@
 
                     <div class="pa-hero-actions">
                         <a asp-controller="Room" asp-action="Index" class="pa-btn pa-btn-primary">
-                            <i class="fa-solid fa-house-circle-check"></i>
+                            <i class="bi bi-house-check-fill"></i>
                             Browse Approved Rooms
                         </a>
 
                         <a asp-controller="Payment" asp-action="AdminPayments" class="pa-btn pa-btn-soft">
-                            <i class="fa-solid fa-money-check-dollar"></i>
+                            <i class="bi bi-cash-coin"></i>
                             Payment Verification
                         </a>
                     </div>
@@ -989,7 +989,7 @@
             <div class="pa-section-head">
                 <div>
                     <h2 class="pa-section-title">
-                        <i class="fa-solid fa-chart-simple"></i>
+                        <i class="bi bi-bar-chart-fill"></i>
                         Approval Overview
                     </h2>
                     <p class="pa-section-subtitle">A quick breakdown of rooms waiting in the approval queue.</p>
@@ -999,7 +999,7 @@
             <div class="pa-stat-grid">
                 <div class="pa-stat-card">
                     <div class="pa-stat-icon">
-                        <i class="fa-solid fa-hourglass-half"></i>
+                        <i class="bi bi-hourglass-split"></i>
                     </div>
                     <h3 class="pa-stat-value">@totalPendingRooms</h3>
                     <p class="pa-stat-label">Pending Rooms</p>
@@ -1008,7 +1008,7 @@
 
                 <div class="pa-stat-card">
                     <div class="pa-stat-icon">
-                        <i class="fa-solid fa-receipt"></i>
+                        <i class="bi bi-receipt"></i>
                     </div>
                     <h3 class="pa-stat-value">@pendingPaymentCount</h3>
                     <p class="pa-stat-label">Payment Pending</p>
@@ -1017,7 +1017,7 @@
 
                 <div class="pa-stat-card">
                     <div class="pa-stat-icon">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="bi bi-check-circle-fill"></i>
                     </div>
                     <h3 class="pa-stat-value">@verifiedPaymentCount</h3>
                     <p class="pa-stat-label">Paid Listings</p>
@@ -1026,7 +1026,7 @@
 
                 <div class="pa-stat-card">
                     <div class="pa-stat-icon">
-                        <i class="fa-solid fa-calendar-day"></i>
+                        <i class="bi bi-calendar-day-fill"></i>
                     </div>
                     <h3 class="pa-stat-value">@(latestSubmission?.ToString("dd MMM") ?? "—")</h3>
                     <p class="pa-stat-label">Latest Submission</p>
@@ -1040,7 +1040,7 @@
             {
                 <div class="pa-empty-state">
                     <div class="pa-empty-icon">
-                        <i class="fa-solid fa-shield-heart"></i>
+                        <i class="bi bi-shield-fill-check"></i>
                     </div>
 
                     <div>
@@ -1049,7 +1049,7 @@
                     </div>
 
                     <a asp-controller="Room" asp-action="Index" class="pa-btn pa-btn-primary">
-                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        <i class="bi bi-box-arrow-up-right"></i>
                         View Approved Rooms
                     </a>
                 </div>
@@ -1059,7 +1059,7 @@
                 <div class="pa-section-head">
                     <div>
                         <h2 class="pa-section-title">
-                            <i class="fa-solid fa-list-check"></i>
+                            <i class="bi bi-list-check"></i>
                             Review Queue
                         </h2>
                         <p class="pa-section-subtitle">Inspect each listing and approve only after checking its details and payment state.</p>
@@ -1093,14 +1093,14 @@
                                         : pay.Status.ToString();
 
                         string statusIcon = pay == null
-                            ? "fa-circle-question"
+                            ? "bi-question-circle-fill"
                             : pay.Status == PaymentStatus.Pending
-                                ? "fa-hourglass-half"
+                                ? "bi-hourglass-split"
                                 : pay.Status == PaymentStatus.Verified
-                                    ? "fa-circle-check"
+                                    ? "bi-check-circle-fill"
                                     : pay.Status == PaymentStatus.Rejected
-                                        ? "fa-circle-xmark"
-                                        : "fa-circle-info";
+                                        ? "bi-x-circle-fill"
+                                        : "bi-info-circle-fill";
 
                         <article class="pa-room-card">
                             <div class="pa-room-media">
@@ -1110,7 +1110,7 @@
                                 }
                                 else
                                 {
-                                    <i class="fa-regular fa-image"></i>
+                                    <i class="bi bi-image"></i>
                                 }
                             </div>
 
@@ -1118,12 +1118,12 @@
                                 <div class="pa-room-main">
                                     <div class="pa-room-topline">
                                         <span class="pa-status-badge @statusClass">
-                                            <i class="fa-solid @statusIcon"></i>
+                                            <i class="bi @statusIcon"></i>
                                             @statusText
                                         </span>
 
                                         <span class="pa-info-pill">
-                                            <i class="fa-solid fa-clock"></i>
+                                            <i class="bi bi-clock-fill"></i>
                                             @GetRoomAge(room.CreatedAt)
                                         </span>
                                     </div>
@@ -1136,17 +1136,17 @@
 
                                     <div class="pa-room-meta-grid">
                                         <div class="pa-meta-box">
-                                            <span><i class="fa-solid fa-location-dot"></i> Location</span>
+                                            <span><i class="bi bi-geo-alt-fill"></i> Location</span>
                                             <strong>@(!string.IsNullOrWhiteSpace(room.District) ? room.District : room.Location)</strong>
                                         </div>
 
                                         <div class="pa-meta-box">
-                                            <span><i class="fa-solid fa-bangladeshi-taka-sign"></i> Rent</span>
+                                            <span><i class="bi bi-cash-stack"></i> Rent</span>
                                             <strong>BDT @room.Price.ToString("N0")</strong>
                                         </div>
 
                                         <div class="pa-meta-box">
-                                            <span><i class="fa-solid fa-user"></i> Posted By</span>
+                                            <span><i class="bi bi-person-fill"></i> Posted By</span>
                                             <strong>@(room.Owner?.UserName ?? "Unknown")</strong>
                                         </div>
                                     </div>
@@ -1155,14 +1155,14 @@
                                 <aside class="pa-payment-panel">
                                     <div>
                                         <h3 class="pa-payment-label">
-                                            <i class="fa-solid fa-money-check-dollar"></i>
+                                            <i class="bi bi-cash-coin"></i>
                                             Payment Review
                                         </h3>
 
                                         @if (pay == null)
                                         {
                                             <p class="pa-payment-empty">
-                                                <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
                                                 No payment record is attached to this room yet.
                                             </p>
                                         }
@@ -1172,7 +1172,7 @@
                                                     class="pa-trx-code"
                                                     title="Click to copy transaction ID"
                                                     onclick="navigator.clipboard.writeText('@pay.TransactionId'); this.style.background='rgba(20,184,129,.12)';">
-                                                <i class="fa-solid fa-copy"></i>
+                                                <i class="bi bi-clipboard"></i>
                                                 @pay.TransactionId
                                             </button>
 
@@ -1183,14 +1183,14 @@
                                         else if (pay.Status == PaymentStatus.Verified)
                                         {
                                             <p class="pa-payment-empty">
-                                                <i class="fa-solid fa-circle-check me-1"></i>
+                                                <i class="bi bi-check-circle-fill me-1"></i>
                                                 Payment has already been verified. Approve the room if the listing is clean.
                                             </p>
                                         }
                                         else if (pay.Status == PaymentStatus.Rejected)
                                         {
                                             <p class="pa-payment-empty">
-                                                <i class="fa-solid fa-circle-xmark me-1"></i>
+                                                <i class="bi bi-x-circle-fill me-1"></i>
                                                 Payment was rejected. Manual approval is still available if needed.
                                             </p>
                                         }
@@ -1198,7 +1198,7 @@
 
                                     <div class="pa-card-actions">
                                         <a asp-action="Details" asp-route-id="@room.Id" class="pa-action-btn pa-action-view">
-                                            <i class="fa-solid fa-eye"></i>
+                                            <i class="bi bi-eye-fill"></i>
                                             View
                                         </a>
 
@@ -1209,7 +1209,7 @@
                                                 <button type="submit"
                                                         class="pa-action-btn pa-action-success"
                                                         onclick="return confirm('Verify TrxID: @pay.TransactionId and approve room?')">
-                                                    <i class="fa-solid fa-badge-check"></i>
+                                                    <i class="bi bi-patch-check-fill"></i>
                                                     Verify &amp; Approve
                                                 </button>
                                             </form>
@@ -1222,14 +1222,14 @@
                                                 <button type="submit"
                                                         class="pa-action-btn pa-action-success"
                                                         onclick="return confirm('Approve this room without payment?')">
-                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    <i class="bi bi-check-circle-fill"></i>
                                                     Approve
                                                 </button>
                                             </form>
                                         }
 
                                         <a asp-action="Delete" asp-route-id="@room.Id" class="pa-action-btn pa-action-danger">
-                                            <i class="fa-solid fa-trash-can"></i>
+                                            <i class="bi bi-trash-fill"></i>
                                         </a>
                                     </div>
                                 </aside>

@@ -218,7 +218,7 @@ namespace Bachelor_s_Point.Controllers
             string result = await _roomService.DeleteRoomAsync(id, uid, isAdmin);
             if (result != "Success") TempData["Error"] = result;
             else TempData["Success"] = "Room deleted";
-            return isAdmin ? RedirectToAction(nameof(Pending)) : RedirectToAction("Profile", "Auth");
+            return isAdmin ? RedirectToAction(nameof(Index)) : RedirectToAction("Profile", "Auth");
         }
 
         // ── SELECT ───────────────────────────────────────────────
@@ -253,34 +253,6 @@ namespace Bachelor_s_Point.Controllers
             { TempData["Error"] = result; return RedirectToAction(nameof(Details), new { id = dto.RoomId }); }
             TempData["Success"] = result == "Success" ? "Room selected. The owner has been notified." : result;
             return RedirectToAction(nameof(Index));
-        }
-
-        // ── ADMIN: PENDING APPROVAL ──────────────────────────────
-
-        [HttpGet]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Pending()
-        {
-            var rooms = await _roomService.GetPendingApprovalAsync();
-
-            // Build payment map: roomId → Payment (for TrxID display)
-            var paymentMap = new Dictionary<int, Payment?>();
-            foreach (var room in rooms)
-                paymentMap[room.Id] = await _paymentService.GetRoomPaymentAsync(room.Id);
-
-            ViewBag.PaymentMap = paymentMap;
-            return View(rooms);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Approve(int id)
-        {
-            string result = await _roomService.ApproveRoomAsync(id);
-            if (result != "Success") TempData["Error"] = result;
-            else TempData["Success"] = "Room approved and published.";
-            return RedirectToAction(nameof(Pending));
         }
 
         // ── HELPER ──────────────────────────────────────────────

@@ -3,14 +3,12 @@
 @inject IChatService ChatService
 @inject IRoomService RoomService
 @inject IKycService KycService
-@inject IPaymentService PaymentService
 @{
     string? currentUserPic = null;
     string? currentUserName = null;
     int unreadCount = 0;
-    int pendingRoomCount = 0;
     int pendingKycCount = 0;
-    int pendingPaymentCount = 0;
+    int dueRoomPaymentCount = 0;
     bool isAuthed = User.Identity != null && User.Identity.IsAuthenticated;
     bool isAdminUser = isAuthed && User.IsInRole("Admin");
     string currentPath = Context.Request.Path.ToString().ToLower();
@@ -21,16 +19,19 @@
         if (int.TryParse(idClaim, out int currentUid))
         {
             var currentUser = await UserService.GetUserByIdAsync(currentUid);
-            currentUserPic = currentUser?.ProfilePicturePath;
+            currentUserPic  = currentUser?.ProfilePicturePath;
             currentUserName = currentUser?.UserName;
-            unreadCount = await ChatService.GetUnreadCountAsync(currentUid);
+            unreadCount     = await ChatService.GetUnreadCountAsync(currentUid);
+
+            if (!isAdminUser)
+            {
+                var myRooms = await RoomService.GetMyRoomsAsync(currentUid);
+                dueRoomPaymentCount = myRooms.Count(r => !r.IsApproved);
+            }
         }
         if (isAdminUser)
         {
-            var pending = await RoomService.GetPendingApprovalAsync();
-            pendingRoomCount = pending.Count;
             pendingKycCount = await KycService.CountPendingAsync();
-            pendingPaymentCount = await PaymentService.CountPendingPaymentsAsync();
         }
     }
 
@@ -48,1907 +49,796 @@
     <title>@ViewData["Title"] - Bachelor's Point</title>
 
     <script>
-            (function () {
-                const t = localStorage.getItem('bp-theme') || 'light';
-                document.documentElement.setAttribute('data-theme', t);
-            })();
+        (function () {
+            const t = localStorage.getItem('bp-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
     </script>
 
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
+    <link href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet" />
 
     <style>
-            :root {
-                --primary: #3b82f6;
-                --primary-dark: #1d4ed8;
-                --primary-mid: #60a5fa;
-                --primary-light: rgba(59,130,246,0.08);
-                --success: #10b981;
-                --success-light: #ecfdf5;
-                --warning: #f59e0b;
-                --warning-light: #fffbeb;
-                --danger: #ef4444;
-                --danger-light: #fef2f2;
-                --border: #e2e8f0;
-                --text: #0f172a;
-                --muted: #64748b;
-                --bg: #f8fafc;
-                --white: #ffffff;
-                --sidebar-w: 230px;
-                --topbar-h: 58px;
-                --radius-sm: 8px;
-                --radius-md: 10px;
-                --radius-lg: 12px;
-                --radius-xl: 16px;
-                --radius-2xl: 24px;
-                --shadow-sm: 0 1px 3px rgba(15,23,42,.04),0 1px 2px rgba(15,23,42,.06);
-                --shadow-md: 0 8px 30px rgba(15,23,42,.06);
-                --shadow-lg: 0 20px 50px rgba(15,23,42,.08);
-                --shadow-glow: 0 0 0 4px rgba(59,130,246,.12);
-                --transition: all .25s cubic-bezier(.4,0,.2,1);
-                --font-base: 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
-            }
-
-            [data-theme="dark"] {
-                --primary: #60a5fa;
-                --primary-dark: #3b82f6;
-                --primary-mid: #93c5fd;
-                --primary-light: rgba(96,165,250,.12);
-                --success: #34d399;
-                --success-light: rgba(52,211,153,.1);
-                --warning: #fbbf24;
-                --warning-light: rgba(251,191,36,.1);
-                --danger: #f87171;
-                --danger-light: rgba(248,113,113,.1);
-                --border: #1e293b;
-                --text: #f8fafc;
-                --muted: #94a3b8;
-                --bg: #090d16;
-                --white: #111827;
-                --shadow-sm: 0 1px 3px rgba(0,0,0,.2);
-                --shadow-md: 0 8px 30px rgba(0,0,0,.25);
-                --shadow-lg: 0 20px 50px rgba(0,0,0,.35);
-                --shadow-glow: 0 0 0 4px rgba(96,165,250,.18);
-            }
-
-            * {
-                box-sizing: border-box;
-            }
-
-            body {
-                font-family: var(--font-base);
-                background: var(--bg);
-                color: var(--text);
-                margin: 0;
-                padding: 0;
-                transition: background .3s ease,color .3s ease;
-            }
-
-            a {
-                color: var(--primary);
-                text-decoration: none;
-                transition: var(--transition);
-            }
-
-                a:hover {
-                    color: var(--primary-dark);
-                }
-
-            /* ── SIDEBAR ── */
-            .bp-sidebar {
-                position: fixed;
-                left: 0;
-                top: 0;
-                bottom: 0;
-                width: var(--sidebar-w);
-                background: var(--white);
-                border-right: 1px solid var(--border);
-                display: flex;
-                flex-direction: column;
-                z-index: 200;
-                transition: transform .3s ease;
-                overflow-y: auto;
-                overflow-x: hidden;
-            }
-
-                .bp-sidebar::-webkit-scrollbar {
-                    width: 4px;
-                }
-
-                .bp-sidebar::-webkit-scrollbar-thumb {
-                    background: var(--border);
-                    border-radius: 99px;
-                }
-
-            .bp-brand {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 1.1rem 1.2rem 0.8rem;
-                text-decoration: none;
-                color: var(--text);
-                flex-shrink: 0;
-            }
-
-                .bp-brand:hover {
-                    color: var(--primary);
-                }
-
-            .bp-brand-icon {
-                width: 38px;
-                height: 38px;
-                background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-                border-radius: var(--radius-lg);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                color: #fff;
-                font-size: 1.1rem;
-                box-shadow: 0 4px 12px rgba(59,130,246,.25);
-                flex-shrink: 0;
-                transition: var(--transition);
-            }
-
-            .bp-brand:hover .bp-brand-icon {
-                transform: rotate(-8deg) scale(1.05);
-            }
-
-            .bp-brand-name {
-                font-size: 1rem;
-                font-weight: 800;
-                letter-spacing: -.4px;
-                background: linear-gradient(135deg, var(--text), var(--primary-dark));
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-            }
-
-            [data-theme="dark"] .bp-brand-name {
-                background: linear-gradient(135deg,#fff,var(--primary-mid));
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-            }
-
-            .bp-sidenav {
-                padding: 0.3rem 0.65rem;
-                flex: 1;
-            }
-
-            .bp-nav-section {
-                font-size: 0.68rem;
-                font-weight: 700;
-                color: var(--muted);
-                text-transform: uppercase;
-                letter-spacing: .7px;
-                padding: 0.9rem 0.6rem 0.35rem;
-            }
-
-            .bp-nav-item {
-                display: flex;
-                align-items: center;
-                gap: 0.7rem;
-                padding: 0.55rem 0.75rem;
-                border-radius: var(--radius-md);
-                color: var(--muted);
-                font-size: 0.875rem;
-                font-weight: 600;
-                text-decoration: none;
-                transition: var(--transition);
-                position: relative;
-                margin-bottom: 2px;
-            }
-
-                .bp-nav-item i {
-                    font-size: 1.05rem;
-                    flex-shrink: 0;
-                    width: 20px;
-                    text-align: center;
-                }
-
-                .bp-nav-item:hover {
-                    background: var(--primary-light);
-                    color: var(--primary);
-                }
-
-                .bp-nav-item.active {
-                    background: var(--primary-light);
-                    color: var(--primary);
-                    font-weight: 700;
-                }
-
-                    .bp-nav-item.active i {
-                        color: var(--primary);
-                    }
-
-            .bp-nav-badge {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: var(--danger);
-                color: #fff;
-                border-radius: 999px;
-                font-size: 0.65rem;
-                font-weight: 700;
-                min-width: 18px;
-                height: 18px;
-                padding: 0 5px;
-                margin-left: auto;
-            }
-
-                .bp-nav-badge.warning {
-                    background: var(--warning);
-                    color: #000;
-                }
-
-            [data-theme="dark"] .bp-nav-badge.warning {
-                color: #fff;
-            }
-
-            @@keyframes pulse-dot {
-                0%, 100% {
-                    transform: scale(1);
-                    opacity: 1;
-                }
-
-                50% {
-                    transform: scale(1.2);
-                    opacity: .8;
-                }
-            }
-
-            .bp-nav-badge.pulse {
-                animation: pulse-dot 1.6s ease-in-out infinite;
-            }
-
-            .bp-sidebar-divider {
-                height: 1px;
-                background: var(--border);
-                margin: 0.5rem 0.65rem;
-            }
-
-            /* ── SIDEBAR BOTTOM (user info) ── */
-            .bp-sidebar-footer {
-                padding: 0.75rem 0.9rem;
-                border-top: 1px solid var(--border);
-                flex-shrink: 0;
-            }
-
-            .bp-sidebar-user {
-                display: flex;
-                align-items: center;
-                gap: 0.6rem;
-                padding: 0.5rem 0.6rem;
-                border-radius: var(--radius-lg);
-                cursor: pointer;
-                text-decoration: none;
-                color: var(--text);
-                transition: var(--transition);
-            }
-
-                .bp-sidebar-user:hover {
-                    background: var(--primary-light);
-                    color: var(--primary);
-                }
-
-            .bp-sidebar-user-name {
-                font-size: 0.83rem;
-                font-weight: 700;
-                flex: 1;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-
-            .bp-sidebar-user-role {
-                font-size: 0.7rem;
-                color: var(--muted);
-            }
-
-            .nav-avatar {
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                object-fit: cover;
-                border: 2px solid var(--border);
-                flex-shrink: 0;
-            }
-
-            .nav-avatar-default {
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                background: var(--primary-light);
-                color: var(--primary);
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                font-size: .9rem;
-                font-weight: 700;
-                border: 2px solid var(--border);
-                flex-shrink: 0;
-            }
-
-            /* ── TOPBAR ── */
-            .bp-topbar {
-                position: sticky;
-                top: 0;
-                z-index: 100;
-                background: rgba(var(--white-rgb, 255,255,255),.85);
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                border-bottom: 1px solid var(--border);
-                height: var(--topbar-h);
-                display: flex;
-                align-items: center;
-                padding: 0 1.25rem;
-                gap: 0.75rem;
-            }
-
-            [data-theme="dark"] .bp-topbar {
-                background: rgba(17,24,39,.85);
-            }
-
-            .bp-topbar-hamburger {
-                display: none;
-                background: none;
-                border: none;
-                color: var(--muted);
-                font-size: 1.3rem;
-                cursor: pointer;
-                padding: 6px;
-                border-radius: var(--radius-md);
-                transition: var(--transition);
-            }
-
-                .bp-topbar-hamburger:hover {
-                    background: var(--primary-light);
-                    color: var(--primary);
-                }
-
-            .bp-topbar-right {
-                margin-left: auto;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-            }
-
-            .theme-pill-btn {
-                background: transparent;
-                border: none;
-                color: var(--muted);
-                width: 36px;
-                height: 36px;
-                border-radius: var(--radius-md);
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                transition: var(--transition);
-            }
-
-                .theme-pill-btn:hover {
-                    background: var(--primary-light);
-                    color: var(--primary);
-                }
-
-            /* mode pill in topbar */
-            .mode-pill {
-                background: var(--primary-light);
-                color: var(--primary);
-                border-radius: 999px;
-                padding: .35rem .9rem;
-                font-size: .82rem;
-                font-weight: 600;
-                display: inline-flex;
-                align-items: center;
-                gap: .4rem;
-                border: 1px solid transparent;
-                cursor: pointer;
-                transition: var(--transition);
-                text-decoration: none;
-            }
-
-                .mode-pill:hover {
-                    border-color: var(--primary-mid);
-                    color: var(--primary-dark);
-                }
-
-            /* ── MAIN CONTENT AREA ── */
-            .bp-main {
-                margin-left: var(--sidebar-w);
-                min-height: 100vh;
-                display: flex;
-                flex-direction: column;
-            }
-
-            .bp-content {
-                flex: 1;
-            }
-
-            /* ── MOBILE OVERLAY ── */
-            .bp-overlay {
-                display: none;
-                position: fixed;
-                inset: 0;
-                background: rgba(0,0,0,.4);
-                z-index: 199;
-            }
-
-                .bp-overlay.show {
-                    display: block;
-                }
-
-            @@media (max-width: 768px) {
-                .bp-sidebar {
-                    transform: translateX(-100%);
-                }
-
-                    .bp-sidebar.open {
-                        transform: translateX(0);
-                    }
-
-                .bp-main {
-                    margin-left: 0;
-                }
-
-                .bp-topbar-hamburger {
-                    display: inline-flex;
-                }
-            }
-
-            /* ── BUTTONS ── */
-            .btn-auth, .btn-nx, .btn-hero {
-                position: relative;
-                overflow: hidden;
-            }
-
-            .btn-auth {
-                width: 100%;
-                height: 52px;
-                border: none;
-                border-radius: var(--radius-lg);
-                background: var(--primary);
-                color: #fff;
-                font-family: var(--font-base);
-                font-weight: 700;
-                font-size: 15px;
-                cursor: pointer;
-                transition: var(--transition);
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-                text-decoration: none;
-            }
-
-                .btn-auth:hover {
-                    background: var(--primary-dark);
-                    color: #fff;
-                    transform: translateY(-2px);
-                    box-shadow: 0 6px 20px rgba(59,130,246,.25);
-                }
-
-                .btn-auth.outline {
-                    background: var(--white);
-                    color: var(--primary);
-                    border: 2px solid var(--border);
-                }
-
-                    .btn-auth.outline:hover {
-                        border-color: var(--primary);
-                        background: var(--primary-light);
-                        color: var(--primary-dark);
-                        box-shadow: none;
-                    }
-
-                .btn-auth.success {
-                    background: var(--success);
-                }
-
-                    .btn-auth.success:hover {
-                        background: #059669;
-                        box-shadow: 0 6px 20px rgba(16,185,129,.25);
-                    }
-
-                .btn-auth.danger {
-                    background: var(--danger);
-                }
-
-                    .btn-auth.danger:hover {
-                        background: #dc2626;
-                        box-shadow: 0 6px 20px rgba(239,68,68,.25);
-                    }
-
-            .btn-nx {
-                height: 38px;
-                padding: 0 18px;
-                border: none;
-                border-radius: var(--radius-md);
-                background: var(--primary);
-                color: #fff;
-                font-family: var(--font-base);
-                font-weight: 600;
-                font-size: 13px;
-                cursor: pointer;
-                transition: var(--transition);
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                text-decoration: none;
-            }
-
-                .btn-nx:hover {
-                    background: var(--primary-dark);
-                    color: #fff;
-                    transform: translateY(-1px);
-                }
-
-                .btn-nx.outline {
-                    background: var(--white);
-                    color: var(--text);
-                    border: 1px solid var(--border);
-                }
-
-                    .btn-nx.outline:hover {
-                        background: var(--primary-light);
-                        color: var(--primary);
-                        border-color: var(--primary);
-                    }
-
-                .btn-nx.outline-danger {
-                    background: var(--white);
-                    color: var(--danger);
-                    border: 1px solid var(--border);
-                }
-
-                    .btn-nx.outline-danger:hover {
-                        background: var(--danger-light);
-                        border-color: var(--danger);
-                    }
-
-                .btn-nx.success {
-                    background: var(--success);
-                }
-
-                    .btn-nx.success:hover {
-                        background: #059669;
-                        color: #fff;
-                    }
-
-                .btn-nx.warning {
-                    background: var(--warning);
-                }
-
-                    .btn-nx.warning:hover {
-                        background: #d97706;
-                        color: #fff;
-                    }
-
-                .btn-nx.danger {
-                    background: var(--danger);
-                }
-
-                    .btn-nx.danger:hover {
-                        background: #dc2626;
-                        color: #fff;
-                    }
-
-                .btn-nx.sm {
-                    height: 32px;
-                    padding: 0 12px;
-                    font-size: 12px;
-                }
-
-            .auth-link {
-                color: var(--primary);
-                font-weight: 600;
-                text-decoration: none;
-                transition: var(--transition);
-            }
-
-                .auth-link:hover {
-                    color: var(--primary-dark);
-                    text-decoration: underline;
-                }
-
-            /* ── CARDS ── */
-            .nx-card {
-                background: var(--white);
-                border: 1px solid var(--border);
-                border-radius: var(--radius-xl);
-                box-shadow: var(--shadow-sm);
-                transition: var(--transition);
-                overflow: hidden;
-                position: relative;
-            }
-
-                .nx-card:hover {
-                    box-shadow: var(--shadow-md);
-                    transform: translateY(-6px);
-                    border-color: var(--primary-mid);
-                }
-
-            /* ── ALERTS ── */
-            .nx-alert {
-                border: 1px solid;
-                border-radius: var(--radius-md);
-                padding: 1rem 1.25rem;
-                font-size: .92rem;
-                display: flex;
-                align-items: center;
-                gap: .6rem;
-                box-shadow: var(--shadow-sm);
-                transition: var(--transition);
-            }
-
-            .nx-alert-success {
-                background: var(--success-light);
-                border-color: rgba(16,185,129,.2);
-                color: #047857;
-            }
-
-            .nx-alert-danger {
-                background: var(--danger-light);
-                border-color: rgba(239,68,68,.2);
-                color: #b91c1c;
-            }
-
-            .nx-alert-warning {
-                background: var(--warning-light);
-                border-color: rgba(245,158,11,.2);
-                color: #b45309;
-            }
-
-            .nx-alert-info {
-                background: var(--primary-light);
-                border-color: rgba(59,130,246,.2);
-                color: var(--primary-dark);
-            }
-
-            [data-theme="dark"] .nx-alert-success {
-                color: #34d399;
-            }
-
-            [data-theme="dark"] .nx-alert-danger {
-                color: #f87171;
-            }
-
-            [data-theme="dark"] .nx-alert-warning {
-                color: #fbbf24;
-            }
-
-            [data-theme="dark"] .nx-alert-info {
-                color: #60a5fa;
-            }
-
-            .nx-alert .btn-close {
-                padding: .6rem;
-                color: var(--text);
-            }
-
-            /* ── BADGES ── */
-            .nx-badge {
-                display: inline-block;
-                background: var(--danger);
-                color: #fff;
-                border-radius: 999px;
-                padding: .15rem .5rem;
-                font-size: .72rem;
-                font-weight: 700;
-            }
-
-            .nx-badge-warning {
-                background: var(--warning);
-                color: #000;
-            }
-
-            [data-theme="dark"] .nx-badge-warning {
-                color: #fff;
-            }
-
-            .badge-pending {
-                background: var(--warning-light);
-                color: #b45309;
-                border: 1px solid rgba(245,158,11,.15);
-                padding: .25rem .75rem;
-                border-radius: 999px;
-                font-size: .75rem;
-                font-weight: 600;
-            }
-
-            .badge-approved {
-                background: var(--success-light);
-                color: #047857;
-                border: 1px solid rgba(16,185,129,.15);
-                padding: .25rem .75rem;
-                border-radius: 999px;
-                font-size: .75rem;
-                font-weight: 600;
-            }
-
-            [data-theme="dark"] .badge-pending {
-                color: #fbbf24;
-            }
-
-            [data-theme="dark"] .badge-approved {
-                color: #34d399;
-            }
-
-            /* ── FORM ── */
-            .form-control, .form-select {
-                font-family: var(--font-base);
-                border: 1px solid var(--border);
-                border-radius: var(--radius-lg);
-                padding: .7rem 1.1rem;
-                font-size: .93rem;
-                height: 52px;
-                background-color: var(--white);
-                color: var(--text);
-                transition: var(--transition);
-            }
-
-                .form-control:focus, .form-select:focus {
-                    border-color: var(--primary);
-                    box-shadow: var(--shadow-glow);
-                    background-color: var(--white);
-                    color: var(--text);
-                    outline: none;
-                }
-
-                .form-control::placeholder {
-                    color: var(--muted);
-                    opacity: .65;
-                }
-
-            textarea.form-control {
-                height: auto;
-                min-height: 90px;
-            }
-
-            .form-label {
-                font-size: .85rem;
-                font-weight: 600;
-                color: var(--text);
-                margin-bottom: .45rem;
-            }
-
-            /* ── AUTH CARD ── */
-            .auth-card {
-                max-width: 520px;
-                margin: 3rem auto;
-                background: var(--white);
-                border: 1px solid var(--border);
-                border-radius: var(--radius-2xl);
-                padding: 40px;
-                box-shadow: var(--shadow-lg);
-            }
-
-            /* ── HERO ── */
-            .nx-hero {
-                background: linear-gradient(135deg,#1e3a8a 0%,#1e1b4b 50%,#311042 100%);
-                color: #fff;
-                padding: 5rem 1.5rem;
-                border-radius: var(--radius-2xl);
-                margin: 1.5rem 0 3rem;
-                text-align: center;
-                position: relative;
-                overflow: hidden;
-                box-shadow: 0 20px 40px rgba(15,23,42,.25);
-            }
-
-            [data-theme="dark"] .nx-hero {
-                background: linear-gradient(135deg,#0f172a 0%,#030712 50%,#1e1b4b 100%);
-                border: 1px solid rgba(255,255,255,.05);
-            }
-
-            .nx-hero::before {
-                content: '';
-                position: absolute;
-                inset: 0;
-                background: radial-gradient(ellipse 70% 80% at 50% -10%,rgba(255,255,255,.12),transparent);
-                pointer-events: none;
-            }
-
-            .nx-hero > * {
-                position: relative;
-                z-index: 1;
-            }
-
-            .nx-hero h1 {
-                font-weight: 800;
-                letter-spacing: -.8px;
-                margin-bottom: .8rem;
-            }
-
-            .nx-hero .lead {
-                opacity: .88;
-                font-weight: 400;
-                max-width: 600px;
-                margin: 0 auto;
-            }
-
-            .btn-hero {
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-                background: #fff;
-                color: #1e3a8a;
-                font-weight: 700;
-                font-size: 15px;
-                padding: 14px 34px;
-                border-radius: var(--radius-lg);
-                border: none;
-                text-decoration: none;
-                transition: var(--transition);
-                box-shadow: 0 4px 15px rgba(0,0,0,.1);
-            }
-
-                .btn-hero:hover {
-                    color: #1d4ed8;
-                    transform: translateY(-2px);
-                    box-shadow: 0 8px 25px rgba(255,255,255,.25);
-                }
-
-            /* ── ROLE CARD ── */
-            .role-card {
-                border: 2px solid var(--border);
-                border-radius: var(--radius-xl);
-                background: var(--white);
-                text-decoration: none;
-                color: inherit;
-                display: block;
-                padding: 2.5rem;
-                transition: var(--transition);
-                cursor: pointer;
-                text-align: center;
-                box-shadow: var(--shadow-sm);
-            }
-
-                .role-card:hover {
-                    transform: translateY(-5px);
-                    box-shadow: var(--shadow-lg);
-                    border-color: var(--primary);
-                    color: inherit;
-                }
-
-                .role-card .icon-wrap {
-                    width: 80px;
-                    height: 80px;
-                    border-radius: 50%;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 2.2rem;
-                    margin-bottom: 1.25rem;
-                    transition: var(--transition);
-                }
-
-                .role-card:hover .icon-wrap {
-                    transform: scale(1.08) rotate(-5deg);
-                }
-
-            .icon-admin {
-                background: var(--primary-light);
-                color: var(--primary);
-            }
-
-            .icon-user {
-                background: var(--success-light);
-                color: var(--success);
-            }
-
-            /* ── PAGINATION ── */
-            .pagination .page-link {
-                color: var(--primary);
-                background-color: var(--white);
-                border-color: var(--border);
-                font-weight: 600;
-                border-radius: var(--radius-md);
-                margin: 0 3px;
-                padding: .5rem .95rem;
-                transition: var(--transition);
-            }
-
-                .pagination .page-link:hover {
-                    background-color: var(--primary-light);
-                    border-color: var(--primary-mid);
-                }
-
-            .pagination .page-item.active .page-link {
-                background: var(--primary);
-                border-color: var(--primary);
-                color: #fff !important;
-            }
-
-            .pagination .page-item.disabled .page-link {
-                color: var(--muted);
-                opacity: .5;
-            }
-
-            /* ── SCROLLBAR ── */
-            ::-webkit-scrollbar {
-                width: 8px;
-                height: 8px;
-            }
-
-            ::-webkit-scrollbar-track {
-                background: var(--bg);
-            }
-
-            ::-webkit-scrollbar-thumb {
-                background: var(--border);
-                border-radius: 99px;
-            }
-
-                ::-webkit-scrollbar-thumb:hover {
-                    background: var(--muted);
-                }
-
-            /* ── FOOTER ── */
-            .nx-footer {
-                background: var(--white);
-                border-top: 1px solid var(--border);
-                padding: 1.25rem 0;
-                color: var(--muted);
-                font-size: .85rem;
-            }
-
-                .nx-footer a {
-                    color: var(--primary);
-                    text-decoration: none;
-                    font-weight: 600;
-                }
-
-            /* ── ANIMATION ── */
-            @@keyframes fadeUp {
-                from {
-                    opacity: 0;
-                    transform: translateY(12px);
-                }
-
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            .fade-up {
-                animation: fadeUp .5s cubic-bezier(.4,0,.2,1) both;
-            }
-
-            /* ── SIDEBAR COLLAPSED (desktop toggle) ── */
-            .bp-sidebar.collapsed {
-                transform: translateX(-100%);
-            }
-
-            .bp-main.sidebar-collapsed {
-                margin-left: 0 !important;
-            }
-
-            @@media (min-width: 769px) {
-                .bp-topbar-hamburger {
-                    display: inline-flex;
-                }
-            }
-
-            /* ── GUEST NAVBAR ── */
-            .bp-guest-nav {
-                background: var(--white);
-                backdrop-filter: blur(12px);
-                -webkit-backdrop-filter: blur(12px);
-                border-bottom: 1px solid var(--border);
-                padding: .8rem 0;
-                position: sticky;
-                top: 0;
-                z-index: 200;
-                transition: background .3s ease;
-            }
-
-            /* ── CHIP ── */
-            .chip {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                background: var(--primary-light);
-                color: var(--primary);
-                border-radius: 999px;
-                padding: .25rem .7rem;
-                font-size: .78rem;
-                font-weight: 600;
-            }
-
-            /* =========================================================
-   PREMIUM SIDEBAR + TOPBAR UI UPDATE
-   Palette:
-   #111844 - Deep navy
-   #4B5694 - Soft indigo
-   #7288AE - Muted blue
-   #EAE0CF - Warm beige
-
-   Purpose:
-   - Make sidebar match Admin Dashboard vibe
-   - Improve dark mode
-   - Remove childish icon rotation
-   - Add clean glow/hover effects
-========================================================= */
-
-:root {
-    --primary: #4B5694;
-    --primary-dark: #111844;
-    --primary-mid: #7288AE;
-    --primary-light: rgba(75, 86, 148, .10);
-
-    --bp-navy: #111844;
-    --bp-indigo: #4B5694;
-    --bp-bluegray: #7288AE;
-    --bp-beige: #EAE0CF;
-
-    --border: rgba(17, 24, 68, .12);
-    --text: #111844;
-    --muted: #65738a;
-    --bg: #f8f7f3;
-    --white: rgba(255, 255, 255, .88);
-
-    --sidebar-w: 250px;
-    --topbar-h: 64px;
-
-    --shadow-sm: 0 8px 24px rgba(17, 24, 68, .06);
-    --shadow-md: 0 16px 42px rgba(17, 24, 68, .10);
-    --shadow-lg: 0 24px 70px rgba(17, 24, 68, .16);
-    --shadow-glow: 0 0 0 4px rgba(114, 136, 174, .18);
-}
-
-[data-theme="dark"] {
-    --primary: #7288AE;
-    --primary-dark: #EAE0CF;
-    --primary-mid: #4B5694;
-    --primary-light: rgba(114, 136, 174, .14);
-
-    --border: rgba(234, 224, 207, .12);
-    --text: #f8fafc;
-    --muted: #b8c2d4;
-    --bg: #070b18;
-    --white: rgba(17, 24, 68, .78);
-
-    --shadow-sm: 0 8px 24px rgba(0, 0, 0, .22);
-    --shadow-md: 0 16px 42px rgba(0, 0, 0, .32);
-    --shadow-lg: 0 24px 70px rgba(0, 0, 0, .44);
-    --shadow-glow: 0 0 0 4px rgba(234, 224, 207, .12);
-}
-
-/* Body background when logged in */
-body:has(.bp-sidebar) {
-    background:
-        radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .12), transparent 30%),
-        radial-gradient(circle at 94% 88%, rgba(234, 224, 207, .55), transparent 34%),
-        linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
-}
-
-[data-theme="dark"] body:has(.bp-sidebar) {
-    background:
-        radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .12), transparent 30%),
-        radial-gradient(circle at 94% 88%, rgba(75, 86, 148, .22), transparent 34%),
-        linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
-}
-
-/* Sidebar base */
-.bp-sidebar {
-    width: var(--sidebar-w) !important;
-    background:
-        radial-gradient(circle at 10% 6%, rgba(234, 224, 207, .42), transparent 28%),
-        linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(248, 247, 243, .92)) !important;
-    border-right: 1px solid rgba(17, 24, 68, .10) !important;
-    box-shadow: 18px 0 45px rgba(17, 24, 68, .08);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-}
-
-.bp-sidebar::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(17, 24, 68, .025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(17, 24, 68, .025) 1px, transparent 1px);
-    background-size: 34px 34px;
-    mask-image: linear-gradient(to bottom, black 0%, transparent 82%);
-    pointer-events: none;
-}
-
-.bp-sidebar > * {
-    position: relative;
-    z-index: 1;
-}
-
-[data-theme="dark"] .bp-sidebar {
-    background:
-        radial-gradient(circle at 12% 5%, rgba(114, 136, 174, .16), transparent 30%),
-        radial-gradient(circle at 80% 92%, rgba(234, 224, 207, .08), transparent 28%),
-        linear-gradient(180deg, rgba(17, 24, 68, .98), rgba(7, 11, 24, .98)) !important;
-    border-right: 1px solid rgba(234, 224, 207, .12) !important;
-    box-shadow: 22px 0 70px rgba(0, 0, 0, .42);
-}
-
-[data-theme="dark"] .bp-sidebar::before {
-    background-image:
-        linear-gradient(rgba(234, 224, 207, .035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(234, 224, 207, .035) 1px, transparent 1px);
-}
-
-/* Brand */
-.bp-brand {
-    padding: 1.25rem 1rem 1rem !important;
-    gap: .8rem !important;
-    color: var(--text) !important;
-}
-
-.bp-brand:hover {
-    color: var(--text) !important;
-}
-
-.bp-brand-icon,
-.bp-brand:hover .bp-brand-icon {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
-    border-radius: 15px !important;
-    background: linear-gradient(135deg, #111844 0%, #4B5694 62%, #7288AE 100%) !important;
-    color: #ffffff !important;
-    transform: none !important;
-    rotate: 0deg !important;
-    animation: none !important;
-    box-shadow:
-        0 14px 30px rgba(17, 24, 68, .24),
-        0 0 0 5px rgba(234, 224, 207, .58) !important;
-    transition: box-shadow .22s ease, filter .22s ease !important;
-}
-
-.bp-brand-icon i {
-    color: #ffffff !important;
-    font-size: 1.22rem !important;
-    line-height: 1 !important;
-}
-
-.bp-brand:hover .bp-brand-icon {
-    filter: brightness(1.08);
-    box-shadow:
-        0 16px 34px rgba(17, 24, 68, .30),
-        0 0 0 5px rgba(234, 224, 207, .75),
-        0 0 26px rgba(75, 86, 148, .42) !important;
-}
-
-[data-theme="dark"] .bp-brand-icon,
-[data-theme="dark"] .bp-brand:hover .bp-brand-icon {
-    background: linear-gradient(135deg, #111844 0%, #4B5694 58%, #7288AE 100%) !important;
-    box-shadow:
-        0 14px 34px rgba(0, 0, 0, .40),
-        0 0 0 5px rgba(234, 224, 207, .13) !important;
-}
-
-[data-theme="dark"] .bp-brand:hover .bp-brand-icon {
-    box-shadow:
-        0 16px 38px rgba(0, 0, 0, .50),
-        0 0 0 5px rgba(234, 224, 207, .22),
-        0 0 28px rgba(114, 136, 174, .40) !important;
-}
-
-.bp-brand-name {
-    font-size: 1.02rem !important;
-    font-weight: 950 !important;
-    letter-spacing: -.55px !important;
-    background: linear-gradient(135deg, #111844 0%, #4B5694 75%) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-}
-
-[data-theme="dark"] .bp-brand-name {
-    background: linear-gradient(135deg, #ffffff 0%, #EAE0CF 48%, #7288AE 100%) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-}
-
-/* Sidebar nav container */
-.bp-sidenav {
-    padding: .35rem .85rem !important;
-}
-
-.bp-sidebar-divider {
-    height: 1px !important;
-    margin: .85rem .35rem !important;
-    background: linear-gradient(90deg, transparent, rgba(17, 24, 68, .16), transparent) !important;
-}
-
-[data-theme="dark"] .bp-sidebar-divider {
-    background: linear-gradient(90deg, transparent, rgba(234, 224, 207, .16), transparent) !important;
-}
-
-.bp-nav-section {
-    padding: .85rem .65rem .45rem !important;
-    color: #4B5694 !important;
-    font-size: .70rem !important;
-    font-weight: 950 !important;
-    letter-spacing: 1px !important;
-}
-
-[data-theme="dark"] .bp-nav-section {
-    color: rgba(234, 224, 207, .78) !important;
-}
-
-/* Sidebar nav item */
-.bp-nav-item {
-    min-height: 48px !important;
-    gap: .72rem !important;
-    margin-bottom: .28rem !important;
-    padding: .52rem .65rem !important;
-    border-radius: 16px !important;
-    color: #65738a !important;
-    font-size: .90rem !important;
-    font-weight: 750 !important;
-    border: 1px solid transparent !important;
-    position: relative !important;
-    overflow: hidden !important;
-}
-
-.bp-nav-item::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    background:
-        radial-gradient(circle at 12% 20%, rgba(234, 224, 207, .45), transparent 34%),
-        linear-gradient(135deg, rgba(17, 24, 68, .08), rgba(114, 136, 174, .08));
-    transition: opacity .22s ease;
-    pointer-events: none;
-}
-
-.bp-nav-item:hover::before,
-.bp-nav-item.active::before {
-    opacity: 1;
-}
-
-.bp-nav-item > * {
-    position: relative;
-    z-index: 1;
-}
-
-.bp-nav-item i {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    border-radius: 12px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    color: #65738a !important;
-    font-size: 1rem !important;
-    background: transparent !important;
-    transition: background .22s ease, color .22s ease, box-shadow .22s ease, transform .22s ease;
-}
-
-.bp-nav-item:hover {
-    color: #111844 !important;
-    border-color: rgba(75, 86, 148, .16) !important;
-    transform: translateX(2px);
-}
-
-.bp-nav-item:hover i {
-    color: #ffffff !important;
-    background: linear-gradient(135deg, #111844, #4B5694) !important;
-    box-shadow:
-        0 10px 20px rgba(17, 24, 68, .18),
-        0 0 0 4px rgba(234, 224, 207, .45);
-}
-
-.bp-nav-item.active {
-    color: #111844 !important;
-    font-weight: 950 !important;
-    background:
-        linear-gradient(135deg, rgba(234, 224, 207, .62), rgba(114, 136, 174, .14)) !important;
-    border-color: rgba(75, 86, 148, .18) !important;
-    box-shadow:
-        0 12px 28px rgba(17, 24, 68, .08),
-        inset 0 0 0 1px rgba(255, 255, 255, .55);
-}
-
-.bp-nav-item.active i {
-    color: #ffffff !important;
-    background: linear-gradient(135deg, #111844, #4B5694) !important;
-    box-shadow:
-        0 12px 24px rgba(17, 24, 68, .22),
-        0 0 0 4px rgba(234, 224, 207, .56);
-}
-
-/* Dark sidebar nav */
-[data-theme="dark"] .bp-nav-item {
-    color: rgba(226, 232, 240, .72) !important;
-}
-
-[data-theme="dark"] .bp-nav-item::before {
-    background:
-        radial-gradient(circle at 12% 20%, rgba(234, 224, 207, .10), transparent 34%),
-        linear-gradient(135deg, rgba(114, 136, 174, .16), rgba(75, 86, 148, .08));
-}
-
-[data-theme="dark"] .bp-nav-item i {
-    color: rgba(226, 232, 240, .72) !important;
-}
-
-[data-theme="dark"] .bp-nav-item:hover {
-    color: #ffffff !important;
-    border-color: rgba(234, 224, 207, .16) !important;
-}
-
-[data-theme="dark"] .bp-nav-item:hover i {
-    color: #ffffff !important;
-    background: linear-gradient(135deg, #4B5694, #7288AE) !important;
-    box-shadow:
-        0 12px 24px rgba(0, 0, 0, .24),
-        0 0 0 4px rgba(234, 224, 207, .10),
-        0 0 22px rgba(114, 136, 174, .20);
-}
-
-[data-theme="dark"] .bp-nav-item.active {
-    color: #ffffff !important;
-    background:
-        linear-gradient(135deg, rgba(75, 86, 148, .42), rgba(114, 136, 174, .18)) !important;
-    border-color: rgba(234, 224, 207, .18) !important;
-    box-shadow:
-        0 16px 34px rgba(0, 0, 0, .24),
-        inset 0 0 0 1px rgba(234, 224, 207, .08);
-}
-
-[data-theme="dark"] .bp-nav-item.active i {
-    color: #111844 !important;
-    background: linear-gradient(135deg, #EAE0CF, #7288AE) !important;
-    box-shadow:
-        0 14px 28px rgba(0, 0, 0, .32),
-        0 0 0 4px rgba(234, 224, 207, .12),
-        0 0 24px rgba(234, 224, 207, .16);
-}
-
-/* Badges */
-.bp-nav-badge {
-    min-width: 20px !important;
-    height: 20px !important;
-    padding: 0 6px !important;
-    border-radius: 999px !important;
-    background: #ef4444 !important;
-    color: #ffffff !important;
-    font-size: .66rem !important;
-    font-weight: 950 !important;
-    box-shadow: 0 8px 16px rgba(239, 68, 68, .26);
-}
-
-.bp-nav-badge.warning {
-    background: #EAE0CF !important;
-    color: #111844 !important;
-    box-shadow: 0 8px 16px rgba(234, 224, 207, .35);
-}
-
-/* Sidebar footer */
-.bp-sidebar-footer {
-    padding: .95rem .9rem !important;
-    border-top: 1px solid rgba(17, 24, 68, .10) !important;
-    background:
-        linear-gradient(180deg, transparent, rgba(234, 224, 207, .24));
-}
-
-[data-theme="dark"] .bp-sidebar-footer {
-    border-top-color: rgba(234, 224, 207, .12) !important;
-    background:
-        linear-gradient(180deg, transparent, rgba(234, 224, 207, .045));
-}
-
-.bp-sidebar-user {
-    padding: .72rem .75rem !important;
-    border-radius: 18px !important;
-    background: rgba(255, 255, 255, .52);
-    border: 1px solid rgba(17, 24, 68, .08);
-}
-
-.bp-sidebar-user:hover {
-    background: rgba(234, 224, 207, .48) !important;
-    color: #111844 !important;
-    box-shadow: 0 12px 28px rgba(17, 24, 68, .08);
-}
-
-[data-theme="dark"] .bp-sidebar-user {
-    background: rgba(255, 255, 255, .045);
-    border-color: rgba(234, 224, 207, .10);
-}
-
-[data-theme="dark"] .bp-sidebar-user:hover {
-    background: rgba(234, 224, 207, .08) !important;
-    color: #ffffff !important;
-}
-
-.bp-sidebar-user-name {
-    color: #111844 !important;
-    font-weight: 950 !important;
-}
-
-.bp-sidebar-user-role {
-    color: #4B5694 !important;
-    font-weight: 700 !important;
-}
-
-[data-theme="dark"] .bp-sidebar-user-name {
-    color: #ffffff !important;
-}
-
-[data-theme="dark"] .bp-sidebar-user-role {
-    color: #EAE0CF !important;
-}
-
-.nav-avatar-default,
-.nav-avatar {
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 14px !important;
-}
-
-.nav-avatar-default {
-    background: linear-gradient(135deg, #111844, #4B5694) !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(234, 224, 207, .55) !important;
-}
-
-[data-theme="dark"] .nav-avatar-default {
-    background: linear-gradient(135deg, #EAE0CF, #7288AE) !important;
-    color: #111844 !important;
-}
-
-/* Sign out */
-.bp-sidebar-footer .btn-nx.outline-danger {
-    height: 40px !important;
-    border-radius: 14px !important;
-    background: rgba(255, 255, 255, .58) !important;
-    border: 1px solid rgba(239, 68, 68, .20) !important;
-    color: #dc2626 !important;
-    font-weight: 850 !important;
-}
-
-.bp-sidebar-footer .btn-nx.outline-danger:hover {
-    background: rgba(239, 68, 68, .10) !important;
-    border-color: rgba(239, 68, 68, .35) !important;
-    color: #b91c1c !important;
-    transform: translateY(-1px);
-    box-shadow: 0 10px 22px rgba(239, 68, 68, .12);
-}
-
-[data-theme="dark"] .bp-sidebar-footer .btn-nx.outline-danger {
-    background: rgba(239, 68, 68, .08) !important;
-    border-color: rgba(248, 113, 113, .18) !important;
-    color: #fca5a5 !important;
-}
-
-[data-theme="dark"] .bp-sidebar-footer .btn-nx.outline-danger:hover {
-    background: rgba(239, 68, 68, .15) !important;
-    color: #fecaca !important;
-}
-
-/* Main wrap width update because sidebar width changed */
-.bp-main {
-    margin-left: var(--sidebar-w) !important;
-}
-
-.bp-main.sidebar-collapsed {
-    margin-left: 0 !important;
-}
-
-/* Topbar */
-.bp-topbar {
-    height: var(--topbar-h) !important;
-    background: rgba(255, 255, 255, .82) !important;
-    border-bottom: 1px solid rgba(17, 24, 68, .10) !important;
-    box-shadow: 0 10px 28px rgba(17, 24, 68, .04);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-}
-
-[data-theme="dark"] .bp-topbar {
-    background: rgba(9, 13, 32, .88) !important;
-    border-bottom: 1px solid rgba(234, 224, 207, .10) !important;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, .30);
-}
-
-.bp-topbar span {
-    color: #65738a !important;
-    font-weight: 850 !important;
-}
-
-[data-theme="dark"] .bp-topbar span {
-    color: rgba(226, 232, 240, .74) !important;
-}
-
-.bp-topbar-hamburger {
-    width: 40px !important;
-    height: 40px !important;
-    border-radius: 14px !important;
-    color: #4B5694 !important;
-    background: transparent !important;
-    border: 1px solid transparent !important;
-}
-
-.bp-topbar-hamburger:hover {
-    color: #111844 !important;
-    background: rgba(234, 224, 207, .46) !important;
-    border-color: rgba(75, 86, 148, .16) !important;
-}
-
-[data-theme="dark"] .bp-topbar-hamburger {
-    color: rgba(226, 232, 240, .78) !important;
-}
-
-[data-theme="dark"] .bp-topbar-hamburger:hover {
-    color: #EAE0CF !important;
-    background: rgba(234, 224, 207, .08) !important;
-    border-color: rgba(234, 224, 207, .14) !important;
-}
-
-/* Theme button */
-.theme-pill-btn {
-    width: 42px !important;
-    height: 42px !important;
-    border-radius: 15px !important;
-    background: rgba(255, 255, 255, .74) !important;
-    border: 1px solid rgba(17, 24, 68, .12) !important;
-    color: #4B5694 !important;
-    box-shadow: 0 10px 22px rgba(17, 24, 68, .06);
-}
-
-.theme-pill-btn:hover {
-    color: #111844 !important;
-    background: rgba(234, 224, 207, .58) !important;
-    border-color: rgba(75, 86, 148, .22) !important;
-    box-shadow:
-        0 14px 28px rgba(17, 24, 68, .10),
-        0 0 0 5px rgba(234, 224, 207, .36);
-}
-
-[data-theme="dark"] .theme-pill-btn {
-    background: rgba(234, 224, 207, .08) !important;
-    border-color: rgba(234, 224, 207, .16) !important;
-    color: #EAE0CF !important;
-    box-shadow: 0 12px 26px rgba(0, 0, 0, .30);
-}
-
-[data-theme="dark"] .theme-pill-btn:hover {
-    background: rgba(234, 224, 207, .14) !important;
-    border-color: rgba(234, 224, 207, .26) !important;
-    box-shadow:
-        0 14px 32px rgba(0, 0, 0, .38),
-        0 0 0 5px rgba(234, 224, 207, .10),
-        0 0 24px rgba(234, 224, 207, .14);
-}
-
-/* Mobile sidebar */
-@@media (max-width: 768px) {
-    .bp-sidebar {
-        width: min(86vw, 300px) !important;
-    }
-
-    .bp-main {
-        margin-left: 0 !important;
-    }
-
-    .bp-overlay.show {
-        background: rgba(7, 11, 24, .56) !important;
-        backdrop-filter: blur(6px);
-    }
-}
-
-@@media (max-width: 575.98px) {
-    .bp-sidenav {
-        padding: .25rem .7rem !important;
-    }
-
-    .bp-brand {
-        padding: 1rem .9rem .85rem !important;
-    }
-
-    .bp-nav-item {
-        min-height: 46px !important;
-        font-size: .86rem !important;
-    }
-
-    .bp-topbar {
-        height: 58px !important;
-        padding: 0 .85rem !important;
-    }
-}
-
+        :root {
+            /* Brand palette: deep navy / indigo-blue / blue-grey / cream */
+            --primary: #4B5694;
+            --primary-dark: #111844;
+            --primary-mid: #7288AE;
+            --primary-light: rgba(234,224,207,0.55);
+            --primary-rgb: 75,86,148;
+            --cream: #EAE0CF;
+            --cream-strong: #E1D3B8;
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
+            --border: #E7E1D4;
+            --text: #161B3D;
+            --muted: #5F6785;
+            --bg: #F8F5EE;
+            --white: #ffffff;
+            --sidebar-w: 230px;
+            --topbar-h: 58px;
+            --radius-sm: 8px;
+            --radius-md: 10px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-2xl: 24px;
+            --shadow-sm: 0 1px 3px rgba(17,24,68,.05),0 1px 2px rgba(17,24,68,.06);
+            --shadow-md: 0 8px 30px rgba(17,24,68,.08);
+            --shadow-lg: 0 20px 50px rgba(17,24,68,.12);
+            --shadow-glow: 0 0 0 4px rgba(75,86,148,.16);
+            --transition: all .25s cubic-bezier(.4,0,.2,1);
+            --font-base: 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+        }
+        [data-theme="dark"] {
+            --primary:#8DA0C9; --primary-dark:#7288AE; --primary-mid:#9FB0D4;
+            --primary-light:rgba(114,136,174,.16);
+            --primary-rgb:141,160,201;
+            --cream:#EAE0CF; --cream-strong:#D9C9A8;
+            --success:#34d399; --success-light:rgba(52,211,153,.1);
+            --warning:#fbbf24; --warning-light:rgba(251,191,36,.1);
+            --danger:#f87171; --danger-light:rgba(248,113,113,.1);
+            --border:#262C52; --text:#F3F0E7; --muted:#9AA3C6;
+            --bg:#0A0D22; --white:#13183A;
+            --shadow-sm:0 1px 3px rgba(0,0,0,.25);
+            --shadow-md:0 8px 30px rgba(0,0,0,.32);
+            --shadow-lg:0 20px 50px rgba(0,0,0,.45);
+            --shadow-glow:0 0 0 4px rgba(141,160,201,.22);
+        }
+
+        *{box-sizing:border-box;}
+        body{
+            font-family:var(--font-base);
+            background:var(--bg); color:var(--text);
+            margin:0; padding:0;
+            transition:background .3s ease,color .3s ease;
+        }
+        a{color:var(--primary);text-decoration:none;transition:var(--transition);}
+        a:hover{color:var(--primary-dark);}
+
+        /* ── SIDEBAR ── */
+        .bp-sidebar {
+            position: fixed;
+            left: 0; top: 0; bottom: 0;
+            width: var(--sidebar-w);
+            background: var(--white);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 200;
+            transition: transform .3s ease;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .bp-sidebar::-webkit-scrollbar { width: 4px; }
+        .bp-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+        .bp-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 1.1rem 1.2rem 0.8rem;
+            text-decoration: none;
+            color: var(--text);
+            flex-shrink: 0;
+        }
+        .bp-brand:hover { color: var(--primary); }
+        .bp-brand-icon {
+            width: 38px; height: 38px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: var(--radius-lg);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 1.1rem;
+            box-shadow: 0 4px 12px rgba(17,24,68,.3);
+            flex-shrink: 0;
+            transition: var(--transition);
+        }
+        .bp-brand:hover .bp-brand-icon { transform: rotate(-8deg) scale(1.05); }
+        .bp-brand-name {
+            font-size: 1rem; font-weight: 800; letter-spacing: -.4px;
+            background: linear-gradient(135deg, var(--text), var(--primary-dark));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        [data-theme="dark"] .bp-brand-name {
+            background: linear-gradient(135deg,#fff,var(--primary-mid));
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+        }
+
+        .bp-sidenav { padding: 0.3rem 0.65rem; flex: 1; }
+
+        .bp-nav-section {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .7px;
+            padding: 0.9rem 0.6rem 0.35rem;
+        }
+
+        .bp-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.55rem 0.75rem;
+            border-radius: var(--radius-md);
+            color: var(--muted);
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: var(--transition);
+            position: relative;
+            margin-bottom: 2px;
+        }
+        .bp-nav-item i { font-size: 1.05rem; flex-shrink: 0; width: 20px; text-align: center; }
+        .bp-nav-item:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .bp-nav-item.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            font-weight: 700;
+        }
+        .bp-nav-item.active i { color: var(--primary); }
+
+        .bp-nav-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--danger);
+            color: #fff;
+            border-radius: 999px;
+            font-size: 0.65rem;
+            font-weight: 700;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            margin-left: auto;
+        }
+        .bp-nav-badge.warning { background: var(--warning); color: #000; }
+        [data-theme="dark"] .bp-nav-badge.warning { color: #fff; }
+        @@keyframes pulse-dot {
+            0%,100%{transform:scale(1);opacity:1;}
+            50%{transform:scale(1.2);opacity:.8;}
+        }
+        .bp-nav-badge.pulse { animation: pulse-dot 1.6s ease-in-out infinite; }
+
+        .bp-sidebar-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 0.5rem 0.65rem;
+        }
+
+        /* ── SIDEBAR BOTTOM (user info) ── */
+        .bp-sidebar-footer {
+            padding: 0.75rem 0.9rem;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .bp-sidebar-user {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.5rem 0.6rem;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--text);
+            transition: var(--transition);
+        }
+        .bp-sidebar-user:hover { background: var(--primary-light); color: var(--primary); }
+        .bp-sidebar-user-name { font-size: 0.83rem; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bp-sidebar-user-role { font-size: 0.7rem; color: var(--muted); }
+        .nav-avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%; object-fit: cover;
+            border: 2px solid var(--border); flex-shrink: 0;
+        }
+        .nav-avatar-default {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: var(--primary-light); color: var(--primary);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: .9rem; font-weight: 700;
+            border: 2px solid var(--border); flex-shrink: 0;
+        }
+
+        /* ── TOPBAR ── */
+        .bp-topbar {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(var(--white-rgb, 255,255,255),.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            height: var(--topbar-h);
+            display: flex; align-items: center;
+            padding: 0 1.25rem;
+            gap: 0.75rem;
+        }
+        [data-theme="dark"] .bp-topbar { background: rgba(19,24,58,.85); }
+
+        .bp-topbar-hamburger {
+            display: none;
+            background: none; border: none;
+            color: var(--muted); font-size: 1.3rem;
+            cursor: pointer; padding: 6px;
+            border-radius: var(--radius-md);
+            transition: var(--transition);
+        }
+        .bp-topbar-hamburger:hover { background: var(--primary-light); color: var(--primary); }
+
+        .bp-topbar-right {
+            margin-left: auto;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+
+        .theme-pill-btn {
+            background: transparent; border: none;
+            color: var(--muted); width: 36px; height: 36px;
+            border-radius: var(--radius-md);
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: var(--transition);
+        }
+        .theme-pill-btn:hover { background: var(--primary-light); color: var(--primary); }
+
+        /* mode pill in topbar */
+        .mode-pill {
+            background: var(--primary-light); color: var(--primary);
+            border-radius: 999px; padding: .35rem .9rem;
+            font-size: .82rem; font-weight: 600;
+            display: inline-flex; align-items: center; gap: .4rem;
+            border: 1px solid transparent; cursor: pointer;
+            transition: var(--transition); text-decoration: none;
+        }
+        .mode-pill:hover { border-color: var(--primary-mid); color: var(--primary-dark); }
+
+        /* ── MAIN CONTENT AREA ── */
+        .bp-main {
+            margin-left: var(--sidebar-w);
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+        }
+        .bp-content { flex: 1; }
+
+        /* ── MOBILE OVERLAY ── */
+        .bp-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,.4);
+            z-index: 199;
+        }
+        .bp-overlay.show { display: block; }
+
+        @@media (max-width: 768px) {
+            .bp-sidebar { transform: translateX(-100%); }
+            .bp-sidebar.open { transform: translateX(0); }
+            .bp-main { margin-left: 0; }
+            .bp-topbar-hamburger { display: inline-flex; }
+        }
+
+        /* ── BUTTONS ── */
+        .btn-auth,.btn-nx,.btn-hero{position:relative;overflow:hidden;}
+        .btn-auth{
+            width:100%; height:52px; border:none;
+            border-radius:var(--radius-lg); background:var(--primary);
+            color:#fff; font-family:var(--font-base); font-weight:700;
+            font-size:15px; cursor:pointer; transition:var(--transition);
+            display:inline-flex; align-items:center; justify-content:center;
+            gap:8px; text-decoration:none;
+        }
+        .btn-auth:hover{background:var(--primary-dark);color:#fff;transform:translateY(-2px);box-shadow:0 6px 20px rgba(var(--primary-rgb),.3);}
+        .btn-auth.outline{background:var(--white);color:var(--primary);border:2px solid var(--border);}
+        .btn-auth.outline:hover{border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark);box-shadow:none;}
+        .btn-auth.success{background:var(--success);}
+        .btn-auth.success:hover{background:#059669;box-shadow:0 6px 20px rgba(16,185,129,.25);}
+        .btn-auth.danger{background:var(--danger);}
+        .btn-auth.danger:hover{background:#dc2626;box-shadow:0 6px 20px rgba(239,68,68,.25);}
+
+        .btn-nx{
+            height:38px; padding:0 18px; border:none;
+            border-radius:var(--radius-md); background:var(--primary);
+            color:#fff; font-family:var(--font-base); font-weight:600;
+            font-size:13px; cursor:pointer; transition:var(--transition);
+            display:inline-flex; align-items:center; justify-content:center;
+            gap:6px; text-decoration:none;
+        }
+        .btn-nx:hover{background:var(--primary-dark);color:#fff;transform:translateY(-1px);}
+        .btn-nx.outline{background:var(--white);color:var(--text);border:1px solid var(--border);}
+        .btn-nx.outline:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary);}
+        .btn-nx.outline-danger{background:var(--white);color:var(--danger);border:1px solid var(--border);}
+        .btn-nx.outline-danger:hover{background:var(--danger-light);border-color:var(--danger);}
+        .btn-nx.success{background:var(--success);}
+        .btn-nx.success:hover{background:#059669;color:#fff;}
+        .btn-nx.warning{background:var(--warning);}
+        .btn-nx.warning:hover{background:#d97706;color:#fff;}
+        .btn-nx.danger{background:var(--danger);}
+        .btn-nx.danger:hover{background:#dc2626;color:#fff;}
+        .btn-nx.sm{height:32px;padding:0 12px;font-size:12px;}
+
+        .auth-link{color:var(--primary);font-weight:600;text-decoration:none;transition:var(--transition);}
+        .auth-link:hover{color:var(--primary-dark);text-decoration:underline;}
+
+        /* ── CARDS ── */
+        .nx-card{
+            background:var(--white); border:1px solid var(--border);
+            border-radius:var(--radius-xl); box-shadow:var(--shadow-sm);
+            transition:var(--transition); overflow:hidden; position:relative;
+        }
+        .nx-card:hover{box-shadow:var(--shadow-md);transform:translateY(-6px);border-color:var(--primary-mid);}
+
+        /* ── ALERTS ── */
+        .nx-alert{
+            border:1px solid; border-radius:var(--radius-md);
+            padding:1rem 1.25rem; font-size:.92rem;
+            display:flex; align-items:center; gap:.6rem;
+            box-shadow:var(--shadow-sm); transition:var(--transition);
+        }
+        .nx-alert-success{background:var(--success-light);border-color:rgba(16,185,129,.2);color:#047857;}
+        .nx-alert-danger{background:var(--danger-light);border-color:rgba(239,68,68,.2);color:#b91c1c;}
+        .nx-alert-warning{background:var(--warning-light);border-color:rgba(245,158,11,.2);color:#b45309;}
+        .nx-alert-info{background:var(--primary-light);border-color:rgba(var(--primary-rgb),.25);color:var(--primary-dark);}
+        [data-theme="dark"] .nx-alert-success{color:#34d399;}
+        [data-theme="dark"] .nx-alert-danger{color:#f87171;}
+        [data-theme="dark"] .nx-alert-warning{color:#fbbf24;}
+        [data-theme="dark"] .nx-alert-info{color:var(--primary-mid);}
+        .nx-alert .btn-close{padding:.6rem;color:var(--text);}
+
+        /* ── BADGES ── */
+        .nx-badge{
+            display:inline-block; background:var(--danger); color:#fff;
+            border-radius:999px; padding:.15rem .5rem; font-size:.72rem; font-weight:700;
+        }
+        .nx-badge-warning{background:var(--warning);color:#000;}
+        [data-theme="dark"] .nx-badge-warning{color:#fff;}
+
+        .badge-pending{
+            background:var(--warning-light); color:#b45309;
+            border:1px solid rgba(245,158,11,.15);
+            padding:.25rem .75rem; border-radius:999px; font-size:.75rem; font-weight:600;
+        }
+        .badge-approved{
+            background:var(--success-light); color:#047857;
+            border:1px solid rgba(16,185,129,.15);
+            padding:.25rem .75rem; border-radius:999px; font-size:.75rem; font-weight:600;
+        }
+        [data-theme="dark"] .badge-pending{color:#fbbf24;}
+        [data-theme="dark"] .badge-approved{color:#34d399;}
+
+        /* ── FORM ── */
+        .form-control,.form-select{
+            font-family:var(--font-base); border:1px solid var(--border);
+            border-radius:var(--radius-lg); padding:.7rem 1.1rem;
+            font-size:.93rem; height:52px;
+            background-color:var(--white); color:var(--text); transition:var(--transition);
+        }
+        .form-control:focus,.form-select:focus{
+            border-color:var(--primary); box-shadow:var(--shadow-glow);
+            background-color:var(--white); color:var(--text); outline:none;
+        }
+        .form-control::placeholder{color:var(--muted);opacity:.65;}
+        textarea.form-control{height:auto;min-height:90px;}
+        .form-label{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.45rem;}
+
+        /* ── AUTH CARD ── */
+        .auth-card{
+            max-width:520px; margin:3rem auto;
+            background:var(--white); border:1px solid var(--border);
+            border-radius:var(--radius-2xl); padding:40px;
+            box-shadow:var(--shadow-lg);
+        }
+
+        /* ── HERO ── */
+        .nx-hero{
+            background:linear-gradient(135deg,#111844 0%,#1A2150 50%,#4B5694 100%);
+            color:#fff; padding:5rem 1.5rem;
+            border-radius:var(--radius-2xl); margin:1.5rem 0 3rem;
+            text-align:center; position:relative; overflow:hidden;
+            box-shadow:0 20px 40px rgba(17,24,68,.3);
+        }
+        [data-theme="dark"] .nx-hero{background:linear-gradient(135deg,#05060f 0%,#0A0D22 50%,#1A2150 100%);border:1px solid rgba(255,255,255,.05);}
+        .nx-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 80% at 50% -10%,rgba(234,224,207,.18),transparent);pointer-events:none;}
+        .nx-hero>*{position:relative;z-index:1;}
+        .nx-hero h1{font-weight:800;letter-spacing:-.8px;margin-bottom:.8rem;}
+        .nx-hero .lead{opacity:.88;font-weight:400;max-width:600px;margin:0 auto;}
+
+        .btn-hero{
+            display:inline-flex; align-items:center; gap:8px;
+            background:#fff; color:var(--primary-dark); font-weight:700; font-size:15px;
+            padding:14px 34px; border-radius:var(--radius-lg); border:none;
+            text-decoration:none; transition:var(--transition);
+            box-shadow:0 4px 15px rgba(0,0,0,.1);
+        }
+        .btn-hero:hover{color:var(--primary);transform:translateY(-2px);box-shadow:0 8px 25px rgba(255,255,255,.25);}
+
+        /* ── ROLE CARD ── */
+        .role-card{
+            border:2px solid var(--border); border-radius:var(--radius-xl);
+            background:var(--white); text-decoration:none; color:inherit;
+            display:block; padding:2.5rem; transition:var(--transition);
+            cursor:pointer; text-align:center; box-shadow:var(--shadow-sm);
+        }
+        .role-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);border-color:var(--primary);color:inherit;}
+        .role-card .icon-wrap{
+            width:76px;height:76px;border-radius:var(--radius-xl);
+            display:inline-flex;align-items:center;justify-content:center;
+            font-size:2rem;margin-bottom:1.25rem;transition:var(--transition);
+            color:#fff; box-shadow:0 10px 24px rgba(17,24,68,.22);
+        }
+        .role-card:hover .icon-wrap{transform:scale(1.08) rotate(-5deg);}
+        .icon-admin{background:linear-gradient(135deg,var(--primary-dark),#222a5e);}
+        .icon-user{background:linear-gradient(135deg,var(--primary-mid),var(--primary));}
+
+        /* ── PAGINATION ── */
+        .pagination .page-link{
+            color:var(--primary);background-color:var(--white);border-color:var(--border);
+            font-weight:600;border-radius:var(--radius-md);margin:0 3px;
+            padding:.5rem .95rem;transition:var(--transition);
+        }
+        .pagination .page-link:hover{background-color:var(--primary-light);border-color:var(--primary-mid);}
+        .pagination .page-item.active .page-link{background:var(--primary);border-color:var(--primary);color:#fff!important;}
+        .pagination .page-item.disabled .page-link{color:var(--muted);opacity:.5;}
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar{width:8px;height:8px;}
+        ::-webkit-scrollbar-track{background:var(--bg);}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+        ::-webkit-scrollbar-thumb:hover{background:var(--muted);}
+
+        /* ── FOOTER ── */
+        .nx-footer{
+            background:var(--white);border-top:1px solid var(--border);
+            padding:1.25rem 0;color:var(--muted);font-size:.85rem;
+        }
+        .nx-footer a{color:var(--primary);text-decoration:none;font-weight:600;}
+
+        /* ── ANIMATION ── */
+        @@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+        .fade-up{animation:fadeUp .5s cubic-bezier(.4,0,.2,1) both;}
+
+        /* ── SIDEBAR COLLAPSED (desktop toggle) ── */
+        .bp-sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        .bp-main.sidebar-collapsed {
+            margin-left: 0 !important;
+        }
+        @@media (min-width: 769px) {
+            .bp-topbar-hamburger { display: inline-flex; }
+        }
+
+        /* ── GUEST NAVBAR ── */
+        .bp-guest-nav {
+            background: var(--white);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: .8rem 0;
+            position: sticky; top: 0; z-index: 200;
+            transition: background .3s ease;
+        }
+
+        /* ── AUTH PAGE BRAND MARK ── */
+        .nx-brand-icon {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            border-radius: var(--radius-lg);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 1.2rem; flex-shrink: 0;
+            box-shadow: 0 6px 16px rgba(17,24,68,.22);
+        }
+        .nx-brand-name {
+            font-size: 1.1rem; font-weight: 800; letter-spacing: -.4px;
+            color: var(--primary-dark);
+        }
+        [data-theme="dark"] .nx-brand-name { color: var(--text); }
+
+        /* ── CHIP ── */
+        .chip{
+            display:inline-flex;align-items:center;gap:6px;
+            background:var(--primary-light);color:var(--primary);
+            border-radius:999px;padding:.25rem .7rem;font-size:.78rem;font-weight:600;
+        }
+
+        /* ── STAT / SUMMARY CARD ── */
+        .stat-card{
+            border-radius:var(--radius-xl)!important; box-shadow:var(--shadow-sm);
+            transition:var(--transition); border-color:var(--border)!important;
+        }
+        .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-3px);}
+        .text-primary{color:var(--primary)!important;}
+        .text-muted{color:var(--muted)!important;}
+        .bg-primary{background-color:var(--primary)!important;}
+        .bg-secondary{background-color:var(--primary-mid)!important;}
+        .bg-info{background-color:var(--primary-mid)!important;}
+        .border-primary{border-color:var(--primary)!important;}
+
+        .btn-primary{
+            --bs-btn-color:#fff;--bs-btn-bg:var(--primary);--bs-btn-border-color:var(--primary);
+            --bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--primary-dark);--bs-btn-hover-border-color:var(--primary-dark);
+            --bs-btn-focus-shadow-rgb:75,86,148;--bs-btn-active-color:#fff;
+            --bs-btn-active-bg:var(--primary-dark);--bs-btn-active-border-color:var(--primary-dark);
+            --bs-btn-disabled-bg:var(--primary);--bs-btn-disabled-border-color:var(--primary);
+        }
+        .btn-outline-primary{
+            --bs-btn-color:var(--primary);--bs-btn-border-color:var(--primary);
+            --bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--primary);--bs-btn-hover-border-color:var(--primary);
+            --bs-btn-focus-shadow-rgb:75,86,148;--bs-btn-active-color:#fff;
+            --bs-btn-active-bg:var(--primary);--bs-btn-active-border-color:var(--primary);
+            --bs-btn-disabled-color:var(--primary);--bs-btn-disabled-border-color:var(--primary);
+        }
+        .btn-secondary{
+            --bs-btn-bg:var(--primary-mid);--bs-btn-border-color:var(--primary-mid);
+            --bs-btn-hover-bg:var(--primary);--bs-btn-hover-border-color:var(--primary);
+            --bs-btn-active-bg:var(--primary);--bs-btn-active-border-color:var(--primary);
+            --bs-btn-disabled-bg:var(--primary-mid);--bs-btn-disabled-border-color:var(--primary-mid);
+        }
+        .btn-outline-secondary{
+            --bs-btn-color:var(--muted);--bs-btn-border-color:var(--border);
+            --bs-btn-hover-bg:var(--muted);--bs-btn-hover-border-color:var(--muted);
+        }
+        .btn-info{
+            --bs-btn-color:#fff;--bs-btn-bg:var(--primary-mid);--bs-btn-border-color:var(--primary-mid);
+            --bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--primary);--bs-btn-hover-border-color:var(--primary);
+        }
+        .btn-success{--bs-btn-bg:var(--success);--bs-btn-border-color:var(--success);--bs-btn-hover-bg:#059669;--bs-btn-hover-border-color:#059669;}
+        .btn-outline-success{--bs-btn-color:var(--success);--bs-btn-border-color:var(--success);--bs-btn-hover-bg:var(--success);--bs-btn-hover-border-color:var(--success);}
+        .btn-danger{--bs-btn-bg:var(--danger);--bs-btn-border-color:var(--danger);--bs-btn-hover-bg:#dc2626;--bs-btn-hover-border-color:#dc2626;}
+        .btn-outline-danger{--bs-btn-color:var(--danger);--bs-btn-border-color:var(--danger);--bs-btn-hover-bg:var(--danger);--bs-btn-hover-border-color:var(--danger);}
+        .btn-warning{--bs-btn-bg:var(--warning);--bs-btn-border-color:var(--warning);--bs-btn-hover-bg:#d97706;--bs-btn-hover-border-color:#d97706;}
+
+        .alert{border-radius:var(--radius-md);}
+        .alert-info{background-color:var(--primary-light);border-color:rgba(var(--primary-rgb),.25);color:var(--primary-dark);}
+        [data-theme="dark"] .alert-info{color:var(--primary-mid);}
+        .alert-link{font-weight:700;}
+
+        .table{--bs-table-color:var(--text);--bs-table-border-color:var(--border);}
+        .table-light{--bs-table-bg:var(--bg);--bs-table-color:var(--text);}
+        [data-theme="dark"] .table-light{--bs-table-bg:rgba(255,255,255,.04);--bs-table-color:var(--text);}
+        [data-theme="dark"] .table{--bs-table-bg:transparent;}
+
+        .card{background:var(--white);border-color:var(--border);color:var(--text);}
+        .modal-content{background:var(--white);color:var(--text);}
+        .dropdown-menu{background:var(--white);color:var(--text);border-color:var(--border);}
+        .dropdown-item{color:var(--text);}
+        .dropdown-item:hover,.dropdown-item:focus{background:var(--primary-light);color:var(--primary-dark);}
     </style>
 </head>
 <body>
 
-    @if (isAuthed)
-    {
-        <!-- Mobile overlay -->
-        <div class="bp-overlay" id="sidebarOverlay"></div>
+@if (isAuthed)
+{
+    <!-- Mobile overlay -->
+    <div class="bp-overlay" id="sidebarOverlay"></div>
 
-        <!-- ── SIDEBAR ── -->
-        <aside class="bp-sidebar" id="sidebar">
+    <!-- ── SIDEBAR ── -->
+    <aside class="bp-sidebar" id="sidebar">
 
-            <!-- Brand -->
-            <a class="bp-brand" asp-controller="Home" asp-action="Index">
-                <div class="bp-brand-icon"><i class="fa-solid fa-house-chimney"></i></div>
-                <span class="bp-brand-name">Bachelor's Point</span>
+        <!-- Brand -->
+        <a class="bp-brand" asp-controller="Home" asp-action="Index">
+            <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
+            <span class="bp-brand-name">Bachelor's Point</span>
+        </a>
+
+        <div class="bp-sidenav">
+
+            <!-- Common links -->
+            <a class="bp-nav-item @(IsActive("/home") || currentPath=="/" ? "active" : "")"
+               asp-controller="Home" asp-action="Index">
+                <i class="bi bi-grid-1x2-fill"></i> Home
             </a>
 
-            <div class="bp-sidenav">
+            <a class="bp-nav-item @(IsActive("/room/index") || currentPath=="/room" ? "active" : "")"
+               asp-controller="Room" asp-action="Index">
+                <i class="bi bi-search"></i> Browse Rooms
+            </a>
 
-                <!-- Common links -->
-                <a class="bp-nav-item @(IsActive("/home") || currentPath == "/" ? "active" : "")"
-                   asp-controller="Home" asp-action="Index">
-                    <i class="bi bi-grid-1x2-fill"></i> Home
+            <a class="bp-nav-item @(IsActive("/chat") ? "active" : "")"
+               asp-controller="Chat" asp-action="Index">
+                <i class="bi bi-chat-dots-fill"></i> Messages
+                @if (unreadCount > 0)
+                {
+                    <span class="bp-nav-badge pulse">@unreadCount</span>
+                }
+            </a>
+
+            @if (isAdminUser)
+            {
+                <div class="bp-sidebar-divider"></div>
+                <div class="bp-nav-section">Admin</div>
+
+                <a class="bp-nav-item @(IsActive("/user") ? "active" : "")"
+                   asp-controller="User" asp-action="Index">
+                    <i class="bi bi-people-fill"></i> Users
                 </a>
 
-                <a class="bp-nav-item @(IsActive("/room/index") || currentPath == "/room" ? "active" : "")"
-                   asp-controller="Room" asp-action="Index">
-                    <i class="bi bi-search"></i> Browse Rooms
+                <a class="bp-nav-item @(IsActive("/role") ? "active" : "")"
+                   asp-controller="Role" asp-action="Index">
+                    <i class="bi bi-shield-lock-fill"></i> Roles
                 </a>
 
-                <a class="bp-nav-item @(IsActive("/chat") ? "active" : "")"
-                   asp-controller="Chat" asp-action="Index">
-                    <i class="bi bi-chat-dots-fill"></i> Messages
-                    @if (unreadCount > 0)
+                <a class="bp-nav-item @(IsActive("/kyc") ? "active" : "")"
+                   asp-controller="Kyc" asp-action="Pending">
+                    <i class="bi bi-person-vcard-fill"></i> Verifications
+                    @if (pendingKycCount > 0)
                     {
-                        <span class="bp-nav-badge pulse">@unreadCount</span>
+                        <span class="bp-nav-badge warning pulse">@pendingKycCount</span>
                     }
                 </a>
 
-                @if (isAdminUser)
+                <a class="bp-nav-item @(IsActive("/kyc/loginactivity") ? "active" : "")"
+                   asp-controller="Kyc" asp-action="LoginActivity">
+                    <i class="bi bi-activity"></i> Login Activity
+                </a>
+            }
+            else
+            {
+                <div class="bp-sidebar-divider"></div>
+                <div class="bp-nav-section">@(ownerMode ? "Owner" : "Seeker")</div>
+
+                @if (ownerMode)
                 {
-                    <div class="bp-sidebar-divider"></div>
-                    <div class="bp-nav-section">Admin</div>
-
-                    <a class="bp-nav-item @(IsActive("/room/pending") ? "active" : "")"
-                       asp-controller="Room" asp-action="Pending">
-                        <i class="bi bi-clock-history"></i> Pending Rooms
-                        @if (pendingRoomCount > 0)
+                    <a class="bp-nav-item @(IsActive("/room/create") ? "active" : "")"
+                       asp-controller="Room" asp-action="Create">
+                        <i class="bi bi-plus-square-fill"></i> Post a Room
+                    </a>
+                    <a class="bp-nav-item @(IsActive("/room/mylistings") ? "active" : "")"
+                       asp-controller="Room" asp-action="MyListings">
+                        <i class="bi bi-house-fill"></i> My Listings
+                        @if (dueRoomPaymentCount > 0)
                         {
-                            <span class="bp-nav-badge warning pulse">@pendingRoomCount</span>
+                            <span class="bp-nav-badge warning pulse">@dueRoomPaymentCount</span>
                         }
-                    </a>
-
-                    <a class="bp-nav-item @(IsActive("/payment") ? "active" : "")"
-                       asp-controller="Payment" asp-action="AdminPayments">
-                        <i class="bi bi-cash-coin"></i> Payments
-                        @if (pendingPaymentCount > 0)
-                        {
-                            <span class="bp-nav-badge pulse">@pendingPaymentCount</span>
-                        }
-                    </a>
-
-                    <a class="bp-nav-item @(IsActive("/user") ? "active" : "")"
-                       asp-controller="User" asp-action="Index">
-                        <i class="bi bi-people-fill"></i> Users
-                    </a>
-
-                    <a class="bp-nav-item @(IsActive("/role") ? "active" : "")"
-                       asp-controller="Role" asp-action="Index">
-                        <i class="bi bi-shield-lock-fill"></i> Roles
-                    </a>
-
-                    <a class="bp-nav-item @(IsActive("/kyc") ? "active" : "")"
-                       asp-controller="Kyc" asp-action="Pending">
-                        <i class="bi bi-person-vcard-fill"></i> Verifications
-                        @if (pendingKycCount > 0)
-                        {
-                            <span class="bp-nav-badge warning pulse">@pendingKycCount</span>
-                        }
-                    </a>
-
-                    <a class="bp-nav-item @(IsActive("/kyc/loginactivity") ? "active" : "")"
-                       asp-controller="Kyc" asp-action="LoginActivity">
-                        <i class="bi bi-activity"></i> Login Activity
                     </a>
                 }
                 else
                 {
-                    <div class="bp-sidebar-divider"></div>
-                    <div class="bp-nav-section">@(ownerMode ? "Owner" : "Seeker")</div>
-
-                    @if (ownerMode)
-                    {
-                        <a class="bp-nav-item @(IsActive("/room/create") ? "active" : "")"
-                           asp-controller="Room" asp-action="Create">
-                            <i class="bi bi-plus-square-fill"></i> Post a Room
-                        </a>
-                        <a class="bp-nav-item @(IsActive("/room/mylistings") ? "active" : "")"
-                           asp-controller="Room" asp-action="MyListings">
-                            <i class="bi bi-house-fill"></i> My Listings
-                        </a>
-                    }
-                    else
-                    {
-                        <a class="bp-nav-item @(IsActive("/auth/profile") ? "active" : "")"
-                           asp-controller="Auth" asp-action="Profile">
-                            <i class="bi bi-bookmark-check-fill"></i> My Bookings
-                        </a>
-                    }
-
-                    <a class="bp-nav-item @(IsActive("/kyc/status") || IsActive("/kyc/submit") ? "active" : "")"
-                       asp-controller="Kyc" asp-action="Status">
-                        <i class="bi bi-person-badge-fill"></i> KYC Verification
-                    </a>
-
-                    <a class="bp-nav-item @(IsActive("/payment/registrationfee") ? "active" : "")"
-                       asp-controller="Payment" asp-action="RegistrationFee">
-                        <i class="bi bi-cash-coin"></i> My Payment
+                    <a class="bp-nav-item @(IsActive("/auth/profile") ? "active" : "")"
+                       asp-controller="Auth" asp-action="Profile">
+                        <i class="bi bi-bookmark-check-fill"></i> My Bookings
                     </a>
                 }
-            </div>
 
-            <!-- Footer: user info + logout -->
-            <div class="bp-sidebar-footer">
-                <a class="bp-sidebar-user" asp-controller="Auth" asp-action="Profile">
-                    @if (!string.IsNullOrEmpty(currentUserPic))
-                    {
-                        <img src="@currentUserPic" alt="Profile" class="nav-avatar" />
-                    }
-                    else
-                    {
-                        <span class="nav-avatar-default"><i class="bi bi-person-fill"></i></span>
-                    }
-                    <div style="overflow:hidden;">
-                        <div class="bp-sidebar-user-name">@(currentUserName ?? User.Identity?.Name)</div>
-                        <div class="bp-sidebar-user-role">@(isAdminUser ? "Admin" : (ownerMode ? "Owner" : "Seeker"))</div>
-                    </div>
+                <a class="bp-nav-item @(IsActive("/kyc/status") || IsActive("/kyc/submit") ? "active" : "")"
+                   asp-controller="Kyc" asp-action="Status">
+                    <i class="bi bi-person-badge-fill"></i> KYC Verification
                 </a>
-                <form asp-controller="Auth" asp-action="Logout" method="post" class="mt-2">
-                    @Html.AntiForgeryToken()
-                    <button type="submit" class="btn-nx outline-danger sm" style="width:100%;">
-                        <i class="bi bi-box-arrow-right"></i> Sign Out
-                    </button>
-                </form>
-            </div>
-        </aside>
 
-        <!-- ── MAIN ── -->
-        <div class="bp-main" id="mainWrap">
-
-            <!-- Top bar -->
-            <header class="bp-topbar">
-                <button class="bp-topbar-hamburger" id="sidebarToggle">
-                    <i class="bi bi-list"></i>
-                </button>
-
-                <span style="font-size:.9rem;font-weight:700;color:var(--muted);">
-                    @(ViewData["Title"] ?? "Bachelor's Point")
-                </span>
-
-                <div class="bp-topbar-right">
-                    <!-- Mode switcher (non-admin only) -->
-                    @if (!isAdminUser)
-                    {
-                        <div class="dropdown">
-                            <a class="mode-pill" href="#" role="button" data-bs-toggle="dropdown">
-                                <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-search")"></i>
-                                @(ownerMode ? "Owner" : "Seeker")
-                                <i class="bi bi-caret-down-fill" style="font-size:.6rem;"></i>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end shadow-sm"
-                                style="border-color:var(--border);border-radius:var(--radius-lg);padding:.5rem;">
-                                <li>
-                                    <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="mode" value="owner" />
-                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                        <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
-                                            <i class="bi bi-house-add-fill me-1"></i> Owner Mode
-                                        </button>
-                                    </form>
-                                </li>
-                                <li>
-                                    <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="mode" value="seeker" />
-                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                        <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
-                                            <i class="bi bi-search me-1"></i> Seeker Mode
-                                        </button>
-                                    </form>
-                                </li>
-                            </ul>
-                        </div>
-                    }
-
-                    <!-- Theme toggle -->
-                    <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
-                        <i class="fa-solid fa-moon" id="theme-icon" style="font-size:1.1rem;"></i>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Alerts -->
-            <div class="container-fluid px-4 pt-3">
-                @if (TempData["Success"] != null)
-                {
-                    <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
-                        <i class="bi bi-check-circle-fill"></i>
-                        <span class="flex-grow-1">@TempData["Success"]</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                }
-                @if (TempData["Error"] != null)
-                {
-                    <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span class="flex-grow-1">@TempData["Error"]</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                }
-                @if (isAdminUser && pendingPaymentCount > 0 && !currentPath.StartsWith("/payment"))
-                {
-                    <div class="nx-alert nx-alert-info alert-dismissible fade show fade-up mb-3" role="alert">
-                        <i class="bi bi-cash-coin"></i>
-                        <div class="flex-grow-1">
-                            <strong>@pendingPaymentCount payment@(pendingPaymentCount == 1 ? "" : "s")</strong> awaiting verification.
-                            <a asp-controller="Payment" asp-action="AdminPayments" class="auth-link ms-1">Verify now &rarr;</a>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                }
-            </div>
-
-            <!-- Page content -->
-            <div class="bp-content">
-                @RenderBody()
-            </div>
-
-            <footer class="nx-footer">
-                <div class="container text-center">
-                    &copy; 2026 <strong>Bachelor's Point</strong> &middot;
-                    <a asp-controller="Home" asp-action="Privacy">Privacy</a>
-                </div>
-            </footer>
+                <a class="bp-nav-item @(IsActive("/payment/registrationfee") ? "active" : "")"
+                   asp-controller="Payment" asp-action="RegistrationFee">
+                    <i class="bi bi-cash-coin"></i> My Payment
+                </a>
+            }
         </div>
-    }
-    else
-    {
-        <!-- NOT AUTHENTICATED: minimal top navbar -->
-        <nav class="bp-guest-nav">
-            <div class="container d-flex align-items-center justify-content-between">
-                <a class="bp-brand" asp-controller="Home" asp-action="Index">
-                    <div class="bp-brand-icon"><i class="fa-solid fa-house-chimney"></i></div>
-                    <span class="bp-brand-name">Bachelor's Point</span>
-                </a>
-                <div class="d-flex align-items-center gap-2">
-                    <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
-                        <i class="fa-solid fa-moon" id="theme-icon" style="font-size:1.1rem;"></i>
-                    </button>
-                    <a class="btn-nx sm outline" asp-controller="Auth" asp-action="RoleSelect">
-                        <i class="fa-solid fa-right-to-bracket"></i> Sign In
-                    </a>
-                </div>
-            </div>
-        </nav>
 
-        <main role="main">
-            <div class="container mt-3">
-                @if (TempData["Success"] != null)
+        <!-- Footer: user info + logout -->
+        <div class="bp-sidebar-footer">
+            <a class="bp-sidebar-user" asp-controller="Auth" asp-action="Profile">
+                @if (!string.IsNullOrEmpty(currentUserPic))
                 {
-                    <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
-                        <i class="bi bi-check-circle-fill"></i>
-                        <span class="flex-grow-1">@TempData["Success"]</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <img src="@currentUserPic" alt="Profile" class="nav-avatar" />
+                }
+                else
+                {
+                    <span class="nav-avatar-default"><i class="bi bi-person-fill"></i></span>
+                }
+                <div style="overflow:hidden;">
+                    <div class="bp-sidebar-user-name">@(currentUserName ?? User.Identity?.Name)</div>
+                    <div class="bp-sidebar-user-role">@(isAdminUser ? "Admin" : (ownerMode ? "Owner" : "Seeker"))</div>
+                </div>
+            </a>
+            <form asp-controller="Auth" asp-action="Logout" method="post" class="mt-2">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn-nx outline-danger sm" style="width:100%;">
+                    <i class="bi bi-box-arrow-right"></i> Sign Out
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <div class="bp-main" id="mainWrap">
+
+        <!-- Top bar -->
+        <header class="bp-topbar">
+            <button class="bp-topbar-hamburger" id="sidebarToggle">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <span style="font-size:.9rem;font-weight:700;color:var(--muted);">
+                @(ViewData["Title"] ?? "Bachelor's Point")
+            </span>
+
+            <div class="bp-topbar-right">
+                <!-- Mode switcher (non-admin only) -->
+                @if (!isAdminUser)
+                {
+                    <div class="dropdown">
+                        <a class="mode-pill" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-search")"></i>
+                            @(ownerMode ? "Owner" : "Seeker")
+                            <i class="bi bi-caret-down-fill" style="font-size:.6rem;"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm"
+                            style="border-color:var(--border);border-radius:var(--radius-lg);padding:.5rem;">
+                            <li>
+                                <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="mode" value="owner" />
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
+                                        <i class="bi bi-house-add-fill me-1"></i> Owner Mode
+                                    </button>
+                                </form>
+                            </li>
+                            <li>
+                                <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="mode" value="seeker" />
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
+                                        <i class="bi bi-search me-1"></i> Seeker Mode
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
                     </div>
                 }
-                @if (TempData["Error"] != null)
-                {
-                    <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <span class="flex-grow-1">@TempData["Error"]</span>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                }
+
+                <!-- Theme toggle -->
+                <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                    <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
+                </button>
             </div>
+        </header>
+
+        <!-- Alerts -->
+        <div class="container-fluid px-4 pt-3">
+            @if (TempData["Success"] != null)
+            {
+                <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span class="flex-grow-1">@TempData["Success"]</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span class="flex-grow-1">@TempData["Error"]</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+
+        <!-- Page content -->
+        <div class="bp-content">
             @RenderBody()
-        </main>
+        </div>
 
         <footer class="nx-footer">
             <div class="container text-center">
@@ -1956,34 +846,81 @@ body:has(.bp-sidebar) {
                 <a asp-controller="Home" asp-action="Privacy">Privacy</a>
             </div>
         </footer>
-    }
+    </div>
+}
+else
+{
+    <!-- NOT AUTHENTICATED: minimal top navbar -->
+    <nav class="bp-guest-nav">
+        <div class="container d-flex align-items-center justify-content-between">
+            <a class="bp-brand" asp-controller="Home" asp-action="Index">
+                <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
+                <span class="bp-brand-name">Bachelor's Point</span>
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                    <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
+                </button>
+                <a class="btn-nx sm outline" asp-controller="Auth" asp-action="RoleSelect">
+                    <i class="bi bi-box-arrow-in-right"></i> Sign In
+                </a>
+            </div>
+        </div>
+    </nav>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Theme toggle
-        document.addEventListener('DOMContentLoaded', () => {
+    <main role="main">
+        <div class="container mt-3">
+            @if (TempData["Success"] != null)
+            {
+                <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
+                    <i class="bi bi-check-circle-fill"></i>
+                    <span class="flex-grow-1">@TempData["Success"]</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span class="flex-grow-1">@TempData["Error"]</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+        @RenderBody()
+    </main>
+
+    <footer class="nx-footer">
+        <div class="container text-center">
+            &copy; 2026 <strong>Bachelor's Point</strong> &middot;
+            <a asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Theme toggle
+    document.addEventListener('DOMContentLoaded', () => {
         const toggleBtns = document.querySelectorAll('#theme-toggle');
         function updateIcon(theme) {
-        document.querySelectorAll('#theme-icon').forEach(i => {
-        i.classList.remove('bi', 'bi-moon-stars-fill', 'bi-sun-fill', 'fa-moon', 'fa-sun');
-        i.classList.add('fa-solid');
-
-        if (theme === 'dark') {
-        i.classList.add('fa-sun');
-        i.style.color = '#f59e0b';
-        } else {
-        i.classList.add('fa-moon');
-        i.style.color = '';
-        }
-        });
+            document.querySelectorAll('#theme-icon').forEach(i => {
+                if (theme === 'dark') {
+                    i.classList.replace('bi-moon-stars-fill','bi-sun-fill');
+                    i.style.color = '#fbbf24';
+                } else {
+                    i.classList.replace('bi-sun-fill','bi-moon-stars-fill');
+                    i.style.color = '';
+                }
+            });
         }
         const cur = document.documentElement.getAttribute('data-theme') || 'light';
         updateIcon(cur);
         toggleBtns.forEach(btn => btn.addEventListener('click', () => {
-        const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', t);
-        localStorage.setItem('bp-theme', t);
-        updateIcon(t);
+            const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+            localStorage.setItem('bp-theme', t);
+            updateIcon(t);
         }));
 
         // Sidebar toggle (desktop collapse + mobile overlay)
@@ -1996,28 +933,28 @@ body:has(.bp-sidebar) {
 
         // Restore desktop collapsed state
         if (!isMobile() && localStorage.getItem('sidebar-collapsed') === '1') {
-        sidebar && sidebar.classList.add('collapsed');
-        mainWrap && mainWrap.classList.add('sidebar-collapsed');
+            sidebar && sidebar.classList.add('collapsed');
+            mainWrap && mainWrap.classList.add('sidebar-collapsed');
         }
 
         if (hamburger && sidebar) {
-        hamburger.addEventListener('click', () => {
-        if (isMobile()) {
-        sidebar.classList.toggle('open');
-        overlay && overlay.classList.toggle('show');
-        } else {
-        const isCollapsed = sidebar.classList.toggle('collapsed');
-        mainWrap && mainWrap.classList.toggle('sidebar-collapsed', isCollapsed);
-        localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
-        }
-        });
+            hamburger.addEventListener('click', () => {
+                if (isMobile()) {
+                    sidebar.classList.toggle('open');
+                    overlay && overlay.classList.toggle('show');
+                } else {
+                    const isCollapsed = sidebar.classList.toggle('collapsed');
+                    mainWrap && mainWrap.classList.toggle('sidebar-collapsed', isCollapsed);
+                    localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
+                }
+            });
         }
         overlay && overlay.addEventListener('click', () => {
-        sidebar && sidebar.classList.remove('open');
-        overlay.classList.remove('show');
+            sidebar && sidebar.classList.remove('open');
+            overlay.classList.remove('show');
         });
-        });
-    </script>
-    @await RenderSectionAsync("Scripts", required: false)
+    });
+</script>
+@await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

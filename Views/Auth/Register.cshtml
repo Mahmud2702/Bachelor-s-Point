@@ -704,7 +704,7 @@
             <div class="register-side-top">
                 <div class="register-brand-mini">
                     <span class="register-brand-icon">
-                        <i class="fa-solid fa-house-chimney"></i>
+                        <i class="bi bi-house-door-fill"></i>
                     </span>
                     <span>Bachelor's Point</span>
                 </div>
@@ -714,15 +714,15 @@
 
                 <ul class="register-benefits">
                     <li>
-                        <i class="fa-solid fa-envelope-circle-check"></i>
+                        <i class="bi bi-envelope-check-fill"></i>
                         Email OTP verification
                     </li>
                     <li>
-                        <i class="fa-solid fa-shield-halved"></i>
+                        <i class="bi bi-shield-check"></i>
                         Secure account setup
                     </li>
                     <li>
-                        <i class="fa-solid @(isAdminRegister ? "fa-user-shield" : "fa-user-check")"></i>
+                        <i class="bi @(isAdminRegister ? "bi-person-badge-fill" : "bi-person-check-fill")"></i>
                         @(isAdminRegister ? "Admin access request" : "Room seeker/owner profile")
                     </li>
                 </ul>
@@ -738,7 +738,7 @@
         <div class="register-form-panel">
             <div class="register-mobile-heading">
                 <div class="register-mobile-icon">
-                    <i class="fa-solid @(isAdminRegister ? "fa-user-shield" : "fa-user-plus")"></i>
+                    <i class="bi @(isAdminRegister ? "bi-person-badge-fill" : "bi-person-plus-fill")"></i>
                 </div>
                 <h2>@title</h2>
                 <p>@subtitle</p>
@@ -753,7 +753,7 @@
 
                     <div class="register-field">
                         <label asp-for="FullName" class="register-label">
-                            <i class="fa-solid fa-id-card"></i>
+                            <i class="bi bi-person-vcard"></i>
                             Full Name
                         </label>
                         <input asp-for="FullName" class="register-control" placeholder="Your full name" />
@@ -762,7 +762,7 @@
 
                     <div class="register-field">
                         <label asp-for="UserName" class="register-label">
-                            <i class="fa-solid fa-user"></i>
+                            <i class="bi bi-person-fill"></i>
                             User Name
                         </label>
                         <input asp-for="UserName" class="register-control" placeholder="e.g. sajid007" />
@@ -771,7 +771,7 @@
 
                     <div class="register-field">
                         <label asp-for="DateOfBirth" class="register-label">
-                            <i class="fa-solid fa-calendar-days"></i>
+                            <i class="bi bi-calendar3"></i>
                             Date of Birth
                         </label>
                         <input asp-for="DateOfBirth" type="date" class="register-control" />
@@ -780,7 +780,7 @@
 
                     <div class="register-field">
                         <label asp-for="PhoneNumber" class="register-label">
-                            <i class="fa-solid fa-phone"></i>
+                            <i class="bi bi-telephone-fill"></i>
                             Phone <span class="optional">(optional)</span>
                         </label>
                         <input asp-for="PhoneNumber" class="register-control" placeholder="01XXXXXXXXX" />
@@ -789,7 +789,7 @@
 
                     <div class="register-field">
                         <label asp-for="Email" class="register-label">
-                            <i class="fa-solid fa-envelope"></i>
+                            <i class="bi bi-envelope-fill"></i>
                             Email address
                         </label>
                         <input asp-for="Email" class="register-control" placeholder="you@example.com" />
@@ -798,7 +798,7 @@
 
                     <div class="register-field">
                         <label asp-for="Address" class="register-label">
-                            <i class="fa-solid fa-location-dot"></i>
+                            <i class="bi bi-geo-alt-fill"></i>
                             Address
                         </label>
                         <textarea asp-for="Address" class="register-control" rows="1" placeholder="Your address"></textarea>
@@ -807,7 +807,7 @@
 
                     <div class="register-field">
                         <label asp-for="Password" class="register-label">
-                            <i class="fa-solid fa-lock"></i>
+                            <i class="bi bi-lock-fill"></i>
                             Password
                         </label>
                         <input asp-for="Password" type="password" class="register-control" placeholder="At least 8 characters" autocomplete="new-password" />
@@ -816,7 +816,7 @@
 
                     <div class="register-field">
                         <label asp-for="ConfirmPassword" class="register-label">
-                            <i class="fa-solid fa-lock-open"></i>
+                            <i class="bi bi-unlock-fill"></i>
                             Confirm Password
                         </label>
                         <input asp-for="ConfirmPassword" type="password" class="register-control" placeholder="Re-enter password" autocomplete="new-password" />
@@ -825,7 +825,7 @@
 
                     <div class="register-actions">
                         <button type="submit" class="register-submit">
-                            <i class="fa-solid fa-paper-plane"></i>
+                            <i class="bi bi-send-fill"></i>
                             Send Verification Code
                         </button>
                     </div>

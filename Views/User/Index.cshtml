@@ -993,7 +993,7 @@
         <div class="mu-hero">
             <div class="mu-hero-main">
                 <div class="mu-kicker">
-                    <i class="fa-solid fa-users-gear"></i>
+                    <i class="bi bi-people-fill"></i>
                     <span>User Administration</span>
                 </div>
 
@@ -1005,17 +1005,17 @@
 
                 <div class="mu-hero-actions">
                     <a asp-controller="Payment" asp-action="AdminPayments" class="mu-btn mu-btn-primary">
-                        <i class="fa-solid fa-money-check-dollar"></i>
+                        <i class="bi bi-cash-coin"></i>
                         Review Payments
                     </a>
 
                     <a asp-controller="Role" asp-action="Index" class="mu-btn mu-btn-soft">
-                        <i class="fa-solid fa-user-shield"></i>
+                        <i class="bi bi-person-badge-fill"></i>
                         Manage Roles
                     </a>
 
                     <a asp-controller="Kyc" asp-action="LoginActivity" class="mu-btn mu-btn-soft">
-                        <i class="fa-solid fa-chart-line"></i>
+                        <i class="bi bi-graph-up-arrow"></i>
                         Login Activity
                     </a>
                 </div>
@@ -1024,7 +1024,7 @@
             <div class="mu-hero-panel">
                 <div class="mu-panel-number">
                     <div class="mu-panel-icon">
-                        <i class="fa-solid fa-users"></i>
+                        <i class="bi bi-people-fill"></i>
                     </div>
                     <div>
                         <strong>@totalUsers</strong>
@@ -1053,7 +1053,7 @@
             <div class="mu-section-head">
                 <div>
                     <h2 class="mu-section-title">
-                        <i class="fa-solid fa-chart-simple"></i>
+                        <i class="bi bi-bar-chart-fill"></i>
                         User Overview
                     </h2>
                     <p class="mu-section-subtitle">Quick summary of registered accounts and platform activity.</p>
@@ -1063,7 +1063,7 @@
             <div class="mu-stat-grid">
                 <div class="mu-stat-card">
                     <div class="mu-stat-icon">
-                        <i class="fa-solid fa-users"></i>
+                        <i class="bi bi-people-fill"></i>
                     </div>
                     <h3 class="mu-stat-value">@totalUsers</h3>
                     <p class="mu-stat-label">Total Users</p>
@@ -1072,7 +1072,7 @@
 
                 <div class="mu-stat-card">
                     <div class="mu-stat-icon">
-                        <i class="fa-solid fa-user-shield"></i>
+                        <i class="bi bi-person-badge-fill"></i>
                     </div>
                     <h3 class="mu-stat-value">@adminUsers</h3>
                     <p class="mu-stat-label">Admins</p>
@@ -1081,7 +1081,7 @@
 
                 <div class="mu-stat-card">
                     <div class="mu-stat-icon">
-                        <i class="fa-solid fa-user-check"></i>
+                        <i class="bi bi-person-check-fill"></i>
                     </div>
                     <h3 class="mu-stat-value">@regularUsers</h3>
                     <p class="mu-stat-label">Regular Users</p>
@@ -1090,7 +1090,7 @@
 
                 <div class="mu-stat-card">
                     <div class="mu-stat-icon">
-                        <i class="fa-solid fa-bolt"></i>
+                        <i class="bi bi-lightning-charge-fill"></i>
                     </div>
                     <h3 class="mu-stat-value">@recentlyActive</h3>
                     <p class="mu-stat-label">Active Recently</p>
@@ -1099,7 +1099,7 @@
 
                 <div class="mu-stat-card">
                     <div class="mu-stat-icon">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="bi bi-check-circle-fill"></i>
                     </div>
                     <h3 class="mu-stat-value">@verifiedPayments</h3>
                     <p class="mu-stat-label">Payment Verified</p>
@@ -1113,14 +1113,14 @@
                 <div class="mu-panel-top">
                     <div>
                         <h2 class="mu-panel-title">
-                            <i class="fa-solid fa-address-book"></i>
+                            <i class="bi bi-person-lines-fill"></i>
                             User Directory
                         </h2>
                         <p class="mu-section-subtitle">View user identity, role, login status, and available account actions.</p>
                     </div>
 
                     <span class="mu-badge">
-                        <i class="fa-solid fa-database"></i>
+                        <i class="bi bi-database-fill"></i>
                         @totalUsers record(s)
                     </span>
                 </div>
@@ -1129,7 +1129,7 @@
                 {
                     <div class="p-3">
                         <div class="mu-empty">
-                            <i class="fa-solid fa-circle-info"></i>
+                            <i class="bi bi-info-circle-fill"></i>
                             <span>No users found in the system.</span>
                         </div>
                     </div>
@@ -1183,21 +1183,21 @@
 
                                         <td data-label="Email">
                                             <span class="mu-email" title="@user.Email">
-                                                <i class="fa-solid fa-envelope"></i>
+                                                <i class="bi bi-envelope-fill"></i>
                                                 @user.Email
                                             </span>
                                         </td>
 
                                         <td data-label="Address">
                                             <span class="mu-address" title="@(user.Address ?? "No address")">
-                                                <i class="fa-solid fa-location-dot"></i>
+                                                <i class="bi bi-geo-alt-fill"></i>
                                                 @(string.IsNullOrWhiteSpace(user.Address) ? "No address" : user.Address)
                                             </span>
                                         </td>
 
                                         <td data-label="Role">
                                             <span class="mu-role-pill @roleClass">
-                                                <i class="fa-solid @(roleClass == "admin" ? "fa-user-shield" : "fa-user")"></i>
+                                                <i class="bi @(roleClass == "admin" ? "bi-person-badge-fill" : "bi-person-fill")"></i>
                                                 @roleName
                                             </span>
                                         </td>
@@ -1206,14 +1206,14 @@
                                             @if (user.IsPaymentVerified)
                                             {
                                                 <span class="mu-pay-status verified">
-                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    <i class="bi bi-check-circle-fill"></i>
                                                     Verified
                                                 </span>
                                             }
                                             else
                                             {
                                                 <span class="mu-pay-status pending">
-                                                    <i class="fa-solid fa-clock"></i>
+                                                    <i class="bi bi-clock-fill"></i>
                                                     Pending
                                                 </span>
                                             }
@@ -1221,7 +1221,7 @@
 
                                         <td data-label="Last Login">
                                             <span class="mu-login">
-                                                <i class="fa-solid fa-right-to-bracket"></i>
+                                                <i class="bi bi-box-arrow-in-right"></i>
                                                 @FormatLastLogin(user.LastLogin)
                                             </span>
                                         </td>
@@ -1233,7 +1233,7 @@
                                                    class="mu-action-btn mu-action-details"
                                                    title="View details"
                                                    aria-label="View details for @user.UserName">
-                                                    <i class="fa-solid fa-eye"></i>
+                                                    <i class="bi bi-eye-fill"></i>
                                                 </a>
 
                                                 <a asp-action="Edit"
@@ -1241,7 +1241,7 @@
                                                    class="mu-action-btn mu-action-edit"
                                                    title="Edit user"
                                                    aria-label="Edit @user.UserName">
-                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                    <i class="bi bi-pencil-square"></i>
                                                 </a>
 
                                                 <a asp-action="Delete"
@@ -1249,7 +1249,7 @@
                                                    class="mu-action-btn mu-action-delete"
                                                    title="Delete user"
                                                    aria-label="Delete @user.UserName">
-                                                    <i class="fa-solid fa-trash-can"></i>
+                                                    <i class="bi bi-trash-fill"></i>
                                                 </a>
                                             </div>
                                         </td>

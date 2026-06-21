@@ -3,7 +3,6 @@
 @inject IUserService UserService
 @inject IRoomService RoomService
 @inject IKycService KycService
-@inject IPaymentService PaymentService
 
 @{
     ViewData["Title"] = "Home";
@@ -38,9 +37,7 @@
         return $"{months} months ago";
     }
 
-    int pendingRoomCount = 0;
     int pendingKycCount = 0;
-    int pendingPaymentCount = 0;
     int totalUserCount = 0;
     int totalRoomCount = 0;
     int activeRoomCount = Model?.TotalCount ?? 0;
@@ -48,16 +45,13 @@
 
     if (isAdminUser)
     {
-        var pendingRooms = await RoomService.GetPendingApprovalAsync();
         var allUsers = await UserService.GetAllUsersAsync();
         var allRooms = await RoomService.GetAllRoomsAsync();
 
-        pendingRoomCount = pendingRooms.Count;
         pendingKycCount = await KycService.CountPendingAsync();
-        pendingPaymentCount = await PaymentService.CountPendingPaymentsAsync();
         totalUserCount = allUsers.Count;
         totalRoomCount = allRooms.Count;
-        totalAttentionCount = pendingRoomCount + pendingKycCount + pendingPaymentCount;
+        totalAttentionCount = pendingKycCount;
     }
 }
 
@@ -898,50 +892,50 @@
                 <div class="admin-hero-content">
                     <div>
                         <div class="admin-kicker">
-                            <i class="fa-solid fa-shield-halved"></i>
+                            <i class="bi bi-shield-check"></i>
                             <span>Admin Control Center</span>
                         </div>
 
                         <h1>Welcome back, Admin</h1>
 
                         <p>
-                            Monitor room approvals, user verification, payments, roles, and platform activity from one clean dashboard.
+                            Monitor user verification, roles, listings, and platform activity from one clean dashboard. Room publishing and payments are now fully automatic.
                         </p>
 
                         <div class="admin-hero-actions">
-                            <a asp-controller="Room" asp-action="Pending" class="admin-btn admin-btn-primary">
-                                <i class="fa-solid fa-clock-rotate-left"></i>
-                                Review Pending Rooms
-                            </a>
-
-                            <a asp-controller="Payment" asp-action="AdminPayments" class="admin-btn admin-btn-soft">
-                                <i class="fa-solid fa-credit-card"></i>
-                                Check Payments
-                            </a>
-
-                            <a asp-controller="Kyc" asp-action="Pending" class="admin-btn admin-btn-soft">
-                                <i class="fa-solid fa-id-card-clip"></i>
+                            <a asp-controller="Kyc" asp-action="Pending" class="admin-btn admin-btn-primary">
+                                <i class="bi bi-person-vcard-fill"></i>
                                 Verify Users
+                            </a>
+
+                            <a asp-controller="User" asp-action="Index" class="admin-btn admin-btn-soft">
+                                <i class="bi bi-people-fill"></i>
+                                Manage Users
+                            </a>
+
+                            <a asp-controller="Role" asp-action="Index" class="admin-btn admin-btn-soft">
+                                <i class="bi bi-person-badge-fill"></i>
+                                Manage Roles
                             </a>
                         </div>
                     </div>
 
                     <div class="admin-status-panel">
                         <div class="admin-status-number">@totalAttentionCount</div>
-                        <span>items need admin attention</span>
+                        <span>KYC item@(totalAttentionCount == 1 ? "" : "s") need admin attention</span>
 
                         <div class="admin-status-mini">
-                            <div>
-                                <strong>@pendingRoomCount</strong>
-                                <small>Rooms</small>
-                            </div>
                             <div>
                                 <strong>@pendingKycCount</strong>
                                 <small>KYC</small>
                             </div>
                             <div>
-                                <strong>@pendingPaymentCount</strong>
-                                <small>Payments</small>
+                                <strong>@activeRoomCount</strong>
+                                <small>Live Rooms</small>
+                            </div>
+                            <div>
+                                <strong>@totalUserCount</strong>
+                                <small>Users</small>
                             </div>
                         </div>
                     </div>
@@ -952,26 +946,17 @@
                 <div class="admin-section-head">
                     <div>
                         <h2 class="admin-section-title">
-                            <i class="fa-solid fa-chart-simple"></i>
+                            <i class="bi bi-bar-chart-fill"></i>
                             Platform Overview
                         </h2>
-                        <p class="admin-section-subtitle">Quick numbers for system health and pending workload.</p>
+                        <p class="admin-section-subtitle">Quick numbers for system health and platform activity.</p>
                     </div>
                 </div>
 
                 <div class="admin-stat-grid">
                     <div class="admin-stat-card">
                         <div class="admin-stat-icon">
-                            <i class="fa-solid fa-hourglass-half"></i>
-                        </div>
-                        <h3 class="admin-stat-value">@pendingRoomCount</h3>
-                        <p class="admin-stat-label">Pending Rooms</p>
-                        <p class="admin-stat-hint">Room posts waiting for approval.</p>
-                    </div>
-
-                    <div class="admin-stat-card">
-                        <div class="admin-stat-icon">
-                            <i class="fa-solid fa-id-card"></i>
+                            <i class="bi bi-person-vcard"></i>
                         </div>
                         <h3 class="admin-stat-value">@pendingKycCount</h3>
                         <p class="admin-stat-label">KYC Requests</p>
@@ -980,16 +965,7 @@
 
                     <div class="admin-stat-card">
                         <div class="admin-stat-icon">
-                            <i class="fa-solid fa-money-check-dollar"></i>
-                        </div>
-                        <h3 class="admin-stat-value">@pendingPaymentCount</h3>
-                        <p class="admin-stat-label">Payments</p>
-                        <p class="admin-stat-hint">Transactions needing verification.</p>
-                    </div>
-
-                    <div class="admin-stat-card">
-                        <div class="admin-stat-icon">
-                            <i class="fa-solid fa-house-circle-check"></i>
+                            <i class="bi bi-house-check-fill"></i>
                         </div>
                         <h3 class="admin-stat-value">@activeRoomCount</h3>
                         <p class="admin-stat-label">Active Rooms</p>
@@ -998,7 +974,16 @@
 
                     <div class="admin-stat-card">
                         <div class="admin-stat-icon">
-                            <i class="fa-solid fa-users"></i>
+                            <i class="bi bi-houses-fill"></i>
+                        </div>
+                        <h3 class="admin-stat-value">@totalRoomCount</h3>
+                        <p class="admin-stat-label">Total Rooms</p>
+                        <p class="admin-stat-hint">All listings ever posted on the platform.</p>
+                    </div>
+
+                    <div class="admin-stat-card">
+                        <div class="admin-stat-icon">
+                            <i class="bi bi-people-fill"></i>
                         </div>
                         <h3 class="admin-stat-value">@totalUserCount</h3>
                         <p class="admin-stat-label">Total Users</p>
@@ -1014,7 +999,7 @@
                         <div class="admin-section-head">
                             <div>
                                 <h2 class="admin-section-title">
-                                    <i class="fa-solid fa-bolt"></i>
+                                    <i class="bi bi-lightning-charge-fill"></i>
                                     Quick Management
                                 </h2>
                                 <p class="admin-section-subtitle">Jump directly to important admin tasks.</p>
@@ -1022,25 +1007,17 @@
                         </div>
 
                         <div class="admin-actions-grid">
-                            <a asp-controller="Room" asp-action="Pending" class="admin-action-card">
+                            <a asp-controller="Kyc" asp-action="Pending" class="admin-action-card">
                                 <div class="admin-action-icon">
-                                    <i class="fa-solid fa-list-check"></i>
+                                    <i class="bi bi-fingerprint"></i>
                                 </div>
-                                <h3>Room Approval</h3>
-                                <p>Review new room posts and approve clean listings.</p>
-                            </a>
-
-                            <a asp-controller="Payment" asp-action="AdminPayments" class="admin-action-card">
-                                <div class="admin-action-icon">
-                                    <i class="fa-solid fa-receipt"></i>
-                                </div>
-                                <h3>Payment Review</h3>
-                                <p>Verify registration and room posting payments.</p>
+                                <h3>KYC Verification</h3>
+                                <p>Approve or reject submitted identity documents.</p>
                             </a>
 
                             <a asp-controller="User" asp-action="Index" class="admin-action-card">
                                 <div class="admin-action-icon">
-                                    <i class="fa-solid fa-user-gear"></i>
+                                    <i class="bi bi-person-gear"></i>
                                 </div>
                                 <h3>User Management</h3>
                                 <p>View, edit, and manage registered users.</p>
@@ -1048,23 +1025,23 @@
 
                             <a asp-controller="Role" asp-action="Index" class="admin-action-card">
                                 <div class="admin-action-icon">
-                                    <i class="fa-solid fa-user-shield"></i>
+                                    <i class="bi bi-person-badge-fill"></i>
                                 </div>
                                 <h3>Role Management</h3>
                                 <p>Control admin and user role records.</p>
                             </a>
 
-                            <a asp-controller="Kyc" asp-action="Pending" class="admin-action-card">
+                            <a asp-controller="Room" asp-action="Index" class="admin-action-card">
                                 <div class="admin-action-icon">
-                                    <i class="fa-solid fa-fingerprint"></i>
+                                    <i class="bi bi-houses-fill"></i>
                                 </div>
-                                <h3>KYC Verification</h3>
-                                <p>Approve or reject submitted identity documents.</p>
+                                <h3>Browse Listings</h3>
+                                <p>View all live rooms currently on the platform.</p>
                             </a>
 
                             <a asp-controller="Kyc" asp-action="LoginActivity" class="admin-action-card">
                                 <div class="admin-action-icon">
-                                    <i class="fa-solid fa-chart-line"></i>
+                                    <i class="bi bi-graph-up-arrow"></i>
                                 </div>
                                 <h3>Login Activity</h3>
                                 <p>Monitor recent account access and activity.</p>
@@ -1076,7 +1053,7 @@
                         <div class="admin-section-head">
                             <div>
                                 <h2 class="admin-section-title">
-                                    <i class="fa-solid fa-bell"></i>
+                                    <i class="bi bi-bell-fill"></i>
                                     Admin Activity
                                 </h2>
                                 <p class="admin-section-subtitle">Current workload and system reminders.</p>
@@ -1086,17 +1063,7 @@
                         <div class="admin-activity-list">
                             <div class="admin-activity-item">
                                 <div class="admin-activity-icon">
-                                    <i class="fa-solid fa-house-circle-exclamation"></i>
-                                </div>
-                                <div>
-                                    <h4>@pendingRoomCount room post(s) waiting</h4>
-                                    <p>Check submitted listings before they become visible to users.</p>
-                                </div>
-                            </div>
-
-                            <div class="admin-activity-item">
-                                <div class="admin-activity-icon">
-                                    <i class="fa-solid fa-id-card-clip"></i>
+                                    <i class="bi bi-person-vcard-fill"></i>
                                 </div>
                                 <div>
                                     <h4>@pendingKycCount KYC request(s) pending</h4>
@@ -1106,17 +1073,17 @@
 
                             <div class="admin-activity-item">
                                 <div class="admin-activity-icon">
-                                    <i class="fa-solid fa-credit-card"></i>
+                                    <i class="bi bi-lightning-charge-fill"></i>
                                 </div>
                                 <div>
-                                    <h4>@pendingPaymentCount payment(s) need review</h4>
-                                    <p>Verify payment records so users can continue smoothly.</p>
+                                    <h4>Room publishing is automatic</h4>
+                                    <p>Rooms go live the moment the owner's posting fee payment is confirmed — no manual review needed.</p>
                                 </div>
                             </div>
 
                             <div class="admin-activity-item">
                                 <div class="admin-activity-icon">
-                                    <i class="fa-solid fa-shield-heart"></i>
+                                    <i class="bi bi-shield-fill-check"></i>
                                 </div>
                                 <div>
                                     <h4>System status looks stable</h4>
@@ -1134,7 +1101,7 @@
                     <div class="admin-section-head">
                         <div>
                             <h2 class="admin-section-title">
-                                <i class="fa-solid fa-house-user"></i>
+                                <i class="bi bi-house-gear-fill"></i>
                                 Latest Approved Rooms
                             </h2>
                             <p class="admin-section-subtitle">Recently visible rooms currently shown to platform users.</p>
@@ -1143,7 +1110,7 @@
                         @if (Model.TotalCount > 0)
                         {
                             <a asp-controller="Room" asp-action="Index" class="admin-btn admin-btn-soft" style="background: rgba(17, 24, 68, .08); color: var(--ah-navy); border-color: rgba(17, 24, 68, .12);">
-                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                <i class="bi bi-box-arrow-up-right"></i>
                                 Browse All
                             </a>
                         }
@@ -1152,7 +1119,7 @@
                     @if (!Model.Items.Any())
                     {
                         <div class="admin-empty">
-                            <i class="fa-solid fa-circle-info"></i>
+                            <i class="bi bi-info-circle-fill"></i>
                             <span>No approved rooms are available yet.</span>
                         </div>
                     }
@@ -1171,14 +1138,14 @@
                                         }
                                         else
                                         {
-                                            <i class="fa-regular fa-image"></i>
+                                            <i class="bi bi-image"></i>
                                         }
                                     </div>
 
                                     <div>
                                         <h3 class="admin-room-title">@room.Title</h3>
                                         <p class="admin-room-meta">
-                                            <i class="fa-solid fa-location-dot me-1"></i>
+                                            <i class="bi bi-geo-alt-fill me-1"></i>
                                             @room.Location
                                             <span class="mx-1">•</span>
                                             @GetRoomAge(room.CreatedAt)
@@ -1211,12 +1178,12 @@ else
                 </p>
 
                 <form asp-controller="Room" asp-action="Index" method="get" class="public-search">
-                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <i class="bi bi-search"></i>
                     <input type="text"
                            name="searchText"
                            placeholder="Enter city, area, flat name or keywords..." />
                     <button type="submit">
-                        <i class="fa-solid fa-arrow-right me-1"></i>
+                        <i class="bi bi-arrow-right me-1"></i>
                         Search Space
                     </button>
                 </form>
@@ -1226,7 +1193,7 @@ else
                 <div class="admin-section-head">
                     <div>
                         <h2 class="admin-section-title">
-                            <i class="fa-solid fa-house-circle-check"></i>
+                            <i class="bi bi-house-check-fill"></i>
                             Latest Available Rooms
                         </h2>
                         <p class="admin-section-subtitle">Recently approved rooms available for users.</p>
@@ -1236,7 +1203,7 @@ else
                 @if (!Model.Items.Any())
                 {
                     <div class="admin-empty">
-                        <i class="fa-solid fa-circle-info"></i>
+                        <i class="bi bi-info-circle-fill"></i>
                         <span>No rooms have been posted yet. Check back soon.</span>
                     </div>
                 }
@@ -1255,14 +1222,14 @@ else
                                     }
                                     else
                                     {
-                                        <i class="fa-regular fa-image fa-2x"></i>
+                                        <i class="bi bi-image"></i>
                                     }
                                 </div>
 
                                 <div class="public-room-body">
                                     <h3 class="admin-room-title">@room.Title</h3>
                                     <p class="admin-room-meta">
-                                        <i class="fa-solid fa-location-dot me-1"></i>
+                                        <i class="bi bi-geo-alt-fill me-1"></i>
                                         @room.Location
                                     </p>
 
@@ -1281,7 +1248,7 @@ else
                                            class="admin-btn admin-btn-soft"
                                            style="background: rgba(17, 24, 68, .08); color: var(--ah-navy); border: 1px solid rgba(17, 24, 68, .10); min-height: 38px;">
                                             View
-                                            <i class="fa-solid fa-chevron-right"></i>
+                                            <i class="bi bi-chevron-right"></i>
                                         </a>
                                     </div>
                                 </div>
@@ -1297,7 +1264,7 @@ else
                     <ul class="pagination justify-content-center">
                         <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
                             <a class="page-link" asp-action="Index" asp-route-page="@(Model.Page - 1)">
-                                <i class="fa-solid fa-chevron-left"></i>
+                                <i class="bi bi-chevron-left"></i>
                             </a>
                         </li>
 
@@ -1310,7 +1277,7 @@ else
 
                         <li class="page-item @(Model.HasNext ? "" : "disabled")">
                             <a class="page-link" asp-action="Index" asp-route-page="@(Model.Page + 1)">
-                                <i class="fa-solid fa-chevron-right"></i>
+                                <i class="bi bi-chevron-right"></i>
                             </a>
                         </li>
                     </ul>

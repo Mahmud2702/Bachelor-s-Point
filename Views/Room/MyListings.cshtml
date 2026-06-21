@@ -56,14 +56,24 @@
                                     }
                                     else
                                     {
-                                        <span class="badge-pending"><i class="bi bi-clock me-1"></i>Pending</span>
+                                        <span class="badge-pending"><i class="bi bi-cash-coin me-1"></i>Due Payment</span>
                                     }
                                 </td>
                                 <td style="padding:.85rem 1rem;font-size:.82rem;color:var(--muted);">
                                     @room.CreatedAt.ToString("dd-MMM-yyyy")
                                 </td>
                                 <td style="padding:.85rem 1rem;text-align:right;">
-                                    <div class="d-flex gap-2 justify-content-end">
+                                    <div class="d-flex gap-2 justify-content-end flex-wrap">
+                                        @if (!room.IsApproved)
+                                        {
+                                            <form asp-controller="Payment" asp-action="PayRoomFee" method="post" class="m-0">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="roomId" value="@room.Id" />
+                                                <button type="submit" class="btn-nx warning sm">
+                                                    <i class="bi bi-cash-coin"></i> Pay Now
+                                                </button>
+                                            </form>
+                                        }
                                         <a asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline sm">
                                             <i class="bi bi-eye"></i> Details
                                         </a>

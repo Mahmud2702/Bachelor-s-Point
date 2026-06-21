@@ -90,7 +90,7 @@
         align-items: center;
         gap: 8px;
         transition: background 0.2s;
-        box-shadow: 0 4px 15px rgba(59,130,246,0.35);
+        box-shadow: 0 4px 15px rgba(75,86,148,0.4);
     }
     .unlock-big-btn:hover { background: var(--primary-dark); color: #fff; transform: translateY(-2px); }
 </style>
@@ -156,7 +156,7 @@
                     </p>
                 </div>
                 <div>
-                    @if (!Model.IsApproved) { <span class="badge-pending"><i class="bi bi-clock"></i> Pending Approval</span> }
+                    @if (!Model.IsApproved) { <span class="badge-pending"><i class="bi bi-clock"></i> Due Payment</span> }
                     else if (Model.IsAvailable) { <span class="badge-approved"><i class="bi bi-check-circle-fill"></i> Available</span> }
                     else { <span style="background:var(--bg);color:var(--muted);border:1px solid var(--border);padding:0.25rem 0.75rem;border-radius:999px;font-size:0.75rem;font-weight:600;">Closed</span> }
                 </div>
@@ -223,16 +223,6 @@
 
             @if (isAdmin)
             {
-                @if (!Model.IsApproved)
-                {
-                    <form asp-action="Approve" method="post" class="d-inline">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        <button type="submit" class="btn-nx success">
-                            <i class="bi bi-check2-circle"></i> Approve
-                        </button>
-                    </form>
-                }
                 <a asp-action="Delete" asp-route-id="@Model.Id" class="btn-nx danger">
                     <i class="bi bi-trash"></i> Remove
                 </a>
@@ -246,34 +236,24 @@
                     <i class="bi bi-trash"></i> Delete
                 </a>
 
-                @* ── Payment status button for pending rooms ── *@
+                @* ── Payment status for unpublished rooms: pay directly, no manual review ── *@
                 @if (!Model.IsApproved)
                 {
-                    @if (roomPayment == null)
-                    {
-                        <a asp-controller="Payment" asp-action="RoomFee"
-                           asp-route-roomId="@Model.Id" class="btn-nx success">
-                            <i class="bi bi-cash-coin"></i> Pay Posting Fee
-                        </a>
-                    }
-                    else if (roomPayment.Status == Bachelor_s_Point.Models.PaymentStatus.Pending)
-                    {
-                        <button class="btn-nx" style="background:var(--warning);cursor:default;" disabled>
-                            <i class="bi bi-hourglass-split"></i> Payment Under Review
-                        </button>
-                    }
-                    else if (roomPayment.Status == Bachelor_s_Point.Models.PaymentStatus.Verified)
+                    @if (roomPayment?.Status == Bachelor_s_Point.Models.PaymentStatus.Verified)
                     {
                         <button class="btn-nx success" style="cursor:default;" disabled>
                             <i class="bi bi-check-circle-fill"></i> Payment Done
                         </button>
                     }
-                    else if (roomPayment.Status == Bachelor_s_Point.Models.PaymentStatus.Rejected)
+                    else
                     {
-                        <a asp-controller="Payment" asp-action="RoomFee"
-                           asp-route-roomId="@Model.Id" class="btn-nx danger">
-                            <i class="bi bi-x-circle"></i> Payment Rejected — Resubmit
-                        </a>
+                        <form asp-controller="Payment" asp-action="PayRoomFee" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="roomId" value="@Model.Id" />
+                            <button type="submit" class="btn-nx warning">
+                                <i class="bi bi-cash-coin"></i> Due Payment — Pay Now
+                            </button>
+                        </form>
                     }
                 }
             }

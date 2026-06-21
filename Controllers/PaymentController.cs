@@ -200,7 +200,7 @@ namespace Bachelor_s_Point.Controllers
                 }
                 else
                 {
-                    TempData["Success"] = "Room posting fee paid! Your room is under review and will be published shortly.";
+                    TempData["Success"] = "Room posting fee paid! Your room is now live.";
                     return RedirectToAction("MyListings", "Room");
                 }
             }
@@ -213,19 +213,31 @@ namespace Bachelor_s_Point.Controllers
         [HttpPost]
         [AllowAnonymous]
         [IgnoreAntiforgeryToken]
-        public IActionResult SSLCommerzFail()
+        public IActionResult SSLCommerzFail(IFormCollection form)
         {
             TempData["Error"] = "Payment failed. Please try again.";
-            return RedirectToAction(nameof(RegistrationFee));
+            return RedirectAfterFailedAttempt(form["tran_id"]);
         }
 
         // SSLCommerz POSTs here when user cancels
         [HttpPost]
         [AllowAnonymous]
         [IgnoreAntiforgeryToken]
-        public IActionResult SSLCommerzCancel()
+        public IActionResult SSLCommerzCancel(IFormCollection form)
         {
             TempData["Error"] = "Payment cancelled.";
+            return RedirectAfterFailedAttempt(form["tran_id"]);
+        }
+
+        private IActionResult RedirectAfterFailedAttempt(string? tranId)
+        {
+            if (!string.IsNullOrEmpty(tranId) && tranId.StartsWith("BP-ROOM-"))
+            {
+                var parts = tranId.Split('-');
+                if (parts.Length > 2 && int.TryParse(parts[2], out int roomId))
+                    return RedirectToAction(nameof(RoomFee), new { roomId });
+                return RedirectToAction("MyListings", "Room");
+            }
             return RedirectToAction(nameof(RegistrationFee));
         }
 
@@ -246,38 +258,6 @@ namespace Bachelor_s_Point.Controllers
             }
 
             return Ok();
-        }
-
-        // ── ADMIN PANEL ─────────────────────────────────────────
-
-        [HttpGet]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AdminPayments()
-        {
-            var payments = await _paymentService.GetAllPendingAsync();
-            return View(payments);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Verify(int id)
-        {
-            string result = await _paymentService.VerifyPaymentAsync(id);
-            TempData[result == "Success" ? "Success" : "Error"] =
-                result == "Success" ? "Payment verified." : result;
-            return RedirectToAction(nameof(AdminPayments));
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Reject(int id, string? note)
-        {
-            string result = await _paymentService.RejectPaymentAsync(id, note);
-            TempData[result == "Success" ? "Success" : "Error"] =
-                result == "Success" ? "Payment rejected." : result;
-            return RedirectToAction(nameof(AdminPayments));
         }
 
         // ── helper ──────────────────────────────────────────────

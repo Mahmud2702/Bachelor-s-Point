@@ -398,11 +398,11 @@
         transition: transform .2s ease;
     }
 
-    .login-action.primary:hover i.fa-circle-arrow-right {
+    .login-action.primary:hover i.bi-arrow-right-circle-fill {
         transform: translateX(3px);
     }
 
-    .login-action.outline:hover i.fa-arrow-left {
+    .login-action.outline:hover i.bi-arrow-left {
         transform: translateX(-3px);
     }
 
@@ -517,7 +517,7 @@
 <section class="auth-fit-screen">
     <div class="auth-fit-card fade-up">
         <div class="auth-brand-mini">
-            <i class="fa-solid fa-house-chimney"></i>
+            <i class="bi bi-house-door-fill"></i>
             <span>Bachelor's Point</span>
         </div>
 
@@ -539,7 +539,7 @@
                 <label asp-for="Password" class="login-form-label">Password</label>
                 <div class="password-wrap">
                     <input asp-for="Password" type="password" class="form-control" placeholder="Your password" id="loginPass" autocomplete="current-password" />
-                    <i class="fa-regular fa-eye password-toggle" id="togglePassIcon" onclick="togglePass()"></i>
+                    <i class="bi bi-eye password-toggle" id="togglePassIcon" onclick="togglePass()"></i>
                 </div>
                 <span asp-validation-for="Password" class="text-danger small"></span>
             </div>
@@ -554,12 +554,12 @@
             </div>
 
             <button type="submit" class="login-action primary">
-                <i class="fa-solid fa-circle-arrow-right"></i>
+                <i class="bi bi-arrow-right-circle-fill"></i>
                 Sign In
             </button>
 
             <a asp-action="RoleSelect" class="login-action outline">
-                <i class="fa-solid fa-arrow-left"></i>
+                <i class="bi bi-arrow-left"></i>
                 Back
             </a>
         </form>
@@ -591,12 +591,12 @@
 
             if (inp.type === 'password') {
                 inp.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
+                icon.classList.remove('bi-eye');
+                icon.classList.add('bi-eye-slash');
             } else {
                 inp.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+                icon.classList.remove('bi-eye-slash');
+                icon.classList.add('bi-eye');
             }
         }
     </script>

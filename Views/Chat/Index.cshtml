@@ -769,7 +769,7 @@
             <div class="messages-hero-content">
                 <div>
                     <div class="messages-kicker">
-                        <i class="fa-solid fa-comments"></i>
+                        <i class="bi bi-chat-dots-fill"></i>
                         <span>Conversation Hub</span>
                     </div>
 
@@ -781,12 +781,12 @@
 
                     <div class="messages-hero-actions">
                         <a asp-controller="Room" asp-action="Index" class="msg-btn msg-btn-primary">
-                            <i class="fa-solid fa-magnifying-glass-location"></i>
+                            <i class="bi bi-pin-map-fill"></i>
                             Browse Rooms
                         </a>
 
                         <a asp-controller="Home" asp-action="Index" class="msg-btn msg-btn-soft">
-                            <i class="fa-solid fa-table-columns"></i>
+                            <i class="bi bi-layout-split"></i>
                             Dashboard
                         </a>
                     </div>
@@ -799,7 +799,7 @@
                             <div class="messages-status-label">unread message(s)</div>
                         </div>
                         <div class="messages-status-icon">
-                            <i class="fa-solid fa-envelope-open-text"></i>
+                            <i class="bi bi-envelope-open-fill"></i>
                         </div>
                     </div>
 
@@ -827,7 +827,7 @@
                     <div class="messages-section-head">
                         <div>
                             <h2 class="messages-section-title">
-                                <i class="fa-solid fa-message"></i>
+                                <i class="bi bi-chat-text-fill"></i>
                                 Conversation List
                             </h2>
                             <p class="messages-section-subtitle">
@@ -840,7 +840,7 @@
                     {
                         <div class="empty-message-panel">
                             <div class="empty-message-icon">
-                                <i class="fa-solid fa-comment-slash"></i>
+                                <i class="bi bi-chat-dots"></i>
                             </div>
 
                             <h3>No conversations yet</h3>
@@ -849,7 +849,7 @@
                             </p>
 
                             <a asp-controller="Room" asp-action="Index" class="msg-btn msg-btn-primary">
-                                <i class="fa-solid fa-house-circle-check"></i>
+                                <i class="bi bi-house-check-fill"></i>
                                 Explore Rooms
                             </a>
                         </div>
@@ -876,7 +876,7 @@
                                                 @if (convo.UnreadCount > 0)
                                                 {
                                                     <span class="chat-chip">
-                                                        <i class="fa-solid fa-bell"></i>
+                                                        <i class="bi bi-bell-fill"></i>
                                                         New
                                                     </span>
                                                 }
@@ -893,7 +893,7 @@
 
                                         <div class="chat-right">
                                             <div class="chat-time">
-                                                <i class="fa-regular fa-clock"></i>
+                                                <i class="bi bi-clock"></i>
                                                 @TimeLabel(convo.LastSentAt)
                                             </div>
 
@@ -904,7 +904,7 @@
                                             else
                                             {
                                                 <span class="open-chat-icon">
-                                                    <i class="fa-solid fa-arrow-right"></i>
+                                                    <i class="bi bi-arrow-right"></i>
                                                 </span>
                                             }
                                         </div>
@@ -918,14 +918,14 @@
                 <aside class="messages-side-panel">
                     <div class="messages-side-card">
                         <h3 class="messages-side-title">
-                            <i class="fa-solid fa-chart-simple"></i>
+                            <i class="bi bi-bar-chart-fill"></i>
                             Message Summary
                         </h3>
 
                         <div class="msg-tip-list">
                             <div class="msg-tip-item">
                                 <div class="msg-tip-icon">
-                                    <i class="fa-solid fa-comments"></i>
+                                    <i class="bi bi-chat-dots-fill"></i>
                                 </div>
                                 <div>
                                     <strong>@totalConversations conversation(s)</strong>
@@ -935,7 +935,7 @@
 
                             <div class="msg-tip-item">
                                 <div class="msg-tip-icon">
-                                    <i class="fa-solid fa-envelope-circle-check"></i>
+                                    <i class="bi bi-envelope-check-fill"></i>
                                 </div>
                                 <div>
                                     <strong>@unreadTotal unread message(s)</strong>

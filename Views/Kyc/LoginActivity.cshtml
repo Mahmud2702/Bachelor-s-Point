@@ -728,7 +728,7 @@
             <div class="la-hero-inner">
                 <div>
                     <div class="la-kicker">
-                        <i class="fa-solid fa-wave-square"></i>
+                        <i class="bi bi-activity"></i>
                         <span>Security Activity Monitor</span>
                     </div>
 
@@ -739,15 +739,15 @@
 
                     <div class="la-hero-pulse">
                         <span class="la-pill">
-                            <i class="fa-solid fa-right-to-bracket"></i>
+                            <i class="bi bi-box-arrow-in-right"></i>
                             @totalLogins total logins
                         </span>
                         <span class="la-pill">
-                            <i class="fa-solid fa-users-viewfinder"></i>
+                            <i class="bi bi-people-fill"></i>
                             @distinctUsers unique user(s)
                         </span>
                         <span class="la-pill">
-                            <i class="fa-solid fa-calendar-day"></i>
+                            <i class="bi bi-calendar-day-fill"></i>
                             @todayLogins today
                         </span>
                     </div>
@@ -755,7 +755,7 @@
 
                 <aside class="la-side-panel">
                     <div class="la-side-icon">
-                        <i class="fa-solid fa-shield-heart"></i>
+                        <i class="bi bi-shield-fill-check"></i>
                     </div>
                     <strong>@latestLoginText</strong>
                     <span>Latest recorded successful login</span>
@@ -778,7 +778,7 @@
             <div class="la-section-head">
                 <div>
                     <h2 class="la-title">
-                        <i class="fa-solid fa-chart-simple"></i>
+                        <i class="bi bi-bar-chart-fill"></i>
                         Activity Overview
                     </h2>
                     <p class="la-subtitle">Quick security numbers from recent and historical login records.</p>
@@ -788,7 +788,7 @@
             <div class="la-stat-grid">
                 <div class="la-stat-card">
                     <div class="la-stat-icon">
-                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                        <i class="bi bi-box-arrow-in-right"></i>
                     </div>
                     <h3 class="la-stat-value">@totalLogins</h3>
                     <p class="la-stat-label">Total Logins</p>
@@ -797,7 +797,7 @@
 
                 <div class="la-stat-card">
                     <div class="la-stat-icon">
-                        <i class="fa-solid fa-users"></i>
+                        <i class="bi bi-people-fill"></i>
                     </div>
                     <h3 class="la-stat-value">@distinctUsers</h3>
                     <p class="la-stat-label">Distinct Users</p>
@@ -806,7 +806,7 @@
 
                 <div class="la-stat-card">
                     <div class="la-stat-icon">
-                        <i class="fa-solid fa-calendar-check"></i>
+                        <i class="bi bi-calendar-check-fill"></i>
                     </div>
                     <h3 class="la-stat-value">@todayLogins</h3>
                     <p class="la-stat-label">Today</p>
@@ -815,7 +815,7 @@
 
                 <div class="la-stat-card">
                     <div class="la-stat-icon">
-                        <i class="fa-solid fa-crown"></i>
+                        <i class="bi bi-trophy-fill"></i>
                     </div>
                     <h3 class="la-stat-value">@busiestUserCount</h3>
                     <p class="la-stat-label">Top User</p>
@@ -830,7 +830,7 @@
                     <div class="la-section-head">
                         <div>
                             <h2 class="la-title">
-                                <i class="fa-solid fa-timeline"></i>
+                                <i class="bi bi-graph-up"></i>
                                 Recent Login Timeline
                             </h2>
                             <p class="la-subtitle">Showing the most recent @Model.Count login record(s).</p>
@@ -840,7 +840,7 @@
                     @if (!Model.Any())
                     {
                         <div class="la-empty">
-                            <i class="fa-solid fa-circle-info"></i>
+                            <i class="bi bi-info-circle-fill"></i>
                             <span>No login records yet.</span>
                         </div>
                     }
@@ -878,7 +878,7 @@
                                                     <div>
                                                         <span class="la-user-name">@userName</span>
                                                         <span class="la-user-role">
-                                                            <i class="fa-solid fa-user-shield"></i>
+                                                            <i class="bi bi-person-badge-fill"></i>
                                                             @roleName
                                                         </span>
                                                     </div>
@@ -889,19 +889,19 @@
                                             </td>
                                             <td>
                                                 <span class="la-date-badge">
-                                                    <i class="fa-solid fa-calendar-days"></i>
+                                                    <i class="bi bi-calendar3"></i>
                                                     @l.LoginAt.ToString("dd-MMM-yyyy")
                                                 </span>
                                             </td>
                                             <td>
                                                 <span class="la-time-badge">
-                                                    <i class="fa-solid fa-clock"></i>
+                                                    <i class="bi bi-clock-fill"></i>
                                                     @l.LoginAt.ToString("hh:mm tt")
                                                 </span>
                                             </td>
                                             <td>
                                                 <span class="la-time-badge">
-                                                    <i class="fa-solid fa-hourglass-half"></i>
+                                                    <i class="bi bi-hourglass-split"></i>
                                                     @TimeAgo(l.LoginAt)
                                                 </span>
                                             </td>
@@ -929,7 +929,7 @@
                                             <div>
                                                 <span class="la-user-name">@userName</span>
                                                 <span class="la-user-role">
-                                                    <i class="fa-solid fa-user-shield"></i>
+                                                    <i class="bi bi-person-badge-fill"></i>
                                                     @roleName
                                                 </span>
                                             </div>
@@ -939,17 +939,17 @@
 
                                     <div class="la-login-card-meta">
                                         <span>
-                                            <i class="fa-solid fa-envelope me-1"></i>
+                                            <i class="bi bi-envelope-fill me-1"></i>
                                             @email
                                         </span>
                                         <span>
-                                            <i class="fa-solid fa-calendar-days me-1"></i>
+                                            <i class="bi bi-calendar3 me-1"></i>
                                             @l.LoginAt.ToString("dd-MMM-yyyy")
                                             <span class="mx-1">•</span>
                                             @l.LoginAt.ToString("hh:mm tt")
                                         </span>
                                         <span>
-                                            <i class="fa-solid fa-hourglass-half me-1"></i>
+                                            <i class="bi bi-hourglass-split me-1"></i>
                                             @TimeAgo(l.LoginAt)
                                         </span>
                                     </div>

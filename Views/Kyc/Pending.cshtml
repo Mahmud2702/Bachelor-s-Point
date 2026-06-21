@@ -54,9 +54,9 @@
 
     string StatusIcon(string status) => status switch
     {
-        "Verified" => "fa-solid fa-circle-check",
-        "Rejected" => "fa-solid fa-circle-xmark",
-        _ => "fa-solid fa-hourglass-half"
+        "Verified" => "bi bi-check-circle-fill",
+        "Rejected" => "bi bi-x-circle-fill",
+        _ => "bi bi-hourglass-split"
     };
 }
 
@@ -1116,7 +1116,7 @@
             <div class="kyc-hero-grid">
                 <div>
                     <div class="kyc-kicker">
-                        <i class="fa-solid fa-fingerprint"></i>
+                        <i class="bi bi-fingerprint"></i>
                         <span>Identity Review Center</span>
                     </div>
 
@@ -1128,12 +1128,12 @@
 
                     <div class="kyc-hero-actions">
                         <a href="#kyc-submissions" class="kyc-btn kyc-btn-primary">
-                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <i class="bi bi-search"></i>
                             Review Submissions
                         </a>
 
                         <a asp-controller="Kyc" asp-action="LoginActivity" class="kyc-btn kyc-btn-soft">
-                            <i class="fa-solid fa-chart-line"></i>
+                            <i class="bi bi-graph-up-arrow"></i>
                             Login Activity
                         </a>
                     </div>
@@ -1141,7 +1141,7 @@
 
                 <div class="kyc-radar-panel">
                     <div class="kyc-radar-icon">
-                        <i class="fa-solid fa-id-card-clip"></i>
+                        <i class="bi bi-person-vcard-fill"></i>
                     </div>
 
                     <div class="kyc-radar-number">@pendingCount</div>
@@ -1169,7 +1169,7 @@
             <div class="kyc-section-head">
                 <div>
                     <h2 class="kyc-section-title">
-                        <i class="fa-solid fa-shield-heart"></i>
+                        <i class="bi bi-shield-fill-check"></i>
                         Verification Overview
                     </h2>
                     <p class="kyc-section-subtitle">A quick snapshot of identity verification workload and trust status.</p>
@@ -1179,7 +1179,7 @@
             <div class="kyc-stat-grid">
                 <div class="kyc-stat-card pending">
                     <div class="kyc-stat-icon">
-                        <i class="fa-solid fa-hourglass-half"></i>
+                        <i class="bi bi-hourglass-split"></i>
                     </div>
                     <h3 class="kyc-stat-value">@pendingCount</h3>
                     <p class="kyc-stat-label">Pending Review</p>
@@ -1188,7 +1188,7 @@
 
                 <div class="kyc-stat-card verified">
                     <div class="kyc-stat-icon">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="bi bi-check-circle-fill"></i>
                     </div>
                     <h3 class="kyc-stat-value">@verifiedCount</h3>
                     <p class="kyc-stat-label">Verified Users</p>
@@ -1197,7 +1197,7 @@
 
                 <div class="kyc-stat-card rejected">
                     <div class="kyc-stat-icon">
-                        <i class="fa-solid fa-circle-xmark"></i>
+                        <i class="bi bi-x-circle-fill"></i>
                     </div>
                     <h3 class="kyc-stat-value">@rejectedCount</h3>
                     <p class="kyc-stat-label">Rejected</p>
@@ -1206,7 +1206,7 @@
 
                 <div class="kyc-stat-card">
                     <div class="kyc-stat-icon">
-                        <i class="fa-solid fa-folder-open"></i>
+                        <i class="bi bi-folder2-open"></i>
                     </div>
                     <h3 class="kyc-stat-value">@totalCount</h3>
                     <p class="kyc-stat-label">Total Records</p>
@@ -1220,12 +1220,12 @@
                 <div class="kyc-panel">
                     <div class="kyc-panel-header">
                         <h2>
-                            <i class="fa-solid fa-user-check"></i>
+                            <i class="bi bi-person-check-fill"></i>
                             Submitted Identity Records
                         </h2>
 
                         <span class="kyc-count-pill">
-                            <i class="fa-solid fa-database"></i>
+                            <i class="bi bi-database-fill"></i>
                             @totalCount record(s)
                         </span>
                     </div>
@@ -1234,7 +1234,7 @@
                     {
                         <div class="kyc-empty">
                             <div class="kyc-empty-icon">
-                                <i class="fa-solid fa-shield-circle-check"></i>
+                                <i class="bi bi-shield-fill-check"></i>
                             </div>
                             <h3>No KYC submissions yet</h3>
                             <p>
@@ -1285,14 +1285,14 @@
                                             <td>
                                                 <div class="kyc-name-main">@k.FullNameOnNid</div>
                                                 <div class="kyc-name-sub">
-                                                    <i class="fa-solid fa-id-card me-1"></i>
+                                                    <i class="bi bi-person-vcard me-1"></i>
                                                     NID holder name
                                                 </div>
                                             </td>
 
                                             <td>
                                                 <span class="kyc-nid-chip" title="@k.NidNumber">
-                                                    <i class="fa-solid fa-lock"></i>
+                                                    <i class="bi bi-lock-fill"></i>
                                                     @MaskNid(k.NidNumber)
                                                 </span>
                                             </td>
@@ -1313,7 +1313,7 @@
 
                                             <td class="text-end">
                                                 <a asp-action="Review" asp-route-id="@k.Id" class="kyc-action-btn">
-                                                    <i class="fa-solid fa-eye"></i>
+                                                    <i class="bi bi-eye-fill"></i>
                                                     Review
                                                 </a>
                                             </td>
@@ -1370,7 +1370,7 @@
                                     </div>
 
                                     <a asp-action="Review" asp-route-id="@k.Id" class="kyc-action-btn w-100">
-                                        <i class="fa-solid fa-eye"></i>
+                                        <i class="bi bi-eye-fill"></i>
                                         Review Submission
                                     </a>
                                 </div>
@@ -1382,14 +1382,14 @@
                 <aside class="kyc-side-stack">
                     <div class="kyc-side-card">
                         <h3>
-                            <i class="fa-solid fa-list-check"></i>
+                            <i class="bi bi-list-check"></i>
                             Review Checklist
                         </h3>
 
                         <div class="kyc-check-list">
                             <div class="kyc-check-item">
                                 <div class="kyc-check-icon">
-                                    <i class="fa-solid fa-user"></i>
+                                    <i class="bi bi-person-fill"></i>
                                 </div>
                                 <div>
                                     <strong>Match user identity</strong>
@@ -1399,7 +1399,7 @@
 
                             <div class="kyc-check-item">
                                 <div class="kyc-check-icon">
-                                    <i class="fa-solid fa-id-card"></i>
+                                    <i class="bi bi-person-vcard"></i>
                                 </div>
                                 <div>
                                     <strong>Check NID clarity</strong>
@@ -1409,7 +1409,7 @@
 
                             <div class="kyc-check-item">
                                 <div class="kyc-check-icon">
-                                    <i class="fa-solid fa-shield-halved"></i>
+                                    <i class="bi bi-shield-check"></i>
                                 </div>
                                 <div>
                                     <strong>Protect platform trust</strong>
@@ -1421,7 +1421,7 @@
 
                     <div class="kyc-side-card">
                         <h3>
-                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <i class="bi bi-clock-history"></i>
                             Latest Submission
                         </h3>
 
@@ -1429,7 +1429,7 @@
                         {
                             <div class="kyc-empty" style="padding: 1rem; border-radius: 18px;">
                                 <div class="kyc-empty-icon" style="width:56px;height:56px;font-size:1.25rem;border-radius:18px;">
-                                    <i class="fa-solid fa-inbox"></i>
+                                    <i class="bi bi-inbox-fill"></i>
                                 </div>
                                 <h3 style="font-size:1rem;">Nothing yet</h3>
                                 <p style="font-size:.78rem;">No users have submitted KYC documents.</p>
@@ -1458,12 +1458,12 @@
                                 </div>
 
                                 <div class="kyc-latest-time">
-                                    <i class="fa-solid fa-calendar-check"></i>
+                                    <i class="bi bi-calendar-check-fill"></i>
                                     Submitted @TimeAgo(latestSubmission.SubmittedAt)
                                 </div>
 
                                 <a asp-action="Review" asp-route-id="@latestSubmission.Id" class="kyc-action-btn w-100 mt-3">
-                                    <i class="fa-solid fa-eye"></i>
+                                    <i class="bi bi-eye-fill"></i>
                                     Open Latest Record
                                 </a>
                             </div>

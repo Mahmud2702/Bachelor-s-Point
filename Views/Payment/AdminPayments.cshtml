@@ -1055,7 +1055,7 @@
             <div class="payment-hero-content">
                 <div>
                     <div class="payment-kicker">
-                        <i class="fa-solid fa-money-check-dollar"></i>
+                        <i class="bi bi-cash-coin"></i>
                         <span>Admin Payment Control</span>
                     </div>
 
@@ -1067,17 +1067,17 @@
 
                     <div class="payment-hero-actions">
                         <a asp-controller="Home" asp-action="Index" class="payment-hero-btn primary">
-                            <i class="fa-solid fa-table-columns"></i>
+                            <i class="bi bi-layout-split"></i>
                             Back to Dashboard
                         </a>
 
                         <a asp-controller="Room" asp-action="Pending" class="payment-hero-btn soft">
-                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <i class="bi bi-clock-history"></i>
                             Pending Rooms
                         </a>
 
                         <a asp-controller="Kyc" asp-action="Pending" class="payment-hero-btn soft">
-                            <i class="fa-solid fa-id-card-clip"></i>
+                            <i class="bi bi-person-vcard-fill"></i>
                             KYC Requests
                         </a>
                     </div>
@@ -1108,7 +1108,7 @@
         <div class="payment-stat-grid">
             <div class="payment-stat-card">
                 <div class="payment-stat-icon">
-                    <i class="fa-solid fa-hourglass-half"></i>
+                    <i class="bi bi-hourglass-split"></i>
                 </div>
                 <h3 class="payment-stat-value">@totalPending</h3>
                 <p class="payment-stat-label">Total Pending</p>
@@ -1117,7 +1117,7 @@
 
             <div class="payment-stat-card">
                 <div class="payment-stat-icon">
-                    <i class="fa-solid fa-user-plus"></i>
+                    <i class="bi bi-person-plus-fill"></i>
                 </div>
                 <h3 class="payment-stat-value">@regPayments.Count</h3>
                 <p class="payment-stat-label">Registration Fees</p>
@@ -1126,7 +1126,7 @@
 
             <div class="payment-stat-card">
                 <div class="payment-stat-icon">
-                    <i class="fa-solid fa-house-circle-check"></i>
+                    <i class="bi bi-house-check-fill"></i>
                 </div>
                 <h3 class="payment-stat-value">@roomPayments.Count</h3>
                 <p class="payment-stat-label">Room Posting Fees</p>
@@ -1135,7 +1135,7 @@
 
             <div class="payment-stat-card">
                 <div class="payment-stat-icon">
-                    <i class="fa-solid fa-calendar-check"></i>
+                    <i class="bi bi-calendar-check-fill"></i>
                 </div>
                 <h3 class="payment-stat-value">@(latestSubmitted.HasValue ? latestSubmitted.Value.ToString("dd MMM") : "—")</h3>
                 <p class="payment-stat-label">Latest Submission</p>
@@ -1148,7 +1148,7 @@
             <div class="payment-section">
                 <div class="payment-empty">
                     <div class="payment-empty-icon">
-                        <i class="fa-solid fa-circle-check"></i>
+                        <i class="bi bi-check-circle-fill"></i>
                     </div>
                     <h2>All payments are clear</h2>
                     <p>No pending payments right now. Your payment queue is clean.</p>
@@ -1164,7 +1164,7 @@
                         <div class="payment-section-head">
                             <h2 class="payment-section-title">
                                 <span class="payment-section-icon">
-                                    <i class="fa-solid fa-user-plus"></i>
+                                    <i class="bi bi-person-plus-fill"></i>
                                 </span>
                                 Registration Fees
                             </h2>
@@ -1204,13 +1204,13 @@
                                             </td>
                                             <td>
                                                 <span class="payment-amount">
-                                                    <i class="fa-solid fa-bangladeshi-taka-sign"></i>
+                                                    <i class="bi bi-cash-stack"></i>
                                                     BDT @p.Amount.ToString("N0")
                                                 </span>
                                             </td>
                                             <td>
                                                 <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
-                                                    <i class="fa-regular fa-copy"></i>
+                                                    <i class="bi bi-copy"></i>
                                                     <span class="payment-trx-text">@p.TransactionId</span>
                                                 </button>
                                             </td>
@@ -1225,7 +1225,7 @@
                                                     <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
                                                         @Html.AntiForgeryToken()
                                                         <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify this registration payment?')">
-                                                            <i class="fa-solid fa-check"></i>
+                                                            <i class="bi bi-check-lg"></i>
                                                             Verify
                                                         </button>
                                                     </form>
@@ -1237,7 +1237,7 @@
                                                             data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
                                                             data-trx="@p.TransactionId"
                                                             data-user="@GetUserName(p)">
-                                                        <i class="fa-solid fa-xmark"></i>
+                                                        <i class="bi bi-x-lg"></i>
                                                         Reject
                                                     </button>
                                                 </div>
@@ -1271,7 +1271,7 @@
                                         <div class="payment-mobile-meta-row">
                                             <strong>TrxID</strong>
                                             <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
-                                                <i class="fa-regular fa-copy"></i>
+                                                <i class="bi bi-copy"></i>
                                                 <span class="payment-trx-text">@p.TransactionId</span>
                                             </button>
                                         </div>
@@ -1285,7 +1285,7 @@
                                         <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
                                             @Html.AntiForgeryToken()
                                             <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify this registration payment?')">
-                                                <i class="fa-solid fa-check"></i>
+                                                <i class="bi bi-check-lg"></i>
                                                 Verify
                                             </button>
                                         </form>
@@ -1297,7 +1297,7 @@
                                                 data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
                                                 data-trx="@p.TransactionId"
                                                 data-user="@GetUserName(p)">
-                                            <i class="fa-solid fa-xmark"></i>
+                                            <i class="bi bi-x-lg"></i>
                                             Reject
                                         </button>
                                     </div>
@@ -1315,7 +1315,7 @@
                         <div class="payment-section-head">
                             <h2 class="payment-section-title">
                                 <span class="payment-section-icon">
-                                    <i class="fa-solid fa-house-circle-check"></i>
+                                    <i class="bi bi-house-check-fill"></i>
                                 </span>
                                 Room Posting Fees
                             </h2>
@@ -1358,7 +1358,7 @@
                                                         @p.Room.Title
                                                     </a>
                                                     <div class="payment-room-sub">
-                                                        <i class="fa-solid fa-location-dot me-1"></i>
+                                                        <i class="bi bi-geo-alt-fill me-1"></i>
                                                         @(p.Room.District ?? p.Room.Location)
                                                     </div>
                                                 }
@@ -1374,13 +1374,13 @@
                                             </td>
                                             <td>
                                                 <span class="payment-amount">
-                                                    <i class="fa-solid fa-bangladeshi-taka-sign"></i>
+                                                    <i class="bi bi-cash-stack"></i>
                                                     BDT @p.Amount.ToString("N0")
                                                 </span>
                                             </td>
                                             <td>
                                                 <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
-                                                    <i class="fa-regular fa-copy"></i>
+                                                    <i class="bi bi-copy"></i>
                                                     <span class="payment-trx-text">@p.TransactionId</span>
                                                 </button>
                                             </td>
@@ -1395,7 +1395,7 @@
                                                     <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
                                                         @Html.AntiForgeryToken()
                                                         <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify and publish this room payment?')">
-                                                            <i class="fa-solid fa-check"></i>
+                                                            <i class="bi bi-check-lg"></i>
                                                             Verify &amp; Publish
                                                         </button>
                                                     </form>
@@ -1407,7 +1407,7 @@
                                                             data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
                                                             data-trx="@p.TransactionId"
                                                             data-user="@GetUserName(p)">
-                                                        <i class="fa-solid fa-xmark"></i>
+                                                        <i class="bi bi-x-lg"></i>
                                                         Reject
                                                     </button>
                                                 </div>
@@ -1454,7 +1454,7 @@
                                         <div class="payment-mobile-meta-row">
                                             <strong>TrxID</strong>
                                             <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
-                                                <i class="fa-regular fa-copy"></i>
+                                                <i class="bi bi-copy"></i>
                                                 <span class="payment-trx-text">@p.TransactionId</span>
                                             </button>
                                         </div>
@@ -1468,7 +1468,7 @@
                                         <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
                                             @Html.AntiForgeryToken()
                                             <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify and publish this room payment?')">
-                                                <i class="fa-solid fa-check"></i>
+                                                <i class="bi bi-check-lg"></i>
                                                 Verify &amp; Publish
                                             </button>
                                         </form>
@@ -1480,7 +1480,7 @@
                                                 data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
                                                 data-trx="@p.TransactionId"
                                                 data-user="@GetUserName(p)">
-                                            <i class="fa-solid fa-xmark"></i>
+                                            <i class="bi bi-x-lg"></i>
                                             Reject
                                         </button>
                                     </div>
@@ -1502,7 +1502,7 @@
 
                 <div class="modal-header">
                     <h5 class="modal-title payment-modal-title">
-                        <i class="fa-solid fa-ban"></i>
+                        <i class="bi bi-slash-circle"></i>
                         Reject Payment
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1513,7 +1513,7 @@
 
                     <div>
                         <label class="form-label" style="font-size:.85rem;font-weight:900;color:var(--pay-navy);">
-                            <i class="fa-solid fa-note-sticky me-1"></i>
+                            <i class="bi bi-sticky-fill me-1"></i>
                             Reason <span style="color:var(--pay-bluegray);font-weight:700;">(optional)</span>
                         </label>
                         <textarea name="note" class="form-control" rows="3" placeholder="Example: Transaction ID not found, wrong amount, duplicate payment..."></textarea>
@@ -1522,11 +1522,11 @@
 
                 <div class="modal-footer">
                     <button type="button" class="payment-modal-btn cancel" data-bs-dismiss="modal">
-                        <i class="fa-solid fa-arrow-left"></i>
+                        <i class="bi bi-arrow-left"></i>
                         Cancel
                     </button>
                     <button type="submit" class="payment-modal-btn danger">
-                        <i class="fa-solid fa-xmark"></i>
+                        <i class="bi bi-x-lg"></i>
                         Confirm Reject
                     </button>
                 </div>
