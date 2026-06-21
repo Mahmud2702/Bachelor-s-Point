@@ -2,142 +2,1243 @@
 @model IEnumerable<Room>
 @{
     ViewData["Title"] = "Pending Approval";
+
+    var rooms = Model?.ToList() ?? new List<Room>();
     var paymentMap = ViewBag.PaymentMap as Dictionary<int, Payment?> ?? new Dictionary<int, Payment?>();
+
+    int totalPendingRooms = rooms.Count;
+    int pendingPaymentCount = rooms.Count(r => paymentMap.TryGetValue(r.Id, out var payment) && payment?.Status == PaymentStatus.Pending);
+    int verifiedPaymentCount = rooms.Count(r => paymentMap.TryGetValue(r.Id, out var payment) && payment?.Status == PaymentStatus.Verified);
+    int unpaidRoomCount = rooms.Count(r => !paymentMap.TryGetValue(r.Id, out var payment) || payment == null);
+    int rejectedPaymentCount = rooms.Count(r => paymentMap.TryGetValue(r.Id, out var payment) && payment?.Status == PaymentStatus.Rejected);
+
+    DateTime? latestSubmission = rooms.Any() ? rooms.Max(r => r.CreatedAt) : null;
+
+    string GetCoverImage(Room room)
+    {
+        if (room.Images == null || !room.Images.Any()) return "";
+
+        var primary = room.Images.FirstOrDefault(i => i.IsPrimary);
+        return (primary?.ImagePath ?? room.Images.OrderBy(i => i.DisplayOrder).First().ImagePath) ?? "";
+    }
+
+    string GetShortText(string? text, int maxLength = 120)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "No description was provided for this room.";
+        return text.Length <= maxLength ? text : text.Substring(0, maxLength) + "...";
+    }
+
+    string GetRoomAge(DateTime createdAt)
+    {
+        var days = (DateTime.Now.Date - createdAt.Date).Days;
+
+        if (days <= 0) return "Today";
+        if (days == 1) return "1 day ago";
+        if (days < 30) return $"{days} days ago";
+
+        var months = days / 30;
+        return months == 1 ? "1 month ago" : $"{months} months ago";
+    }
 }
 
-<div class="container py-3">
+<style>
+    /*
+            Pending Room Approval UI
+            Palette:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
+        */
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 style="font-weight:800;margin:0;">
-            <i class="bi bi-clock-history me-2" style="color:var(--warning);"></i>
-            Pending Approval
-            @if (Model.Any())
-            {
-                <span class="nx-badge nx-badge-warning ms-2">@Model.Count()</span>
-            }
-        </h2>
-    </div>
-
-    @if (!Model.Any())
-    {
-        <div class="nx-alert nx-alert-success">
-            <i class="bi bi-check2-all"></i>
-            <span>All caught up — no rooms pending approval.</span>
-        </div>
+    :root {
+        --pa-navy: #111844;
+        --pa-indigo: #4B5694;
+        --pa-bluegray: #7288AE;
+        --pa-beige: #EAE0CF;
+        --pa-card: rgba(255, 255, 255, .88);
+        --pa-border: rgba(17, 24, 68, .12);
+        --pa-muted: #65738a;
+        --pa-success: #14b881;
+        --pa-warning: #f59e0b;
+        --pa-danger: #ef4444;
+        --pa-shadow: 0 20px 55px rgba(17, 24, 68, .10);
+        --pa-shadow-hover: 0 28px 78px rgba(17, 24, 68, .16);
     }
-    else
-    {
-        <div class="nx-card" style="overflow:hidden;">
-            <div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;">
-                    <thead>
-                        <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
-                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Title</th>
-                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Location</th>
-                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Price</th>
-                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Posted By</th>
-                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Payment / TrxID</th>
-                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Posted On</th>
-                            <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;text-align:right;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var room in Model)
-                        {
-                            paymentMap.TryGetValue(room.Id, out var pay);
 
-                            <tr style="border-bottom:1px solid var(--border);">
-                                <td style="padding:.85rem 1rem;font-weight:700;font-size:.9rem;">@room.Title</td>
-                                <td style="padding:.85rem 1rem;font-size:.85rem;color:var(--muted);">
-                                    @(!string.IsNullOrWhiteSpace(room.District) ? room.District : room.Location)
-                                </td>
-                                <td style="padding:.85rem 1rem;font-weight:700;color:var(--success);">BDT @room.Price</td>
-                                <td style="padding:.85rem 1rem;font-size:.88rem;">@(room.Owner?.UserName ?? "—")</td>
+    body:has(.pending-approval-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .10), transparent 30%), radial-gradient(circle at 95% 84%, rgba(234, 224, 207, .64), transparent 34%), linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
 
-                                <!-- Payment / TrxID column -->
-                                <td style="padding:.85rem 1rem;">
-                                    @if (pay == null)
-                                    {
-                                        <span style="font-size:.78rem;color:var(--muted);font-style:italic;">
-                                            <i class="bi bi-x-circle me-1"></i>Not paid yet
+    [data-theme="dark"] body:has(.pending-approval-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .12), transparent 30%), radial-gradient(circle at 92% 84%, rgba(75, 86, 148, .22), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
+    }
+
+    .pending-approval-page {
+        position: relative;
+        padding: 1.15rem 1rem 2rem;
+    }
+
+        .pending-approval-page::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 76%);
+            pointer-events: none;
+        }
+
+    [data-theme="dark"] .pending-approval-page::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .pa-shell {
+        width: min(100%, 1340px);
+        margin: 0 auto;
+    }
+
+    .pa-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 30px;
+        padding: clamp(1.35rem, 3vw, 2.15rem);
+        color: #ffffff;
+        background: radial-gradient(circle at 90% 18%, rgba(234, 224, 207, .30), transparent 28%), linear-gradient(135deg, var(--pa-navy) 0%, var(--pa-indigo) 58%, var(--pa-bluegray) 100%);
+        box-shadow: var(--pa-shadow);
+        border: 1px solid rgba(255, 255, 255, .12);
+    }
+
+        .pa-hero::before {
+            content: "";
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            right: -140px;
+            top: -140px;
+            border-radius: 50%;
+            background: rgba(234, 224, 207, .18);
+            pointer-events: none;
+        }
+
+        .pa-hero::after {
+            content: "";
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            left: -120px;
+            bottom: -150px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .10);
+            pointer-events: none;
+        }
+
+    .pa-hero-grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+        gap: 1.35rem;
+        align-items: center;
+    }
+
+    .pa-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .45rem .85rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .16);
+        color: #ffffff;
+        font-size: .78rem;
+        font-weight: 850;
+        border: 1px solid rgba(234, 224, 207, .20);
+        margin-bottom: .9rem;
+    }
+
+    .pa-hero h1 {
+        margin: 0 0 .55rem;
+        font-size: clamp(2.05rem, 4.2vw, 4rem);
+        line-height: 1;
+        letter-spacing: -1.8px;
+        font-weight: 950;
+    }
+
+    .pa-hero p {
+        max-width: 700px;
+        margin: 0;
+        color: rgba(255, 255, 255, .76);
+        font-size: clamp(.94rem, 1.25vw, 1.05rem);
+        line-height: 1.58;
+        font-weight: 500;
+    }
+
+    .pa-hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-top: 1.25rem;
+    }
+
+    .pa-btn {
+        min-height: 42px;
+        border-radius: 14px;
+        padding: .72rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .55rem;
+        font-size: .86rem;
+        font-weight: 850;
+        text-decoration: none;
+        border: 0;
+        transition: box-shadow .22s ease, filter .22s ease, transform .22s ease, background .22s ease, border-color .22s ease;
+    }
+
+    .pa-btn-primary {
+        background: #ffffff;
+        color: var(--pa-navy);
+        box-shadow: 0 14px 30px rgba(0, 0, 0, .16);
+    }
+
+        .pa-btn-primary:hover {
+            color: var(--pa-navy);
+            filter: brightness(1.04);
+            transform: translateY(-2px);
+            box-shadow: 0 18px 38px rgba(0, 0, 0, .22), 0 0 0 5px rgba(234, 224, 207, .20);
+        }
+
+    .pa-btn-soft {
+        background: rgba(255, 255, 255, .12);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+        .pa-btn-soft:hover {
+            background: rgba(255, 255, 255, .18);
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+
+    .pa-queue-panel {
+        border-radius: 24px;
+        padding: 1.15rem;
+        background: rgba(255, 255, 255, .13);
+        border: 1px solid rgba(255, 255, 255, .16);
+        backdrop-filter: blur(16px);
+    }
+
+    .pa-queue-number {
+        font-size: clamp(2.5rem, 4.3vw, 3.4rem);
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: -1.4px;
+        color: #ffffff;
+    }
+
+    .pa-queue-panel span {
+        display: block;
+        margin-top: .42rem;
+        color: rgba(255, 255, 255, .78);
+        font-size: .88rem;
+        font-weight: 750;
+    }
+
+    .pa-queue-mini {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .55rem;
+        margin-top: 1rem;
+    }
+
+        .pa-queue-mini div {
+            border-radius: 16px;
+            padding: .72rem .55rem;
+            background: rgba(255, 255, 255, .10);
+            text-align: center;
+        }
+
+        .pa-queue-mini strong {
+            display: block;
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 950;
+        }
+
+        .pa-queue-mini small {
+            color: rgba(255, 255, 255, .68);
+            font-size: .68rem;
+            font-weight: 750;
+        }
+
+    .pa-section {
+        margin-top: 1.25rem;
+    }
+
+    .pa-section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: .85rem;
+    }
+
+    .pa-section-title {
+        margin: 0;
+        color: var(--pa-navy);
+        font-size: 1.15rem;
+        font-weight: 950;
+        letter-spacing: -.45px;
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+    }
+
+        .pa-section-title i {
+            color: var(--pa-indigo);
+        }
+
+    .pa-section-subtitle {
+        margin: .25rem 0 0;
+        color: var(--pa-indigo);
+        font-size: .84rem;
+        font-weight: 650;
+    }
+
+    [data-theme="dark"] .pa-section-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .pa-section-subtitle {
+        color: #cbd5e1;
+    }
+
+    .pa-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .9rem;
+    }
+
+    .pa-stat-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 1.05rem;
+        background: var(--pa-card);
+        border: 1px solid var(--pa-border);
+        box-shadow: var(--pa-shadow);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+        .pa-stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--pa-shadow-hover);
+            border-color: rgba(75, 86, 148, .28);
+        }
+
+        .pa-stat-card::after {
+            content: "";
+            position: absolute;
+            width: 112px;
+            height: 112px;
+            right: -48px;
+            top: -48px;
+            border-radius: 36px;
+            background: rgba(234, 224, 207, .44);
+            transform: rotate(18deg);
+        }
+
+    [data-theme="dark"] .pa-stat-card {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+        [data-theme="dark"] .pa-stat-card::after {
+            background: rgba(234, 224, 207, .08);
+        }
+
+    .pa-stat-icon {
+        position: relative;
+        z-index: 1;
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pa-navy), var(--pa-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .20);
+        margin-bottom: .8rem;
+    }
+
+    .pa-stat-value {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--pa-navy);
+        font-size: 1.65rem;
+        font-weight: 950;
+        letter-spacing: -.8px;
+        line-height: 1;
+    }
+
+    .pa-stat-label {
+        position: relative;
+        z-index: 1;
+        margin: .35rem 0 .15rem;
+        color: var(--pa-indigo);
+        font-size: .82rem;
+        font-weight: 850;
+    }
+
+    .pa-stat-hint {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--pa-bluegray);
+        font-size: .74rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .pa-stat-value {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .pa-stat-label {
+        color: var(--pa-beige);
+    }
+
+    [data-theme="dark"] .pa-stat-hint {
+        color: #cbd5e1;
+    }
+
+    .pa-empty-state {
+        position: relative;
+        overflow: hidden;
+        border-radius: 28px;
+        padding: clamp(1.5rem, 4vw, 2.6rem);
+        background: var(--pa-card);
+        border: 1px solid var(--pa-border);
+        box-shadow: var(--pa-shadow);
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr) auto;
+        gap: 1rem;
+        align-items: center;
+    }
+
+        .pa-empty-state::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 10% 20%, rgba(234, 224, 207, .58), transparent 30%), radial-gradient(circle at 90% 85%, rgba(114, 136, 174, .16), transparent 34%);
+            pointer-events: none;
+        }
+
+        .pa-empty-state > * {
+            position: relative;
+            z-index: 1;
+        }
+
+    [data-theme="dark"] .pa-empty-state {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+        [data-theme="dark"] .pa-empty-state::before {
+            background: radial-gradient(circle at 10% 20%, rgba(234, 224, 207, .08), transparent 30%), radial-gradient(circle at 90% 85%, rgba(114, 136, 174, .12), transparent 34%);
+        }
+
+    .pa-empty-icon {
+        width: 78px;
+        height: 78px;
+        border-radius: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pa-navy), var(--pa-indigo));
+        box-shadow: 0 16px 34px rgba(17, 24, 68, .24), 0 0 0 6px rgba(234, 224, 207, .70);
+        font-size: 1.9rem;
+    }
+
+    .pa-empty-state h2 {
+        margin: 0 0 .3rem;
+        color: var(--pa-navy);
+        font-size: clamp(1.4rem, 2.4vw, 2rem);
+        font-weight: 950;
+        letter-spacing: -.65px;
+    }
+
+    .pa-empty-state p {
+        margin: 0;
+        color: var(--pa-indigo);
+        font-size: .95rem;
+        line-height: 1.55;
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .pa-empty-state h2 {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .pa-empty-state p {
+        color: #cbd5e1;
+    }
+
+    .pa-review-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+    }
+
+    .pa-room-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 28px;
+        background: var(--pa-card);
+        border: 1px solid var(--pa-border);
+        box-shadow: var(--pa-shadow);
+        display: grid;
+        grid-template-columns: 260px minmax(0, 1fr);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+        .pa-room-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--pa-shadow-hover);
+            border-color: rgba(75, 86, 148, .28);
+        }
+
+    [data-theme="dark"] .pa-room-card {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+    .pa-room-media {
+        min-height: 240px;
+        background: radial-gradient(circle at 30% 20%, rgba(234, 224, 207, .50), transparent 32%), linear-gradient(135deg, rgba(17, 24, 68, .10), rgba(114, 136, 174, .16));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--pa-indigo);
+        overflow: hidden;
+    }
+
+        .pa-room-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .pa-room-media i {
+            font-size: 2.2rem;
+        }
+
+    [data-theme="dark"] .pa-room-media {
+        background: radial-gradient(circle at 30% 20%, rgba(234, 224, 207, .08), transparent 32%), linear-gradient(135deg, rgba(234, 224, 207, .045), rgba(114, 136, 174, .09));
+        color: var(--pa-beige);
+    }
+
+    .pa-room-body {
+        padding: 1.1rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 310px;
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .pa-room-main {
+        min-width: 0;
+    }
+
+    .pa-room-topline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .55rem;
+        margin-bottom: .75rem;
+    }
+
+    .pa-status-badge,
+    .pa-info-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .38rem;
+        min-height: 28px;
+        padding: .38rem .65rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 850;
+        border: 1px solid rgba(17, 24, 68, .10);
+    }
+
+    .pa-status-review {
+        background: rgba(245, 158, 11, .12);
+        color: #9a5b00;
+        border-color: rgba(245, 158, 11, .20);
+    }
+
+    .pa-status-paid {
+        background: rgba(20, 184, 129, .12);
+        color: #047857;
+        border-color: rgba(20, 184, 129, .22);
+    }
+
+    .pa-status-unpaid {
+        background: rgba(114, 136, 174, .12);
+        color: var(--pa-indigo);
+        border-color: rgba(114, 136, 174, .18);
+    }
+
+    .pa-status-rejected {
+        background: rgba(239, 68, 68, .12);
+        color: #b91c1c;
+        border-color: rgba(239, 68, 68, .22);
+    }
+
+    .pa-info-pill {
+        background: rgba(234, 224, 207, .44);
+        color: var(--pa-indigo);
+    }
+
+    [data-theme="dark"] .pa-status-review,
+    [data-theme="dark"] .pa-status-paid,
+    [data-theme="dark"] .pa-status-unpaid,
+    [data-theme="dark"] .pa-status-rejected,
+    [data-theme="dark"] .pa-info-pill {
+        background: rgba(255, 255, 255, .055);
+        color: #EAE0CF;
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+    .pa-room-title {
+        margin: 0 0 .45rem;
+        color: var(--pa-navy);
+        font-size: clamp(1.2rem, 2.3vw, 1.65rem);
+        line-height: 1.12;
+        font-weight: 950;
+        letter-spacing: -.55px;
+    }
+
+    .pa-room-desc {
+        margin: 0 0 .85rem;
+        color: var(--pa-indigo);
+        font-size: .88rem;
+        line-height: 1.55;
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .pa-room-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .pa-room-desc {
+        color: #cbd5e1;
+    }
+
+    .pa-room-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .65rem;
+        margin-top: .85rem;
+    }
+
+    .pa-meta-box {
+        border-radius: 17px;
+        padding: .75rem;
+        background: rgba(255, 255, 255, .62);
+        border: 1px solid rgba(17, 24, 68, .08);
+    }
+
+        .pa-meta-box span {
+            display: flex;
+            align-items: center;
+            gap: .36rem;
+            color: var(--pa-bluegray);
+            font-size: .68rem;
+            font-weight: 850;
+            text-transform: uppercase;
+            letter-spacing: .45px;
+            margin-bottom: .25rem;
+        }
+
+        .pa-meta-box strong {
+            display: block;
+            color: var(--pa-navy);
+            font-size: .86rem;
+            font-weight: 950;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+    [data-theme="dark"] .pa-meta-box {
+        background: rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .09);
+    }
+
+        [data-theme="dark"] .pa-meta-box strong {
+            color: #f8fafc;
+        }
+
+    .pa-payment-panel {
+        border-radius: 22px;
+        padding: .95rem;
+        background: radial-gradient(circle at 90% 10%, rgba(234, 224, 207, .50), transparent 34%), rgba(255, 255, 255, .64);
+        border: 1px solid rgba(17, 24, 68, .10);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-width: 0;
+    }
+
+    [data-theme="dark"] .pa-payment-panel {
+        background: radial-gradient(circle at 90% 10%, rgba(234, 224, 207, .08), transparent 34%), rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+    .pa-payment-label {
+        display: flex;
+        align-items: center;
+        gap: .48rem;
+        margin: 0 0 .6rem;
+        color: var(--pa-navy);
+        font-size: .84rem;
+        font-weight: 950;
+    }
+
+    [data-theme="dark"] .pa-payment-label {
+        color: #f8fafc;
+    }
+
+    .pa-trx-code {
+        display: inline-flex;
+        max-width: 100%;
+        align-items: center;
+        gap: .45rem;
+        padding: .45rem .62rem;
+        border-radius: 13px;
+        color: var(--pa-navy);
+        background: rgba(255, 255, 255, .80);
+        border: 1px solid rgba(17, 24, 68, .10);
+        font-size: .78rem;
+        font-weight: 850;
+        cursor: pointer;
+        word-break: break-all;
+    }
+
+        .pa-trx-code i {
+            flex-shrink: 0;
+            color: var(--pa-indigo);
+        }
+
+    [data-theme="dark"] .pa-trx-code {
+        color: #f8fafc;
+        background: rgba(7, 11, 24, .45);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+        [data-theme="dark"] .pa-trx-code i {
+            color: var(--pa-beige);
+        }
+
+    .pa-payment-sub {
+        margin: .45rem 0 .85rem;
+        color: var(--pa-bluegray);
+        font-size: .73rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    .pa-payment-empty {
+        margin: 0 0 .85rem;
+        color: var(--pa-indigo);
+        font-size: .82rem;
+        line-height: 1.5;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .pa-payment-sub,
+    [data-theme="dark"] .pa-payment-empty {
+        color: #cbd5e1;
+    }
+
+    .pa-card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .55rem;
+        justify-content: flex-end;
+    }
+
+    .pa-action-btn {
+        min-height: 38px;
+        border-radius: 13px;
+        padding: .62rem .78rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .45rem;
+        font-size: .78rem;
+        font-weight: 900;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform .2s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+    }
+
+    .pa-action-view {
+        color: var(--pa-navy);
+        background: rgba(255, 255, 255, .74);
+        border-color: rgba(17, 24, 68, .10);
+    }
+
+        .pa-action-view:hover {
+            color: var(--pa-navy);
+            background: rgba(234, 224, 207, .52);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(17, 24, 68, .10);
+        }
+
+    .pa-action-success {
+        color: #ffffff;
+        background: linear-gradient(135deg, #059669, #14b881);
+        box-shadow: 0 12px 24px rgba(20, 184, 129, .18);
+    }
+
+        .pa-action-success:hover {
+            color: #ffffff;
+            filter: brightness(1.04);
+            transform: translateY(-2px);
+            box-shadow: 0 16px 32px rgba(20, 184, 129, .25), 0 0 0 5px rgba(20, 184, 129, .12);
+        }
+
+    .pa-action-danger {
+        color: #ef4444;
+        background: rgba(255, 255, 255, .74);
+        border-color: rgba(239, 68, 68, .16);
+    }
+
+        .pa-action-danger:hover {
+            color: #ffffff;
+            background: #ef4444;
+            transform: translateY(-2px);
+            box-shadow: 0 16px 32px rgba(239, 68, 68, .20), 0 0 0 5px rgba(239, 68, 68, .10);
+        }
+
+    [data-theme="dark"] .pa-action-view {
+        color: #f8fafc;
+        background: rgba(255, 255, 255, .055);
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+        [data-theme="dark"] .pa-action-view:hover {
+            color: #EAE0CF;
+            background: rgba(234, 224, 207, .10);
+        }
+
+    [data-theme="dark"] .pa-action-danger {
+        background: rgba(239, 68, 68, .08);
+        color: #fca5a5;
+        border-color: rgba(248, 113, 113, .18);
+    }
+
+        [data-theme="dark"] .pa-action-danger:hover {
+            background: rgba(239, 68, 68, .88);
+            color: #ffffff;
+        }
+
+    @@media (max-width: 1199.98px) {
+        .pa-hero-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .pa-queue-panel {
+            max-width: 520px;
+        }
+
+        .pa-room-card {
+            grid-template-columns: 220px minmax(0, 1fr);
+        }
+
+        .pa-room-body {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 991.98px) {
+        .pa-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .pa-room-card {
+            grid-template-columns: 1fr;
+        }
+
+        .pa-room-media {
+            min-height: 220px;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .pending-approval-page {
+            padding: .85rem .75rem 1.4rem;
+        }
+
+        .pa-hero {
+            border-radius: 24px;
+        }
+
+        .pa-hero-actions {
+            flex-direction: column;
+        }
+
+        .pa-btn {
+            width: 100%;
+        }
+
+        .pa-empty-state {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+
+        .pa-empty-icon {
+            margin: 0 auto;
+        }
+
+        .pa-room-meta-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .pa-card-actions {
+            justify-content: stretch;
+        }
+
+            .pa-card-actions > *,
+            .pa-card-actions form,
+            .pa-card-actions .pa-action-btn {
+                width: 100%;
+            }
+    }
+
+    @@media (max-width: 575.98px) {
+        .pa-stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .pa-queue-mini {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<section class="pending-approval-page">
+    <div class="pa-shell">
+
+        <div class="pa-hero">
+            <div class="pa-hero-grid">
+                <div>
+                    <div class="pa-kicker">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Room Approval Queue</span>
+                    </div>
+
+                    <h1>Pending Approval</h1>
+
+                    <p>
+                        Review submitted room listings, check payment status, inspect room details, and approve only clean listings for users.
+                    </p>
+
+                    <div class="pa-hero-actions">
+                        <a asp-controller="Room" asp-action="Index" class="pa-btn pa-btn-primary">
+                            <i class="fa-solid fa-house-circle-check"></i>
+                            Browse Approved Rooms
+                        </a>
+
+                        <a asp-controller="Payment" asp-action="AdminPayments" class="pa-btn pa-btn-soft">
+                            <i class="fa-solid fa-money-check-dollar"></i>
+                            Payment Verification
+                        </a>
+                    </div>
+                </div>
+
+                <div class="pa-queue-panel">
+                    <div class="pa-queue-number">@totalPendingRooms</div>
+                    <span>room listing(s) waiting for admin decision</span>
+
+                    <div class="pa-queue-mini">
+                        <div>
+                            <strong>@pendingPaymentCount</strong>
+                            <small>Payment Pending</small>
+                        </div>
+                        <div>
+                            <strong>@verifiedPaymentCount</strong>
+                            <small>Paid</small>
+                        </div>
+                        <div>
+                            <strong>@unpaidRoomCount</strong>
+                            <small>No Payment</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pa-section">
+            <div class="pa-section-head">
+                <div>
+                    <h2 class="pa-section-title">
+                        <i class="fa-solid fa-chart-simple"></i>
+                        Approval Overview
+                    </h2>
+                    <p class="pa-section-subtitle">A quick breakdown of rooms waiting in the approval queue.</p>
+                </div>
+            </div>
+
+            <div class="pa-stat-grid">
+                <div class="pa-stat-card">
+                    <div class="pa-stat-icon">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                    <h3 class="pa-stat-value">@totalPendingRooms</h3>
+                    <p class="pa-stat-label">Pending Rooms</p>
+                    <p class="pa-stat-hint">Listings waiting for admin review.</p>
+                </div>
+
+                <div class="pa-stat-card">
+                    <div class="pa-stat-icon">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <h3 class="pa-stat-value">@pendingPaymentCount</h3>
+                    <p class="pa-stat-label">Payment Pending</p>
+                    <p class="pa-stat-hint">TrxIDs awaiting verification.</p>
+                </div>
+
+                <div class="pa-stat-card">
+                    <div class="pa-stat-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <h3 class="pa-stat-value">@verifiedPaymentCount</h3>
+                    <p class="pa-stat-label">Paid Listings</p>
+                    <p class="pa-stat-hint">Payment already verified.</p>
+                </div>
+
+                <div class="pa-stat-card">
+                    <div class="pa-stat-icon">
+                        <i class="fa-solid fa-calendar-day"></i>
+                    </div>
+                    <h3 class="pa-stat-value">@(latestSubmission?.ToString("dd MMM") ?? "—")</h3>
+                    <p class="pa-stat-label">Latest Submission</p>
+                    <p class="pa-stat-hint">Most recent room in queue.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="pa-section">
+            @if (!rooms.Any())
+            {
+                <div class="pa-empty-state">
+                    <div class="pa-empty-icon">
+                        <i class="fa-solid fa-shield-heart"></i>
+                    </div>
+
+                    <div>
+                        <h2>All caught up</h2>
+                        <p>No rooms are currently waiting for approval. The queue is clean and ready for the next submission.</p>
+                    </div>
+
+                    <a asp-controller="Room" asp-action="Index" class="pa-btn pa-btn-primary">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        View Approved Rooms
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="pa-section-head">
+                    <div>
+                        <h2 class="pa-section-title">
+                            <i class="fa-solid fa-list-check"></i>
+                            Review Queue
+                        </h2>
+                        <p class="pa-section-subtitle">Inspect each listing and approve only after checking its details and payment state.</p>
+                    </div>
+                </div>
+
+                <div class="pa-review-grid">
+                    @foreach (var room in rooms)
+                    {
+                        paymentMap.TryGetValue(room.Id, out var pay);
+                        string cover = GetCoverImage(room);
+
+                        string statusClass = pay == null
+                            ? "pa-status-unpaid"
+                            : pay.Status == PaymentStatus.Pending
+                                ? "pa-status-review"
+                                : pay.Status == PaymentStatus.Verified
+                                    ? "pa-status-paid"
+                                    : pay.Status == PaymentStatus.Rejected
+                                        ? "pa-status-rejected"
+                                        : "pa-status-unpaid";
+
+                        string statusText = pay == null
+                            ? "No payment found"
+                            : pay.Status == PaymentStatus.Pending
+                                ? "Payment needs verification"
+                                : pay.Status == PaymentStatus.Verified
+                                    ? "Payment verified"
+                                    : pay.Status == PaymentStatus.Rejected
+                                        ? "Payment rejected"
+                                        : pay.Status.ToString();
+
+                        string statusIcon = pay == null
+                            ? "fa-circle-question"
+                            : pay.Status == PaymentStatus.Pending
+                                ? "fa-hourglass-half"
+                                : pay.Status == PaymentStatus.Verified
+                                    ? "fa-circle-check"
+                                    : pay.Status == PaymentStatus.Rejected
+                                        ? "fa-circle-xmark"
+                                        : "fa-circle-info";
+
+                        <article class="pa-room-card">
+                            <div class="pa-room-media">
+                                @if (!string.IsNullOrWhiteSpace(cover))
+                                {
+                                    <img src="@cover" alt="@room.Title" />
+                                }
+                                else
+                                {
+                                    <i class="fa-regular fa-image"></i>
+                                }
+                            </div>
+
+                            <div class="pa-room-body">
+                                <div class="pa-room-main">
+                                    <div class="pa-room-topline">
+                                        <span class="pa-status-badge @statusClass">
+                                            <i class="fa-solid @statusIcon"></i>
+                                            @statusText
                                         </span>
-                                    }
-                                    else if (pay.Status == PaymentStatus.Pending)
-                                    {
-                                        <div>
-                                            <span class="badge-pending mb-1" style="display:inline-block;">
-                                                <i class="bi bi-hourglass-split me-1"></i>Pending
-                                            </span>
-                                            <br />
-                                            <code style="font-size:.82rem;background:var(--bg);padding:2px 7px;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;"
-                                                  title="Click to copy"
-                                                  onclick="navigator.clipboard.writeText('@pay.TransactionId');this.style.background='var(--success-light)';">
-                                                @pay.TransactionId
-                                            </code>
-                                            <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">
-                                                BDT @pay.Amount.ToString("0") · @pay.SubmittedAt.ToString("dd MMM, hh:mm tt")
-                                            </div>
+
+                                        <span class="pa-info-pill">
+                                            <i class="fa-solid fa-clock"></i>
+                                            @GetRoomAge(room.CreatedAt)
+                                        </span>
+                                    </div>
+
+                                    <h2 class="pa-room-title">@room.Title</h2>
+
+                                    <p class="pa-room-desc">
+                                        @GetShortText(room.Description)
+                                    </p>
+
+                                    <div class="pa-room-meta-grid">
+                                        <div class="pa-meta-box">
+                                            <span><i class="fa-solid fa-location-dot"></i> Location</span>
+                                            <strong>@(!string.IsNullOrWhiteSpace(room.District) ? room.District : room.Location)</strong>
                                         </div>
-                                    }
-                                    else if (pay.Status == PaymentStatus.Rejected)
-                                    {
-                                        <span style="font-size:.78rem;color:var(--danger);">
-                                            <i class="bi bi-x-circle-fill me-1"></i>Rejected
-                                        </span>
-                                    }
-                                    else if (pay.Status == PaymentStatus.Verified)
-                                    {
-                                        <span class="badge-approved">
-                                            <i class="bi bi-check-circle-fill me-1"></i>Paid
-                                        </span>
-                                    }
-                                </td>
 
-                                <td style="padding:.85rem 1rem;font-size:.8rem;color:var(--muted);">
-                                    @room.CreatedAt.ToString("dd-MMM-yyyy")
-                                </td>
+                                        <div class="pa-meta-box">
+                                            <span><i class="fa-solid fa-bangladeshi-taka-sign"></i> Rent</span>
+                                            <strong>BDT @room.Price.ToString("N0")</strong>
+                                        </div>
 
-                                <td style="padding:.85rem 1rem;text-align:right;">
-                                    <div class="d-flex gap-2 justify-content-end flex-wrap">
-                                        <a asp-action="Details" asp-route-id="@room.Id" class="btn-nx outline sm">
-                                            <i class="bi bi-eye"></i> View
+                                        <div class="pa-meta-box">
+                                            <span><i class="fa-solid fa-user"></i> Posted By</span>
+                                            <strong>@(room.Owner?.UserName ?? "Unknown")</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <aside class="pa-payment-panel">
+                                    <div>
+                                        <h3 class="pa-payment-label">
+                                            <i class="fa-solid fa-money-check-dollar"></i>
+                                            Payment Review
+                                        </h3>
+
+                                        @if (pay == null)
+                                        {
+                                            <p class="pa-payment-empty">
+                                                <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                                No payment record is attached to this room yet.
+                                            </p>
+                                        }
+                                        else if (pay.Status == PaymentStatus.Pending)
+                                        {
+                                            <button type="button"
+                                                    class="pa-trx-code"
+                                                    title="Click to copy transaction ID"
+                                                    onclick="navigator.clipboard.writeText('@pay.TransactionId'); this.style.background='rgba(20,184,129,.12)';">
+                                                <i class="fa-solid fa-copy"></i>
+                                                @pay.TransactionId
+                                            </button>
+
+                                            <p class="pa-payment-sub">
+                                                BDT @pay.Amount.ToString("0") · submitted @pay.SubmittedAt.ToString("dd MMM yyyy, hh:mm tt")
+                                            </p>
+                                        }
+                                        else if (pay.Status == PaymentStatus.Verified)
+                                        {
+                                            <p class="pa-payment-empty">
+                                                <i class="fa-solid fa-circle-check me-1"></i>
+                                                Payment has already been verified. Approve the room if the listing is clean.
+                                            </p>
+                                        }
+                                        else if (pay.Status == PaymentStatus.Rejected)
+                                        {
+                                            <p class="pa-payment-empty">
+                                                <i class="fa-solid fa-circle-xmark me-1"></i>
+                                                Payment was rejected. Manual approval is still available if needed.
+                                            </p>
+                                        }
+                                    </div>
+
+                                    <div class="pa-card-actions">
+                                        <a asp-action="Details" asp-route-id="@room.Id" class="pa-action-btn pa-action-view">
+                                            <i class="fa-solid fa-eye"></i>
+                                            View
                                         </a>
 
                                         @if (pay?.Status == PaymentStatus.Pending)
                                         {
-                                            <!-- Verify payment + approve in one click -->
-                                            <form asp-controller="Payment" asp-action="Verify"
-                                                  asp-route-id="@pay.Id" method="post" class="m-0">
+                                            <form asp-controller="Payment" asp-action="Verify" asp-route-id="@pay.Id" method="post" class="m-0">
                                                 @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn-nx success sm"
+                                                <button type="submit"
+                                                        class="pa-action-btn pa-action-success"
                                                         onclick="return confirm('Verify TrxID: @pay.TransactionId and approve room?')">
-                                                    <i class="bi bi-check2-circle"></i> Verify &amp; Approve
+                                                    <i class="fa-solid fa-badge-check"></i>
+                                                    Verify &amp; Approve
                                                 </button>
                                             </form>
                                         }
                                         else
                                         {
-                                            <!-- Manual approve (no payment) -->
                                             <form asp-action="Approve" method="post" class="m-0">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="id" value="@room.Id" />
-                                                <button type="submit" class="btn-nx success sm"
+                                                <button type="submit"
+                                                        class="pa-action-btn pa-action-success"
                                                         onclick="return confirm('Approve this room without payment?')">
-                                                    <i class="bi bi-check2-circle"></i> Approve
+                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    Approve
                                                 </button>
                                             </form>
                                         }
 
-                                        <a asp-action="Delete" asp-route-id="@room.Id" class="btn-nx outline-danger sm">
-                                            <i class="bi bi-trash"></i>
+                                        <a asp-action="Delete" asp-route-id="@room.Id" class="pa-action-btn pa-action-danger">
+                                            <i class="fa-solid fa-trash-can"></i>
                                         </a>
                                     </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
+                                </aside>
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
         </div>
-    }
-</div>
+
+    </div>
+</section>

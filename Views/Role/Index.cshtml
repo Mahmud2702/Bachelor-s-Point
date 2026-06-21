@@ -1,33 +1,1205 @@
 @model IEnumerable<Role>
 @{
     ViewData["Title"] = "Manage Roles";
+
+    var roles = Model?.ToList() ?? new List<Role>();
+    int totalRoles = roles.Count;
+    int adminRoles = roles.Count(r => (r.RoleName ?? "").Contains("admin", StringComparison.OrdinalIgnoreCase));
+    int userRoles = roles.Count(r => (r.RoleName ?? "").Contains("user", StringComparison.OrdinalIgnoreCase));
+    int customRoles = Math.Max(totalRoles - adminRoles - userRoles, 0);
+
+    string GetRoleIcon(string? roleName)
+    {
+        var name = roleName ?? "";
+
+        if (name.Contains("admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return "fa-user-shield";
+        }
+
+        if (name.Contains("user", StringComparison.OrdinalIgnoreCase))
+        {
+            return "fa-user-check";
+        }
+
+        if (name.Contains("owner", StringComparison.OrdinalIgnoreCase))
+        {
+            return "fa-house-user";
+        }
+
+        if (name.Contains("moderator", StringComparison.OrdinalIgnoreCase))
+        {
+            return "fa-user-lock";
+        }
+
+        return "fa-id-badge";
+    }
+
+    string GetRoleType(string? roleName)
+    {
+        var name = roleName ?? "";
+
+        if (name.Contains("admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Administrator";
+        }
+
+        if (name.Contains("user", StringComparison.OrdinalIgnoreCase))
+        {
+            return "General User";
+        }
+
+        return "Custom Role";
+    }
+
+    string GetRoleHint(string? roleName)
+    {
+        var name = roleName ?? "";
+
+        if (name.Contains("admin", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Full system control and administrative access.";
+        }
+
+        if (name.Contains("user", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Standard platform access for regular users.";
+        }
+
+        return "Custom permission group for special access.";
+    }
 }
 
-<h2>Manage Roles</h2>
-<p><a asp-action="Create" class="btn btn-primary">Create New Role</a></p>
+<style>
+    /*
+            Manage Roles UI
+            Palette:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
+        */
 
-<table class="table table-bordered table-striped">
-    <thead>
-        <tr>
-            <th>Id</th>
-            <th>Role Name</th>
-            <th>Description</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var role in Model)
-        {
-            <tr>
-                <td>@role.Id</td>
-                <td>@role.RoleName</td>
-                <td>@role.RoleDescription</td>
-                <td>
-                    <a asp-action="Details" asp-route-id="@role.Id" class="btn btn-info btn-sm">Details</a>
-                    <a asp-action="Edit" asp-route-id="@role.Id" class="btn btn-warning btn-sm">Edit</a>
-                    <a asp-action="Delete" asp-route-id="@role.Id" class="btn btn-danger btn-sm">Delete</a>
-                </td>
-            </tr>
+    :root {
+        --role-navy: #111844;
+        --role-indigo: #4B5694;
+        --role-bluegray: #7288AE;
+        --role-beige: #EAE0CF;
+        --role-card: rgba(255, 255, 255, .88);
+        --role-border: rgba(17, 24, 68, .12);
+        --role-shadow: 0 20px 55px rgba(17, 24, 68, .10);
+        --role-shadow-hover: 0 26px 70px rgba(17, 24, 68, .16);
+    }
+
+    body:has(.roles-admin-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .10), transparent 30%), radial-gradient(circle at 95% 84%, rgba(234, 224, 207, .65), transparent 34%), linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
+
+    [data-theme="dark"] body:has(.roles-admin-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .12), transparent 30%), radial-gradient(circle at 92% 84%, rgba(75, 86, 148, .22), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
+    }
+
+    .roles-admin-page {
+        position: relative;
+        min-height: calc(100dvh - 130px);
+        padding: 1.15rem 1rem 2rem;
+    }
+
+        .roles-admin-page::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 76%);
+            pointer-events: none;
         }
-    </tbody>
-</table>
+
+    [data-theme="dark"] .roles-admin-page::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .roles-shell {
+        width: min(100%, 1320px);
+        margin: 0 auto;
+    }
+
+    .roles-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 30px;
+        padding: clamp(1.35rem, 3vw, 2.25rem);
+        background: radial-gradient(circle at 92% 18%, rgba(234, 224, 207, .36), transparent 28%), linear-gradient(135deg, var(--role-navy) 0%, var(--role-indigo) 58%, var(--role-bluegray) 100%);
+        color: #ffffff;
+        box-shadow: var(--role-shadow);
+        border: 1px solid rgba(255, 255, 255, .13);
+    }
+
+        .roles-hero::before {
+            content: "";
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            right: -135px;
+            top: -145px;
+            border-radius: 50%;
+            background: rgba(234, 224, 207, .18);
+            pointer-events: none;
+        }
+
+        .roles-hero::after {
+            content: "";
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            left: -125px;
+            bottom: -150px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .10);
+            pointer-events: none;
+        }
+
+    .roles-hero-content {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(280px, .75fr);
+        gap: 1.4rem;
+        align-items: center;
+    }
+
+    .roles-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .45rem .8rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .16);
+        color: #ffffff;
+        font-size: .78rem;
+        font-weight: 850;
+        border: 1px solid rgba(234, 224, 207, .20);
+        margin-bottom: .9rem;
+    }
+
+    .roles-hero h1 {
+        margin: 0 0 .55rem;
+        font-size: clamp(2rem, 4vw, 3.75rem);
+        line-height: 1;
+        letter-spacing: -1.8px;
+        font-weight: 950;
+    }
+
+    .roles-hero p {
+        max-width: 650px;
+        margin: 0;
+        color: rgba(255, 255, 255, .76);
+        font-size: clamp(.95rem, 1.35vw, 1.05rem);
+        line-height: 1.6;
+        font-weight: 500;
+    }
+
+    .roles-hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-top: 1.25rem;
+    }
+
+    .roles-btn {
+        min-height: 44px;
+        border-radius: 14px;
+        padding: .75rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .55rem;
+        font-size: .88rem;
+        font-weight: 850;
+        text-decoration: none;
+        transition: box-shadow .22s ease, filter .22s ease, transform .22s ease, background .22s ease, border-color .22s ease;
+    }
+
+    .roles-btn-primary {
+        background: #ffffff;
+        color: var(--role-navy);
+        box-shadow: 0 14px 30px rgba(0, 0, 0, .16);
+    }
+
+        .roles-btn-primary:hover {
+            color: var(--role-navy);
+            filter: brightness(1.04);
+            transform: translateY(-2px);
+            box-shadow: 0 18px 38px rgba(0, 0, 0, .22), 0 0 0 5px rgba(234, 224, 207, .20);
+        }
+
+    .roles-btn-soft {
+        background: rgba(255, 255, 255, .12);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+        .roles-btn-soft:hover {
+            background: rgba(255, 255, 255, .18);
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+
+    .roles-status-panel {
+        position: relative;
+        z-index: 1;
+        border-radius: 24px;
+        padding: 1.1rem;
+        background: rgba(255, 255, 255, .13);
+        border: 1px solid rgba(255, 255, 255, .16);
+        backdrop-filter: blur(16px);
+    }
+
+    .roles-status-top {
+        display: flex;
+        align-items: center;
+        gap: .85rem;
+    }
+
+    .roles-status-icon {
+        width: 58px;
+        height: 58px;
+        border-radius: 19px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: rgba(255, 255, 255, .14);
+        border: 1px solid rgba(255, 255, 255, .18);
+        font-size: 1.35rem;
+    }
+
+    .roles-status-number {
+        font-size: clamp(2.2rem, 4vw, 3rem);
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: -1.4px;
+        color: #ffffff;
+    }
+
+    .roles-status-panel span {
+        display: block;
+        color: rgba(255, 255, 255, .78);
+        font-size: .86rem;
+        font-weight: 700;
+        margin-top: .25rem;
+    }
+
+    .roles-status-mini {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .55rem;
+        margin-top: 1rem;
+    }
+
+        .roles-status-mini div {
+            border-radius: 16px;
+            padding: .7rem .55rem;
+            background: rgba(255, 255, 255, .10);
+            text-align: center;
+        }
+
+        .roles-status-mini strong {
+            display: block;
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 950;
+        }
+
+        .roles-status-mini small {
+            color: rgba(255, 255, 255, .68);
+            font-size: .68rem;
+            font-weight: 700;
+        }
+
+    .roles-section {
+        margin-top: 1.35rem;
+    }
+
+    .roles-section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: .85rem;
+    }
+
+    .roles-section-title {
+        margin: 0;
+        color: var(--role-navy);
+        font-size: 1.15rem;
+        font-weight: 950;
+        letter-spacing: -.45px;
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+    }
+
+        .roles-section-title i {
+            color: var(--role-indigo);
+        }
+
+    .roles-section-subtitle {
+        margin: .25rem 0 0;
+        color: var(--role-indigo);
+        font-size: .84rem;
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .roles-section-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .roles-section-subtitle {
+        color: #cbd5e1;
+    }
+
+    .roles-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .9rem;
+    }
+
+    .roles-stat-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 1.05rem;
+        background: var(--role-card);
+        border: 1px solid var(--role-border);
+        box-shadow: var(--role-shadow);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+        .roles-stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--role-shadow-hover);
+            border-color: rgba(75, 86, 148, .28);
+        }
+
+        .roles-stat-card::after {
+            content: "";
+            position: absolute;
+            width: 110px;
+            height: 110px;
+            right: -48px;
+            top: -48px;
+            border-radius: 36px;
+            background: rgba(234, 224, 207, .42);
+            transform: rotate(18deg);
+        }
+
+    [data-theme="dark"] .roles-stat-card {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+        [data-theme="dark"] .roles-stat-card::after {
+            background: rgba(234, 224, 207, .08);
+        }
+
+    .roles-stat-icon {
+        position: relative;
+        z-index: 1;
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--role-navy), var(--role-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .20);
+        margin-bottom: .8rem;
+    }
+
+    .roles-stat-value {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--role-navy);
+        font-size: 1.65rem;
+        font-weight: 950;
+        letter-spacing: -.8px;
+        line-height: 1;
+    }
+
+    .roles-stat-label {
+        position: relative;
+        z-index: 1;
+        margin: .35rem 0 .15rem;
+        color: var(--role-indigo);
+        font-size: .82rem;
+        font-weight: 850;
+    }
+
+    .roles-stat-hint {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--role-bluegray);
+        font-size: .74rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .roles-stat-value {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .roles-stat-label {
+        color: #EAE0CF;
+    }
+
+    [data-theme="dark"] .roles-stat-hint {
+        color: #cbd5e1;
+    }
+
+    .roles-panel {
+        border-radius: 26px;
+        background: var(--role-card);
+        border: 1px solid var(--role-border);
+        box-shadow: var(--role-shadow);
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .roles-panel {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+    .roles-panel-header {
+        padding: 1rem 1.05rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        border-bottom: 1px solid rgba(17, 24, 68, .10);
+        background: radial-gradient(circle at 96% 10%, rgba(234, 224, 207, .46), transparent 28%), rgba(255, 255, 255, .58);
+    }
+
+    [data-theme="dark"] .roles-panel-header {
+        background: radial-gradient(circle at 96% 10%, rgba(234, 224, 207, .08), transparent 28%), rgba(255, 255, 255, .035);
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    .roles-panel-heading {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+    }
+
+    .roles-panel-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--role-navy), var(--role-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .18);
+    }
+
+    .roles-panel-heading h2 {
+        margin: 0;
+        color: var(--role-navy);
+        font-size: 1.05rem;
+        font-weight: 950;
+        letter-spacing: -.35px;
+    }
+
+    .roles-panel-heading p {
+        margin: .18rem 0 0;
+        color: var(--role-bluegray);
+        font-size: .76rem;
+        font-weight: 650;
+    }
+
+    [data-theme="dark"] .roles-panel-heading h2 {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .roles-panel-heading p {
+        color: #cbd5e1;
+    }
+
+    .roles-count-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        padding: .48rem .75rem;
+        border-radius: 999px;
+        color: var(--role-navy);
+        background: rgba(234, 224, 207, .56);
+        border: 1px solid rgba(17, 24, 68, .08);
+        font-size: .78rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .roles-count-pill {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .08);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+    .roles-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .roles-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+    }
+
+        .roles-table thead th {
+            padding: .85rem 1rem;
+            color: var(--role-indigo);
+            background: rgba(234, 224, 207, .30);
+            border-bottom: 1px solid rgba(17, 24, 68, .10);
+            font-size: .75rem;
+            font-weight: 950;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+    [data-theme="dark"] .roles-table thead th {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .055);
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    .roles-table tbody td {
+        padding: .9rem 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid rgba(17, 24, 68, .08);
+        color: var(--role-navy);
+        font-size: .86rem;
+        font-weight: 650;
+    }
+
+    .roles-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .roles-table tbody tr {
+        transition: background .2s ease, transform .2s ease;
+    }
+
+        .roles-table tbody tr:hover {
+            background: rgba(234, 224, 207, .22);
+        }
+
+    [data-theme="dark"] .roles-table tbody td {
+        color: #f8fafc;
+        border-bottom-color: rgba(234, 224, 207, .08);
+    }
+
+    [data-theme="dark"] .roles-table tbody tr:hover {
+        background: rgba(234, 224, 207, .045);
+    }
+
+    .role-id-chip {
+        min-width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--role-navy), var(--role-indigo));
+        font-weight: 950;
+        box-shadow: 0 10px 20px rgba(17, 24, 68, .18);
+    }
+
+    .role-main-cell {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        min-width: 220px;
+    }
+
+    .role-avatar {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--role-navy), var(--role-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .18), 0 0 0 5px rgba(234, 224, 207, .42);
+        flex-shrink: 0;
+    }
+
+    [data-theme="dark"] .role-avatar {
+        box-shadow: 0 12px 24px rgba(0, 0, 0, .30), 0 0 0 5px rgba(234, 224, 207, .10);
+    }
+
+    .role-name-text {
+        margin: 0 0 .18rem;
+        color: var(--role-navy);
+        font-size: .92rem;
+        font-weight: 950;
+    }
+
+    .role-type-text {
+        margin: 0;
+        color: var(--role-bluegray);
+        font-size: .72rem;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .role-name-text {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .role-type-text {
+        color: #cbd5e1;
+    }
+
+    .role-description {
+        display: flex;
+        align-items: flex-start;
+        gap: .6rem;
+        min-width: 280px;
+        color: var(--role-indigo);
+        line-height: 1.45;
+    }
+
+        .role-description i {
+            margin-top: .12rem;
+            color: var(--role-bluegray);
+        }
+
+    [data-theme="dark"] .role-description {
+        color: #cbd5e1;
+    }
+
+        [data-theme="dark"] .role-description i {
+            color: #EAE0CF;
+        }
+
+    .role-security-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .42rem;
+        padding: .48rem .7rem;
+        border-radius: 999px;
+        color: var(--role-navy);
+        background: rgba(234, 224, 207, .55);
+        border: 1px solid rgba(17, 24, 68, .08);
+        font-size: .74rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .role-security-badge {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .08);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+    .role-actions {
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        white-space: nowrap;
+    }
+
+    .role-action-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+    }
+
+        .role-action-btn:hover {
+            transform: translateY(-2px);
+        }
+
+    .role-action-details {
+        color: var(--role-indigo);
+        background: rgba(114, 136, 174, .12);
+        border-color: rgba(114, 136, 174, .16);
+    }
+
+        .role-action-details:hover {
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--role-navy), var(--role-indigo));
+            box-shadow: 0 12px 24px rgba(17, 24, 68, .18);
+        }
+
+    .role-action-edit {
+        color: #92400e;
+        background: rgba(234, 224, 207, .55);
+        border-color: rgba(146, 64, 14, .10);
+    }
+
+        .role-action-edit:hover {
+            color: var(--role-navy);
+            background: #EAE0CF;
+            box-shadow: 0 12px 24px rgba(146, 64, 14, .14);
+        }
+
+    .role-action-delete {
+        color: #dc2626;
+        background: rgba(239, 68, 68, .08);
+        border-color: rgba(239, 68, 68, .14);
+    }
+
+        .role-action-delete:hover {
+            color: #ffffff;
+            background: #dc2626;
+            box-shadow: 0 12px 24px rgba(220, 38, 38, .20);
+        }
+
+    [data-theme="dark"] .role-action-details {
+        color: #cbd5e1;
+        background: rgba(114, 136, 174, .12);
+        border-color: rgba(114, 136, 174, .16);
+    }
+
+        [data-theme="dark"] .role-action-details:hover {
+            color: #111844;
+            background: linear-gradient(135deg, #EAE0CF, #7288AE);
+        }
+
+    [data-theme="dark"] .role-action-edit {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .08);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+        [data-theme="dark"] .role-action-edit:hover {
+            color: #111844;
+            background: #EAE0CF;
+        }
+
+    [data-theme="dark"] .role-action-delete {
+        color: #fca5a5;
+        background: rgba(239, 68, 68, .08);
+        border-color: rgba(248, 113, 113, .14);
+    }
+
+        [data-theme="dark"] .role-action-delete:hover {
+            color: #ffffff;
+            background: #dc2626;
+        }
+
+    .roles-empty {
+        padding: 2.4rem 1rem;
+        text-align: center;
+    }
+
+    .roles-empty-icon {
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 1rem;
+        border-radius: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--role-navy), var(--role-indigo));
+        box-shadow: 0 16px 34px rgba(17, 24, 68, .22), 0 0 0 6px rgba(234, 224, 207, .55);
+        font-size: 1.8rem;
+    }
+
+    .roles-empty h3 {
+        margin: 0 0 .4rem;
+        color: var(--role-navy);
+        font-weight: 950;
+    }
+
+    .roles-empty p {
+        max-width: 420px;
+        margin: 0 auto 1rem;
+        color: var(--role-indigo);
+        font-size: .9rem;
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .roles-empty h3 {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .roles-empty p {
+        color: #cbd5e1;
+    }
+
+    @@media (max-width: 1199.98px) {
+        .roles-hero-content {
+            grid-template-columns: 1fr;
+        }
+
+        .roles-status-panel {
+            max-width: 520px;
+        }
+
+        .roles-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .roles-admin-page {
+            padding: .85rem .75rem 1.4rem;
+        }
+
+        .roles-hero {
+            border-radius: 24px;
+        }
+
+        .roles-hero-actions {
+            flex-direction: column;
+        }
+
+        .roles-btn {
+            width: 100%;
+        }
+
+        .roles-status-mini {
+            grid-template-columns: 1fr;
+        }
+
+        .roles-section-head,
+        .roles-panel-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .roles-count-pill {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .roles-table-wrap {
+            overflow: visible;
+        }
+
+        .roles-table,
+        .roles-table thead,
+        .roles-table tbody,
+        .roles-table tr,
+        .roles-table th,
+        .roles-table td {
+            display: block;
+            width: 100%;
+        }
+
+            .roles-table thead {
+                display: none;
+            }
+
+            .roles-table tbody {
+                display: grid;
+                gap: .85rem;
+                padding: .85rem;
+            }
+
+                .roles-table tbody tr {
+                    border-radius: 20px;
+                    background: rgba(255, 255, 255, .66);
+                    border: 1px solid rgba(17, 24, 68, .08);
+                    box-shadow: 0 14px 30px rgba(17, 24, 68, .08);
+                    overflow: hidden;
+                }
+
+        [data-theme="dark"] .roles-table tbody tr {
+            background: rgba(255, 255, 255, .045);
+            border-color: rgba(234, 224, 207, .09);
+        }
+
+        .roles-table tbody td {
+            display: grid;
+            grid-template-columns: 110px minmax(0, 1fr);
+            gap: .75rem;
+            align-items: center;
+            padding: .75rem .9rem;
+            border-bottom: 1px solid rgba(17, 24, 68, .08);
+        }
+
+        [data-theme="dark"] .roles-table tbody td {
+            border-bottom-color: rgba(234, 224, 207, .08);
+        }
+
+        .roles-table tbody td::before {
+            content: attr(data-label);
+            color: var(--role-bluegray);
+            font-size: .72rem;
+            font-weight: 950;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .role-main-cell,
+        .role-description {
+            min-width: 0;
+        }
+
+        .role-actions {
+            flex-wrap: wrap;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .roles-stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .roles-table tbody td {
+            grid-template-columns: 1fr;
+            gap: .35rem;
+        }
+    }
+</style>
+
+<section class="roles-admin-page">
+    <div class="roles-shell">
+
+        <div class="roles-hero">
+            <div class="roles-hero-content">
+                <div>
+                    <div class="roles-kicker">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>Role Access Control</span>
+                    </div>
+
+                    <h1>Manage Roles</h1>
+
+                    <p>
+                        Create, review, and maintain platform roles so every user gets the correct level of access inside Bachelor&apos;s Point.
+                    </p>
+
+                    <div class="roles-hero-actions">
+                        <a asp-action="Create" class="roles-btn roles-btn-primary">
+                            <i class="fa-solid fa-circle-plus"></i>
+                            Create New Role
+                        </a>
+
+                        <a asp-controller="User" asp-action="Index" class="roles-btn roles-btn-soft">
+                            <i class="fa-solid fa-users-gear"></i>
+                            Manage Users
+                        </a>
+                    </div>
+                </div>
+
+                <div class="roles-status-panel">
+                    <div class="roles-status-top">
+                        <div class="roles-status-icon">
+                            <i class="fa-solid fa-shield-halved"></i>
+                        </div>
+                        <div>
+                            <div class="roles-status-number">@totalRoles</div>
+                            <span>role record(s) configured</span>
+                        </div>
+                    </div>
+
+                    <div class="roles-status-mini">
+                        <div>
+                            <strong>@adminRoles</strong>
+                            <small>Admin</small>
+                        </div>
+                        <div>
+                            <strong>@userRoles</strong>
+                            <small>User</small>
+                        </div>
+                        <div>
+                            <strong>@customRoles</strong>
+                            <small>Custom</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="roles-section">
+            <div class="roles-section-head">
+                <div>
+                    <h2 class="roles-section-title">
+                        <i class="fa-solid fa-chart-simple"></i>
+                        Role Overview
+                    </h2>
+                    <p class="roles-section-subtitle">Quick summary of access groups currently available in the system.</p>
+                </div>
+            </div>
+
+            <div class="roles-stat-grid">
+                <div class="roles-stat-card">
+                    <div class="roles-stat-icon">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </div>
+                    <h3 class="roles-stat-value">@totalRoles</h3>
+                    <p class="roles-stat-label">Total Roles</p>
+                    <p class="roles-stat-hint">All configured permission groups.</p>
+                </div>
+
+                <div class="roles-stat-card">
+                    <div class="roles-stat-icon">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 class="roles-stat-value">@adminRoles</h3>
+                    <p class="roles-stat-label">Admin Roles</p>
+                    <p class="roles-stat-hint">Roles with elevated system control.</p>
+                </div>
+
+                <div class="roles-stat-card">
+                    <div class="roles-stat-icon">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                    <h3 class="roles-stat-value">@userRoles</h3>
+                    <p class="roles-stat-label">User Roles</p>
+                    <p class="roles-stat-hint">Standard platform access groups.</p>
+                </div>
+
+                <div class="roles-stat-card">
+                    <div class="roles-stat-icon">
+                        <i class="fa-solid fa-id-badge"></i>
+                    </div>
+                    <h3 class="roles-stat-value">@customRoles</h3>
+                    <p class="roles-stat-label">Custom Roles</p>
+                    <p class="roles-stat-hint">Special roles outside default access.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="roles-section">
+            <div class="roles-panel">
+                <div class="roles-panel-header">
+                    <div class="roles-panel-heading">
+                        <div class="roles-panel-icon">
+                            <i class="fa-solid fa-shield-virus"></i>
+                        </div>
+                        <div>
+                            <h2>Role Directory</h2>
+                            <p>Review role names, descriptions, and access-control records.</p>
+                        </div>
+                    </div>
+
+                    <span class="roles-count-pill">
+                        <i class="fa-solid fa-database"></i>
+                        @totalRoles records
+                    </span>
+                </div>
+
+                @if (!roles.Any())
+                {
+                    <div class="roles-empty">
+                        <div class="roles-empty-icon">
+                            <i class="fa-solid fa-user-lock"></i>
+                        </div>
+                        <h3>No roles found</h3>
+                        <p>No access roles are configured yet. Create the first role to start managing permissions.</p>
+                        <a asp-action="Create" class="roles-btn roles-btn-primary">
+                            <i class="fa-solid fa-circle-plus"></i>
+                            Create New Role
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <div class="roles-table-wrap">
+                        <table class="roles-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Role</th>
+                                    <th>Description</th>
+                                    <th>Access Type</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var role in roles)
+                                {
+                                    string roleIcon = GetRoleIcon(role.RoleName);
+                                    string roleType = GetRoleType(role.RoleName);
+                                    string roleHint = GetRoleHint(role.RoleName);
+
+                                    <tr>
+                                        <td data-label="ID">
+                                            <span class="role-id-chip">@role.Id</span>
+                                        </td>
+
+                                        <td data-label="Role">
+                                            <div class="role-main-cell">
+                                                <div class="role-avatar">
+                                                    <i class="fa-solid @roleIcon"></i>
+                                                </div>
+                                                <div>
+                                                    <p class="role-name-text">@role.RoleName</p>
+                                                    <p class="role-type-text">@roleType</p>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Description">
+                                            <div class="role-description">
+                                                <i class="fa-solid fa-align-left"></i>
+                                                <span>@(string.IsNullOrWhiteSpace(role.RoleDescription) ? "No description provided for this role." : role.RoleDescription)</span>
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Access">
+                                            <span class="role-security-badge">
+                                                <i class="fa-solid fa-key"></i>
+                                                @roleHint
+                                            </span>
+                                        </td>
+
+                                        <td data-label="Actions">
+                                            <div class="role-actions">
+                                                <a asp-action="Details"
+                                                   asp-route-id="@role.Id"
+                                                   class="role-action-btn role-action-details"
+                                                   title="View details"
+                                                   aria-label="View details for @role.RoleName">
+                                                    <i class="fa-solid fa-eye"></i>
+                                                </a>
+
+                                                <a asp-action="Edit"
+                                                   asp-route-id="@role.Id"
+                                                   class="role-action-btn role-action-edit"
+                                                   title="Edit role"
+                                                   aria-label="Edit @role.RoleName">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </a>
+
+                                                <a asp-action="Delete"
+                                                   asp-route-id="@role.Id"
+                                                   class="role-action-btn role-action-delete"
+                                                   title="Delete role"
+                                                   aria-label="Delete @role.RoleName">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+</section>
+a

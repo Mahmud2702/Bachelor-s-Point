@@ -1,40 +1,1266 @@
 @model IEnumerable<User>
 @{
     ViewData["Title"] = "Manage Users";
+
+    var users = (Model ?? Enumerable.Empty<User>()).ToList();
+    int totalUsers = users.Count;
+    int adminUsers = users.Count(u => string.Equals(u.Role?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase));
+    int regularUsers = users.Count(u => string.Equals(u.Role?.RoleName, "User", StringComparison.OrdinalIgnoreCase));
+    int recentlyActive = users.Count(u => u.LastLogin.HasValue && u.LastLogin.Value >= DateTime.Now.AddDays(-7));
+    int verifiedPayments = users.Count(u => u.IsPaymentVerified);
 }
 
-<h2>Manage Users</h2>
+@functions {
+    string GetInitials(User user)
+    {
+        var name = !string.IsNullOrWhiteSpace(user.FullName) ? user.FullName : user.UserName;
 
-<table class="table table-bordered table-striped">
-    <thead>
-        <tr>
-            <th>Id</th>
-            <th>User Name</th>
-            <th>Email</th>
-            <th>Address</th>
-            <th>Role</th>
-            <th>Last Login</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var user in Model)
+        if (string.IsNullOrWhiteSpace(name))
         {
-            <tr>
-                <td>@user.Id</td>
-                <td>@user.UserName</td>
-                <td>@user.Email</td>
-                <td>@user.Address</td>
-                <td>@user.Role?.RoleName</td>
-                <td>
-                    @(user.LastLogin?.ToString("dd-MMM-yyyy hh:mm tt") ?? "Never")
-                </td>
-                <td>
-                    <a asp-action="Details" asp-route-id="@user.Id" class="btn btn-info btn-sm">Details</a>
-                    <a asp-action="Edit" asp-route-id="@user.Id" class="btn btn-warning btn-sm">Edit</a>
-                    <a asp-action="Delete" asp-route-id="@user.Id" class="btn btn-danger btn-sm">Delete</a>
-                </td>
-            </tr>
+            return "U";
         }
-    </tbody>
-</table>
+
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 1)
+        {
+            return parts[0].Substring(0, 1).ToUpperInvariant();
+        }
+
+        return (parts[0].Substring(0, 1) + parts[^1].Substring(0, 1)).ToUpperInvariant();
+    }
+
+    string GetRoleClass(User user)
+    {
+        var role = user.Role?.RoleName ?? "User";
+        return role.Equals("Admin", StringComparison.OrdinalIgnoreCase) ? "admin" : "user";
+    }
+
+    string FormatLastLogin(DateTime? lastLogin)
+    {
+        return lastLogin?.ToString("dd MMM yyyy, hh:mm tt") ?? "Never";
+    }
+}
+
+<style>
+    /*
+            Manage Users Page UI/UX
+            Palette:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
+
+            Only UI changed. No route/controller/model/database logic changed.
+        */
+
+    :root {
+        --mu-navy: #111844;
+        --mu-indigo: #4B5694;
+        --mu-bluegray: #7288AE;
+        --mu-beige: #EAE0CF;
+        --mu-white: rgba(255, 255, 255, .90);
+        --mu-border: rgba(17, 24, 68, .12);
+        --mu-shadow: 0 22px 60px rgba(17, 24, 68, .12);
+        --mu-shadow-hover: 0 28px 78px rgba(17, 24, 68, .18);
+    }
+
+    body:has(.manage-users-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .12), transparent 30%), radial-gradient(circle at 94% 88%, rgba(234, 224, 207, .58), transparent 34%), linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
+
+    [data-theme="dark"] body:has(.manage-users-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .14), transparent 30%), radial-gradient(circle at 94% 88%, rgba(75, 86, 148, .24), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
+    }
+
+    .manage-users-page {
+        position: relative;
+        min-height: calc(100dvh - 150px);
+        padding: 1.15rem 1rem 2rem;
+    }
+
+        .manage-users-page::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 78%);
+            pointer-events: none;
+        }
+
+    [data-theme="dark"] .manage-users-page::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .mu-shell {
+        width: min(100%, 1320px);
+        margin: 0 auto;
+    }
+
+    .mu-hero {
+        position: relative;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+        align-items: center;
+        gap: 1.25rem;
+        padding: clamp(1.35rem, 3vw, 2.2rem);
+        border-radius: 30px;
+        color: #ffffff;
+        background: radial-gradient(circle at 92% 18%, rgba(234, 224, 207, .34), transparent 28%), linear-gradient(135deg, var(--mu-navy) 0%, var(--mu-indigo) 58%, var(--mu-bluegray) 100%);
+        border: 1px solid rgba(255, 255, 255, .14);
+        box-shadow: var(--mu-shadow);
+    }
+
+        .mu-hero::before {
+            content: "";
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            right: -120px;
+            top: -145px;
+            border-radius: 50%;
+            background: rgba(234, 224, 207, .18);
+            pointer-events: none;
+        }
+
+        .mu-hero::after {
+            content: "";
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            left: -120px;
+            bottom: -150px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .10);
+            pointer-events: none;
+        }
+
+    .mu-hero-main,
+    .mu-hero-panel {
+        position: relative;
+        z-index: 1;
+    }
+
+    .mu-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .45rem .85rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .16);
+        color: #ffffff;
+        font-size: .78rem;
+        font-weight: 850;
+        border: 1px solid rgba(234, 224, 207, .22);
+        margin-bottom: .85rem;
+    }
+
+    .mu-hero h1 {
+        margin: 0 0 .55rem;
+        font-size: clamp(2rem, 4vw, 3.7rem);
+        line-height: 1;
+        letter-spacing: -1.8px;
+        font-weight: 950;
+    }
+
+    .mu-hero p {
+        max-width: 680px;
+        margin: 0;
+        color: rgba(255, 255, 255, .76);
+        font-size: clamp(.94rem, 1.2vw, 1.06rem);
+        line-height: 1.6;
+        font-weight: 500;
+    }
+
+    .mu-hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-top: 1.2rem;
+    }
+
+    .mu-btn {
+        min-height: 42px;
+        border-radius: 14px;
+        padding: .7rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .55rem;
+        font-size: .86rem;
+        font-weight: 850;
+        text-decoration: none;
+        border: none;
+        transition: box-shadow .22s ease, filter .22s ease, transform .22s ease, background .22s ease;
+    }
+
+    .mu-btn-primary {
+        background: #ffffff;
+        color: var(--mu-navy);
+        box-shadow: 0 14px 30px rgba(0, 0, 0, .16);
+    }
+
+        .mu-btn-primary:hover {
+            color: var(--mu-navy);
+            filter: brightness(1.04);
+            transform: translateY(-2px);
+            box-shadow: 0 18px 38px rgba(0, 0, 0, .22), 0 0 0 5px rgba(234, 224, 207, .20);
+        }
+
+    .mu-btn-soft {
+        background: rgba(255, 255, 255, .12);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+        .mu-btn-soft:hover {
+            background: rgba(255, 255, 255, .18);
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+
+    .mu-hero-panel {
+        border-radius: 24px;
+        padding: 1.1rem;
+        background: rgba(255, 255, 255, .13);
+        border: 1px solid rgba(255, 255, 255, .16);
+        backdrop-filter: blur(16px);
+    }
+
+    .mu-panel-number {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        margin-bottom: .9rem;
+    }
+
+    .mu-panel-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: rgba(255, 255, 255, .14);
+        box-shadow: 0 0 0 5px rgba(234, 224, 207, .10);
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+
+    .mu-panel-number strong {
+        display: block;
+        color: #ffffff;
+        font-size: 2rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .mu-panel-number span {
+        color: rgba(255, 255, 255, .76);
+        font-size: .82rem;
+        font-weight: 750;
+    }
+
+    .mu-panel-mini {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .55rem;
+    }
+
+        .mu-panel-mini div {
+            border-radius: 16px;
+            padding: .7rem .5rem;
+            background: rgba(255, 255, 255, .10);
+            text-align: center;
+        }
+
+        .mu-panel-mini strong {
+            display: block;
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 950;
+        }
+
+        .mu-panel-mini small {
+            color: rgba(255, 255, 255, .68);
+            font-size: .66rem;
+            font-weight: 750;
+        }
+
+    .mu-section {
+        margin-top: 1.25rem;
+    }
+
+    .mu-section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: .85rem;
+    }
+
+    .mu-section-title {
+        margin: 0;
+        color: var(--mu-navy);
+        font-size: 1.14rem;
+        font-weight: 950;
+        letter-spacing: -.45px;
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+    }
+
+        .mu-section-title i {
+            color: var(--mu-indigo);
+        }
+
+    .mu-section-subtitle {
+        margin: .25rem 0 0;
+        color: var(--mu-indigo);
+        font-size: .84rem;
+        font-weight: 650;
+    }
+
+    [data-theme="dark"] .mu-section-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .mu-section-subtitle {
+        color: #cbd5e1;
+    }
+
+    .mu-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: .9rem;
+    }
+
+    .mu-stat-card {
+        position: relative;
+        overflow: hidden;
+        min-height: 138px;
+        border-radius: 24px;
+        padding: 1rem;
+        background: var(--mu-white);
+        border: 1px solid var(--mu-border);
+        box-shadow: var(--mu-shadow);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+        .mu-stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--mu-shadow-hover);
+            border-color: rgba(75, 86, 148, .28);
+        }
+
+        .mu-stat-card::after {
+            content: "";
+            position: absolute;
+            width: 112px;
+            height: 112px;
+            right: -46px;
+            top: -48px;
+            border-radius: 36px;
+            background: rgba(234, 224, 207, .42);
+            transform: rotate(18deg);
+        }
+
+    [data-theme="dark"] .mu-stat-card {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, .30);
+    }
+
+        [data-theme="dark"] .mu-stat-card::after {
+            background: rgba(234, 224, 207, .08);
+        }
+
+    .mu-stat-icon {
+        position: relative;
+        z-index: 1;
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--mu-navy), var(--mu-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .20);
+        margin-bottom: .8rem;
+    }
+
+    .mu-stat-value {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--mu-navy);
+        font-size: 1.65rem;
+        font-weight: 950;
+        line-height: 1;
+        letter-spacing: -.8px;
+    }
+
+    .mu-stat-label {
+        position: relative;
+        z-index: 1;
+        margin: .35rem 0 .12rem;
+        color: var(--mu-indigo);
+        font-size: .82rem;
+        font-weight: 850;
+    }
+
+    .mu-stat-hint {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--mu-bluegray);
+        font-size: .72rem;
+        font-weight: 650;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .mu-stat-value {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .mu-stat-label {
+        color: #EAE0CF;
+    }
+
+    [data-theme="dark"] .mu-stat-hint {
+        color: #cbd5e1;
+    }
+
+    .mu-user-panel {
+        position: relative;
+        overflow: hidden;
+        border-radius: 28px;
+        background: var(--mu-white);
+        border: 1px solid var(--mu-border);
+        box-shadow: var(--mu-shadow);
+    }
+
+    [data-theme="dark"] .mu-user-panel {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+        box-shadow: 0 22px 60px rgba(0, 0, 0, .30);
+    }
+
+    .mu-panel-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1rem .9rem;
+        border-bottom: 1px solid rgba(17, 24, 68, .10);
+        background: radial-gradient(circle at 95% 20%, rgba(234, 224, 207, .50), transparent 32%), rgba(255, 255, 255, .45);
+    }
+
+    [data-theme="dark"] .mu-panel-top {
+        border-bottom-color: rgba(234, 224, 207, .10);
+        background: radial-gradient(circle at 95% 20%, rgba(234, 224, 207, .08), transparent 32%), rgba(255, 255, 255, .035);
+    }
+
+    .mu-panel-title {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        color: var(--mu-navy);
+        font-size: 1rem;
+        font-weight: 950;
+        letter-spacing: -.25px;
+    }
+
+        .mu-panel-title i {
+            width: 38px;
+            height: 38px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--mu-navy), var(--mu-indigo));
+            box-shadow: 0 12px 24px rgba(17, 24, 68, .16);
+        }
+
+    [data-theme="dark"] .mu-panel-title {
+        color: #f8fafc;
+    }
+
+    .mu-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .35rem;
+        min-height: 32px;
+        padding: .35rem .75rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .60);
+        color: var(--mu-navy);
+        font-size: .76rem;
+        font-weight: 850;
+        border: 1px solid rgba(17, 24, 68, .08);
+    }
+
+    [data-theme="dark"] .mu-badge {
+        background: rgba(234, 224, 207, .10);
+        color: #EAE0CF;
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+    .mu-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .mu-user-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+    }
+
+        .mu-user-table thead th {
+            padding: .85rem .9rem;
+            background: rgba(234, 224, 207, .28);
+            border-bottom: 1px solid rgba(17, 24, 68, .10);
+            color: var(--mu-indigo);
+            font-size: .74rem;
+            font-weight: 950;
+            text-transform: uppercase;
+            letter-spacing: .55px;
+            white-space: nowrap;
+        }
+
+    [data-theme="dark"] .mu-user-table thead th {
+        background: rgba(234, 224, 207, .06);
+        border-bottom-color: rgba(234, 224, 207, .10);
+        color: #EAE0CF;
+    }
+
+    .mu-user-table tbody td {
+        padding: .9rem;
+        vertical-align: middle;
+        border-bottom: 1px solid rgba(17, 24, 68, .08);
+        color: var(--mu-navy);
+        font-size: .88rem;
+        font-weight: 600;
+    }
+
+    .mu-user-table tbody tr {
+        transition: background .2s ease, transform .2s ease, box-shadow .2s ease;
+    }
+
+        .mu-user-table tbody tr:hover {
+            background: rgba(234, 224, 207, .25);
+        }
+
+        .mu-user-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+    [data-theme="dark"] .mu-user-table tbody td {
+        border-bottom-color: rgba(234, 224, 207, .08);
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .mu-user-table tbody tr:hover {
+        background: rgba(234, 224, 207, .055);
+    }
+
+    .mu-user-id {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        background: rgba(114, 136, 174, .14);
+        color: var(--mu-indigo);
+        font-size: .78rem;
+        font-weight: 950;
+    }
+
+    [data-theme="dark"] .mu-user-id {
+        background: rgba(234, 224, 207, .08);
+        color: #EAE0CF;
+    }
+
+    .mu-user-main {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        min-width: 175px;
+    }
+
+    .mu-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 15px;
+        overflow: hidden;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--mu-navy), var(--mu-indigo));
+        box-shadow: 0 10px 22px rgba(17, 24, 68, .18), 0 0 0 4px rgba(234, 224, 207, .45);
+        font-size: .9rem;
+        font-weight: 950;
+    }
+
+        .mu-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+    [data-theme="dark"] .mu-avatar {
+        box-shadow: 0 12px 26px rgba(0, 0, 0, .30), 0 0 0 4px rgba(234, 224, 207, .10);
+    }
+
+    .mu-user-name {
+        display: block;
+        color: var(--mu-navy);
+        font-size: .9rem;
+        font-weight: 950;
+        line-height: 1.15;
+    }
+
+    .mu-user-sub {
+        display: block;
+        margin-top: .18rem;
+        color: var(--mu-bluegray);
+        font-size: .72rem;
+        font-weight: 700;
+        max-width: 220px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    [data-theme="dark"] .mu-user-name {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .mu-user-sub {
+        color: #cbd5e1;
+    }
+
+    .mu-email {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        max-width: 300px;
+        color: var(--mu-indigo);
+        font-weight: 750;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+        .mu-email i,
+        .mu-address i,
+        .mu-login i {
+            color: var(--mu-bluegray);
+            flex-shrink: 0;
+        }
+
+    [data-theme="dark"] .mu-email {
+        color: #cbd5e1;
+    }
+
+    .mu-address,
+    .mu-login {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        color: var(--mu-indigo);
+        max-width: 190px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    [data-theme="dark"] .mu-address,
+    [data-theme="dark"] .mu-login {
+        color: #cbd5e1;
+    }
+
+    .mu-role-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        min-height: 32px;
+        padding: .35rem .65rem;
+        border-radius: 999px;
+        font-size: .74rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+        .mu-role-pill.admin {
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--mu-navy), var(--mu-indigo));
+            box-shadow: 0 10px 20px rgba(17, 24, 68, .16);
+        }
+
+        .mu-role-pill.user {
+            color: var(--mu-navy);
+            background: rgba(234, 224, 207, .70);
+            border: 1px solid rgba(17, 24, 68, .08);
+        }
+
+    [data-theme="dark"] .mu-role-pill.user {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .10);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+    .mu-pay-status {
+        display: inline-flex;
+        align-items: center;
+        gap: .38rem;
+        min-height: 30px;
+        padding: .32rem .6rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+        .mu-pay-status.verified {
+            color: #047857;
+            background: rgba(16, 185, 129, .12);
+        }
+
+        .mu-pay-status.pending {
+            color: #b45309;
+            background: rgba(245, 158, 11, .14);
+        }
+
+    [data-theme="dark"] .mu-pay-status.verified {
+        color: #86efac;
+        background: rgba(16, 185, 129, .13);
+    }
+
+    [data-theme="dark"] .mu-pay-status.pending {
+        color: #fde68a;
+        background: rgba(245, 158, 11, .13);
+    }
+
+    .mu-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: .45rem;
+        white-space: nowrap;
+    }
+
+    .mu-action-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform .2s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+    }
+
+        .mu-action-btn:hover {
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+
+    .mu-action-details {
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--mu-navy), var(--mu-indigo));
+        box-shadow: 0 10px 22px rgba(17, 24, 68, .16);
+    }
+
+    .mu-action-edit {
+        color: var(--mu-navy);
+        background: rgba(234, 224, 207, .78);
+        border-color: rgba(17, 24, 68, .08);
+    }
+
+    .mu-action-delete {
+        color: #ffffff;
+        background: linear-gradient(135deg, #dc2626, #f87171);
+        box-shadow: 0 10px 22px rgba(220, 38, 38, .14);
+    }
+
+    .mu-action-details:hover {
+        color: #ffffff;
+        filter: brightness(1.07);
+        box-shadow: 0 14px 28px rgba(17, 24, 68, .22), 0 0 0 5px rgba(234, 224, 207, .38);
+    }
+
+    .mu-action-edit:hover {
+        color: var(--mu-navy);
+        background: rgba(234, 224, 207, .95);
+        box-shadow: 0 12px 26px rgba(17, 24, 68, .10);
+    }
+
+    .mu-action-delete:hover {
+        color: #ffffff;
+        filter: brightness(1.04);
+        box-shadow: 0 14px 28px rgba(220, 38, 38, .20), 0 0 0 5px rgba(248, 113, 113, .12);
+    }
+
+    [data-theme="dark"] .mu-action-edit {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .10);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+        [data-theme="dark"] .mu-action-edit:hover {
+            color: #111844;
+            background: #EAE0CF;
+        }
+
+    .mu-empty {
+        padding: 1.1rem;
+        border-radius: 20px;
+        background: rgba(234, 224, 207, .38);
+        color: var(--mu-indigo);
+        font-size: .88rem;
+        font-weight: 750;
+        display: flex;
+        gap: .65rem;
+        align-items: center;
+    }
+
+    [data-theme="dark"] .mu-empty {
+        background: rgba(234, 224, 207, .08);
+        color: #cbd5e1;
+    }
+
+    @@media (max-width: 1199.98px) {
+        .mu-stat-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .mu-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .mu-hero-panel {
+            max-width: 520px;
+        }
+    }
+
+    @@media (max-width: 991.98px) {
+        .mu-user-table {
+            min-width: 900px;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .manage-users-page {
+            padding: .9rem .75rem 1.5rem;
+        }
+
+        .mu-hero {
+            border-radius: 24px;
+        }
+
+        .mu-hero-actions {
+            flex-direction: column;
+        }
+
+        .mu-btn {
+            width: 100%;
+        }
+
+        .mu-panel-mini {
+            grid-template-columns: 1fr;
+        }
+
+        .mu-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .mu-section-head {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .mu-panel-top {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .mu-table-wrap {
+            overflow: visible;
+        }
+
+        .mu-user-table,
+        .mu-user-table thead,
+        .mu-user-table tbody,
+        .mu-user-table th,
+        .mu-user-table td,
+        .mu-user-table tr {
+            display: block;
+            min-width: 0;
+        }
+
+            .mu-user-table thead {
+                display: none;
+            }
+
+            .mu-user-table tbody {
+                display: grid;
+                gap: .85rem;
+                padding: .9rem;
+            }
+
+                .mu-user-table tbody tr {
+                    border-radius: 22px;
+                    padding: .85rem;
+                    background: rgba(255, 255, 255, .68);
+                    border: 1px solid rgba(17, 24, 68, .10);
+                    box-shadow: 0 14px 32px rgba(17, 24, 68, .08);
+                }
+
+        [data-theme="dark"] .mu-user-table tbody tr {
+            background: rgba(255, 255, 255, .045);
+            border-color: rgba(234, 224, 207, .10);
+        }
+
+        .mu-user-table tbody td {
+            display: grid;
+            grid-template-columns: 120px minmax(0, 1fr);
+            gap: .75rem;
+            align-items: center;
+            padding: .55rem 0;
+            border-bottom: 1px solid rgba(17, 24, 68, .07);
+        }
+
+        [data-theme="dark"] .mu-user-table tbody td {
+            border-bottom-color: rgba(234, 224, 207, .08);
+        }
+
+        .mu-user-table tbody td:last-child {
+            border-bottom: none;
+        }
+
+        .mu-user-table tbody td::before {
+            content: attr(data-label);
+            color: var(--mu-indigo);
+            font-size: .72rem;
+            font-weight: 950;
+            text-transform: uppercase;
+            letter-spacing: .45px;
+        }
+
+        [data-theme="dark"] .mu-user-table tbody td::before {
+            color: #EAE0CF;
+        }
+
+        .mu-actions {
+            justify-content: flex-start;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .mu-stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .mu-user-table tbody td {
+            grid-template-columns: 1fr;
+            gap: .35rem;
+        }
+
+        .mu-hero h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+
+<section class="manage-users-page">
+    <div class="mu-shell">
+
+        <div class="mu-hero">
+            <div class="mu-hero-main">
+                <div class="mu-kicker">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>User Administration</span>
+                </div>
+
+                <h1>Manage Users</h1>
+
+                <p>
+                    Review user accounts, roles, login activity, and account status from one organized admin workspace.
+                </p>
+
+                <div class="mu-hero-actions">
+                    <a asp-controller="Payment" asp-action="AdminPayments" class="mu-btn mu-btn-primary">
+                        <i class="fa-solid fa-money-check-dollar"></i>
+                        Review Payments
+                    </a>
+
+                    <a asp-controller="Role" asp-action="Index" class="mu-btn mu-btn-soft">
+                        <i class="fa-solid fa-user-shield"></i>
+                        Manage Roles
+                    </a>
+
+                    <a asp-controller="Kyc" asp-action="LoginActivity" class="mu-btn mu-btn-soft">
+                        <i class="fa-solid fa-chart-line"></i>
+                        Login Activity
+                    </a>
+                </div>
+            </div>
+
+            <div class="mu-hero-panel">
+                <div class="mu-panel-number">
+                    <div class="mu-panel-icon">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div>
+                        <strong>@totalUsers</strong>
+                        <span>registered account(s)</span>
+                    </div>
+                </div>
+
+                <div class="mu-panel-mini">
+                    <div>
+                        <strong>@adminUsers</strong>
+                        <small>Admins</small>
+                    </div>
+                    <div>
+                        <strong>@regularUsers</strong>
+                        <small>Users</small>
+                    </div>
+                    <div>
+                        <strong>@recentlyActive</strong>
+                        <small>Active 7d</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mu-section">
+            <div class="mu-section-head">
+                <div>
+                    <h2 class="mu-section-title">
+                        <i class="fa-solid fa-chart-simple"></i>
+                        User Overview
+                    </h2>
+                    <p class="mu-section-subtitle">Quick summary of registered accounts and platform activity.</p>
+                </div>
+            </div>
+
+            <div class="mu-stat-grid">
+                <div class="mu-stat-card">
+                    <div class="mu-stat-icon">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <h3 class="mu-stat-value">@totalUsers</h3>
+                    <p class="mu-stat-label">Total Users</p>
+                    <p class="mu-stat-hint"S>All accounts registered on the platform.</p>
+                </div>
+
+                <div class="mu-stat-card">
+                    <div class="mu-stat-icon">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 class="mu-stat-value">@adminUsers</h3>
+                    <p class="mu-stat-label">Admins</p>
+                    <p class="mu-stat-hint">Accounts with admin-level access.</p>
+                </div>
+
+                <div class="mu-stat-card">
+                    <div class="mu-stat-icon">
+                        <i class="fa-solid fa-user-check"></i>
+                    </div>
+                    <h3 class="mu-stat-value">@regularUsers</h3>
+                    <p class="mu-stat-label">Regular Users</p>
+                    <p class="mu-stat-hint">Room seekers and room owners.</p>
+                </div>
+
+                <div class="mu-stat-card">
+                    <div class="mu-stat-icon">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <h3 class="mu-stat-value">@recentlyActive</h3>
+                    <p class="mu-stat-label">Active Recently</p>
+                    <p class="mu-stat-hint">Users who logged in within 7 days.</p>
+                </div>
+
+                <div class="mu-stat-card">
+                    <div class="mu-stat-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <h3 class="mu-stat-value">@verifiedPayments</h3>
+                    <p class="mu-stat-label">Payment Verified</p>
+                    <p class="mu-stat-hint">Accounts with verified payment status.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mu-section">
+            <div class="mu-user-panel">
+                <div class="mu-panel-top">
+                    <div>
+                        <h2 class="mu-panel-title">
+                            <i class="fa-solid fa-address-book"></i>
+                            User Directory
+                        </h2>
+                        <p class="mu-section-subtitle">View user identity, role, login status, and available account actions.</p>
+                    </div>
+
+                    <span class="mu-badge">
+                        <i class="fa-solid fa-database"></i>
+                        @totalUsers record(s)
+                    </span>
+                </div>
+
+                @if (!users.Any())
+                {
+                    <div class="p-3">
+                        <div class="mu-empty">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>No users found in the system.</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="mu-table-wrap">
+                        <table class="mu-user-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>User</th>
+                                    <th>Email</th>
+                                    <th>Address</th>
+                                    <th>Role</th>
+                                    <th>Payment</th>
+                                    <th>Last Login</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in users)
+                                {
+                                    var roleName = user.Role?.RoleName ?? "User";
+                                    var roleClass = GetRoleClass(user);
+
+                                    <tr>
+                                        <td data-label="ID">
+                                            <span class="mu-user-id">@user.Id</span>
+                                        </td>
+
+                                        <td data-label="User">
+                                            <div class="mu-user-main">
+                                                <div class="mu-avatar">
+                                                    @if (!string.IsNullOrWhiteSpace(user.ProfilePicturePath))
+                                                    {
+                                                        <img src="@user.ProfilePicturePath" alt="@user.UserName" />
+                                                    }
+                                                    else
+                                                    {
+                                                        @GetInitials(user)
+                                                    }
+                                                </div>
+
+                                                <div>
+                                                    <span class="mu-user-name">@(user.FullName ?? user.UserName)</span>
+                                                    <span class="mu-user-sub">@@@user.UserName</span>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <td data-label="Email">
+                                            <span class="mu-email" title="@user.Email">
+                                                <i class="fa-solid fa-envelope"></i>
+                                                @user.Email
+                                            </span>
+                                        </td>
+
+                                        <td data-label="Address">
+                                            <span class="mu-address" title="@(user.Address ?? "No address")">
+                                                <i class="fa-solid fa-location-dot"></i>
+                                                @(string.IsNullOrWhiteSpace(user.Address) ? "No address" : user.Address)
+                                            </span>
+                                        </td>
+
+                                        <td data-label="Role">
+                                            <span class="mu-role-pill @roleClass">
+                                                <i class="fa-solid @(roleClass == "admin" ? "fa-user-shield" : "fa-user")"></i>
+                                                @roleName
+                                            </span>
+                                        </td>
+
+                                        <td data-label="Payment">
+                                            @if (user.IsPaymentVerified)
+                                            {
+                                                <span class="mu-pay-status verified">
+                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    Verified
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="mu-pay-status pending">
+                                                    <i class="fa-solid fa-clock"></i>
+                                                    Pending
+                                                </span>
+                                            }
+                                        </td>
+
+                                        <td data-label="Last Login">
+                                            <span class="mu-login">
+                                                <i class="fa-solid fa-right-to-bracket"></i>
+                                                @FormatLastLogin(user.LastLogin)
+                                            </span>
+                                        </td>
+
+                                        <td data-label="Actions">
+                                            <div class="mu-actions">
+                                                <a asp-action="Details"
+                                                   asp-route-id="@user.Id"
+                                                   class="mu-action-btn mu-action-details"
+                                                   title="View details"
+                                                   aria-label="View details for @user.UserName">
+                                                    <i class="fa-solid fa-eye"></i>
+                                                </a>
+
+                                                <a asp-action="Edit"
+                                                   asp-route-id="@user.Id"
+                                                   class="mu-action-btn mu-action-edit"
+                                                   title="Edit user"
+                                                   aria-label="Edit @user.UserName">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </a>
+
+                                                <a asp-action="Delete"
+                                                   asp-route-id="@user.Id"
+                                                   class="mu-action-btn mu-action-delete"
+                                                   title="Delete user"
+                                                   aria-label="Delete @user.UserName">
+                                                    <i class="fa-solid fa-trash-can"></i>
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+</section>

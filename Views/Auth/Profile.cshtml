@@ -1,67 +1,901 @@
 @model User
 @{
     ViewData["Title"] = "My Profile";
+
     var postedRooms = ViewBag.PostedRooms as List<Room> ?? new List<Room>();
     var selections = ViewBag.Selections as List<RoomSelection> ?? new List<RoomSelection>();
     var incomingSelections = ViewBag.IncomingSelections as List<RoomSelection> ?? new List<RoomSelection>();
-    bool hasPic = !string.IsNullOrEmpty(Model.ProfilePicturePath);
+
+    bool hasPic = !string.IsNullOrWhiteSpace(Model.ProfilePicturePath);
+    string displayName = !string.IsNullOrWhiteSpace(Model.FullName) ? Model.FullName : Model.UserName;
+    string username = !string.IsNullOrWhiteSpace(Model.UserName) ? Model.UserName : "user";
+    string roleName = Model.Role?.RoleName ?? "User";
+    string addressText = !string.IsNullOrWhiteSpace(Model.Address) ? Model.Address : "Address not added";
+    string phoneText = !string.IsNullOrWhiteSpace(Model.PhoneNumber) ? Model.PhoneNumber : "Phone not added";
+    string lastLoginText = Model.LastLogin.HasValue ? Model.LastLogin.Value.ToString("dd-MMM-yyyy") : "Not recorded";
+
+    int pendingPosted = postedRooms.Count(r => !r.IsApproved);
+    int activePosted = postedRooms.Count(r => r.IsApproved && r.IsAvailable);
+    int closedPosted = postedRooms.Count(r => r.IsApproved && !r.IsAvailable);
+    int totalActivity = postedRooms.Count + selections.Count + incomingSelections.Count;
+
+    string GetInitials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+
+        var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+        {
+            return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        }
+
+        return (parts[0][0].ToString() + parts[^1][0].ToString()).ToUpper();
+    }
+
+    string ShortText(string? text, int max = 70)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "No message added.";
+        return text.Length <= max ? text : text.Substring(0, max) + "...";
+    }
 }
 
 <style>
-    .profile-avatar-wrapper {
-        position: relative; display: inline-block;
-        width: 96px; height: 96px;
+    /*
+            Premium Profile Page UI
+            Palette:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
+        */
+
+    :root {
+        --pf-navy: #111844;
+        --pf-indigo: #4B5694;
+        --pf-bluegray: #7288AE;
+        --pf-beige: #EAE0CF;
+        --pf-card: rgba(255, 255, 255, .88);
+        --pf-border: rgba(17, 24, 68, .12);
+        --pf-muted: #65738a;
+        --pf-shadow: 0 20px 55px rgba(17, 24, 68, .10);
+        --pf-shadow-hover: 0 28px 70px rgba(17, 24, 68, .16);
     }
-    .profile-pic {
-        width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
-        border: 3px solid #e3e8ef; display: block;
+
+    body:has(.profile-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .11), transparent 30%), radial-gradient(circle at 94% 88%, rgba(234, 224, 207, .58), transparent 34%), linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
     }
-    .profile-default-avatar {
-        width: 96px; height: 96px; border-radius: 50%;
-        background: #e7f9ee; color: #15803d;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 2.6rem; border: 3px solid #e3e8ef;
+
+    [data-theme="dark"] body:has(.profile-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .13), transparent 30%), radial-gradient(circle at 94% 88%, rgba(75, 86, 148, .23), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
     }
-    .profile-pic-edit {
-        position: absolute; bottom: 0; right: 0;
-        background: #2563eb; color: white;
-        width: 32px; height: 32px; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-        font-size: 0.95rem; border: 3px solid white;
-        transition: background 0.15s ease;
+
+    .profile-page {
+        position: relative;
+        padding: 1.1rem 1rem 2rem;
     }
-    .profile-pic-edit:hover { background: #1d4ed8; }
-    .request-message {
-        background:#f6f8fb; border-left:3px solid #2563eb;
-        padding: 0.5rem 0.75rem; border-radius: 6px; margin-top: 0.4rem;
+
+        .profile-page::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 76%);
+            pointer-events: none;
+        }
+
+    [data-theme="dark"] .profile-page::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .profile-shell {
+        width: min(100%, 1320px);
+        margin: 0 auto;
+    }
+
+    .profile-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 32px;
+        padding: clamp(1.25rem, 3vw, 2rem);
+        background: radial-gradient(circle at 92% 12%, rgba(234, 224, 207, .34), transparent 30%), linear-gradient(135deg, var(--pf-navy) 0%, var(--pf-indigo) 58%, var(--pf-bluegray) 100%);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, .14);
+        box-shadow: var(--pf-shadow);
+    }
+
+        .profile-hero::before {
+            content: "";
+            position: absolute;
+            width: 390px;
+            height: 390px;
+            right: -150px;
+            top: -155px;
+            border-radius: 50%;
+            background: rgba(234, 224, 207, .18);
+            pointer-events: none;
+        }
+
+        .profile-hero::after {
+            content: "";
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            left: -120px;
+            bottom: -150px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .10);
+            pointer-events: none;
+        }
+
+    .profile-hero-inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) minmax(260px, .36fr);
+        gap: 1.25rem;
+        align-items: center;
+    }
+
+    .profile-avatar-form {
+        margin: 0;
+    }
+
+    .profile-avatar-wrap {
+        position: relative;
+        width: clamp(116px, 12vw, 148px);
+        height: clamp(116px, 12vw, 148px);
+    }
+
+    .profile-photo,
+    .profile-avatar-fallback {
+        width: 100%;
+        height: 100%;
+        border-radius: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        object-fit: cover;
+        border: 1px solid rgba(255, 255, 255, .28);
+        box-shadow: 0 22px 45px rgba(0, 0, 0, .22), 0 0 0 8px rgba(234, 224, 207, .16);
+    }
+
+    .profile-avatar-fallback {
+        background: radial-gradient(circle at 30% 20%, rgba(234, 224, 207, .40), transparent 30%), linear-gradient(135deg, #ffffff, var(--pf-beige));
+        color: var(--pf-navy);
+        font-size: clamp(2.1rem, 4vw, 3rem);
+        font-weight: 950;
+        letter-spacing: -1px;
+    }
+
+    .profile-photo-edit {
+        position: absolute;
+        right: -8px;
+        bottom: 10px;
+        width: 44px;
+        height: 44px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pf-navy), var(--pf-indigo));
+        border: 3px solid rgba(255, 255, 255, .92);
+        box-shadow: 0 16px 28px rgba(17, 24, 68, .26);
+        cursor: pointer;
+        transition: box-shadow .22s ease, filter .22s ease, transform .22s ease;
+    }
+
+        .profile-photo-edit:hover {
+            filter: brightness(1.07);
+            transform: translateY(-2px);
+            box-shadow: 0 18px 34px rgba(17, 24, 68, .30), 0 0 0 5px rgba(234, 224, 207, .35);
+        }
+
+    .profile-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .43rem .75rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .16);
+        color: #ffffff;
+        border: 1px solid rgba(234, 224, 207, .20);
+        font-size: .78rem;
+        font-weight: 850;
+        margin-bottom: .8rem;
+    }
+
+    .profile-name {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3.8rem);
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: -1.8px;
+    }
+
+    .profile-username {
+        margin: .42rem 0 0;
+        color: rgba(255, 255, 255, .70);
+        font-size: 1.02rem;
+        font-weight: 750;
+    }
+
+    .profile-contact-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .65rem;
+        margin-top: 1rem;
+    }
+
+    .profile-chip {
+        min-height: 38px;
+        padding: .55rem .75rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        background: rgba(255, 255, 255, .12);
+        color: rgba(255, 255, 255, .82);
+        border: 1px solid rgba(255, 255, 255, .14);
+        font-size: .83rem;
+        font-weight: 700;
+        max-width: 100%;
+    }
+
+        .profile-chip span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .profile-chip i {
+            color: var(--pf-beige);
+            flex-shrink: 0;
+        }
+
+    .profile-side-panel {
+        border-radius: 24px;
+        padding: 1rem;
+        background: rgba(255, 255, 255, .13);
+        border: 1px solid rgba(255, 255, 255, .16);
+        backdrop-filter: blur(16px);
+    }
+
+    .profile-side-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: .72rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, .12);
+    }
+
+        .profile-side-row:last-child {
+            border-bottom: 0;
+        }
+
+    .profile-side-label {
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+        color: rgba(255, 255, 255, .68);
+        font-size: .78rem;
+        font-weight: 800;
+    }
+
+    .profile-side-value {
+        color: #ffffff;
+        font-size: .86rem;
+        font-weight: 900;
+        text-align: right;
+    }
+
+    .profile-edit-btn,
+    .profile-remove-btn {
+        min-height: 42px;
+        border-radius: 14px;
+        padding: .68rem .9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .55rem;
+        text-decoration: none;
+        font-size: .86rem;
+        font-weight: 900;
+        transition: box-shadow .22s ease, transform .22s ease, filter .22s ease, background .22s ease;
+    }
+
+    .profile-edit-btn {
+        width: 100%;
+        background: #ffffff;
+        color: var(--pf-navy);
+        border: 0;
+        box-shadow: 0 14px 30px rgba(0, 0, 0, .16);
+    }
+
+        .profile-edit-btn:hover {
+            color: var(--pf-navy);
+            transform: translateY(-2px);
+            box-shadow: 0 18px 38px rgba(0, 0, 0, .22), 0 0 0 5px rgba(234, 224, 207, .22);
+        }
+
+    .profile-remove-btn {
+        width: 100%;
+        margin-top: .65rem;
+        background: rgba(239, 68, 68, .10);
+        border: 1px solid rgba(248, 113, 113, .22);
+        color: #fecaca;
+    }
+
+        .profile-remove-btn:hover {
+            background: rgba(239, 68, 68, .16);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+    .profile-section {
+        margin-top: 1.25rem;
+    }
+
+    .profile-section-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: .85rem;
+    }
+
+    .profile-section-title {
+        margin: 0;
+        color: var(--pf-navy);
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        font-size: 1.15rem;
+        font-weight: 950;
+        letter-spacing: -.45px;
+    }
+
+        .profile-section-title i {
+            color: var(--pf-indigo);
+        }
+
+    .profile-section-subtitle {
+        margin: .25rem 0 0;
+        color: var(--pf-indigo);
+        font-size: .84rem;
+        font-weight: 650;
+    }
+
+    [data-theme="dark"] .profile-section-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .profile-section-subtitle {
+        color: #cbd5e1;
+    }
+
+    .profile-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .9rem;
+    }
+
+    .profile-stat-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 1.05rem;
+        background: var(--pf-card);
+        border: 1px solid var(--pf-border);
+        box-shadow: var(--pf-shadow);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+        .profile-stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--pf-shadow-hover);
+            border-color: rgba(75, 86, 148, .26);
+        }
+
+        .profile-stat-card::after {
+            content: "";
+            position: absolute;
+            width: 125px;
+            height: 125px;
+            right: -54px;
+            top: -54px;
+            border-radius: 38px;
+            background: rgba(234, 224, 207, .44);
+            transform: rotate(18deg);
+        }
+
+    [data-theme="dark"] .profile-stat-card {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+        [data-theme="dark"] .profile-stat-card::after {
+            background: rgba(234, 224, 207, .08);
+        }
+
+    .profile-stat-icon {
+        position: relative;
+        z-index: 1;
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pf-navy), var(--pf-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .20);
+        margin-bottom: .8rem;
+    }
+
+    .profile-stat-value {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--pf-navy);
+        font-size: 1.8rem;
+        font-weight: 950;
+        letter-spacing: -.8px;
+        line-height: 1;
+    }
+
+    .profile-stat-label {
+        position: relative;
+        z-index: 1;
+        margin: .35rem 0 .12rem;
+        color: var(--pf-indigo);
+        font-size: .84rem;
+        font-weight: 850;
+    }
+
+    .profile-stat-hint {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--pf-bluegray);
+        font-size: .74rem;
+        font-weight: 650;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .profile-stat-value {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .profile-stat-label {
+        color: var(--pf-beige);
+    }
+
+    [data-theme="dark"] .profile-stat-hint {
+        color: #cbd5e1;
+    }
+
+    .profile-grid-2 {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(310px, .85fr);
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .profile-panel {
+        border-radius: 28px;
+        padding: 1rem;
+        background: var(--pf-card);
+        border: 1px solid var(--pf-border);
+        box-shadow: var(--pf-shadow);
+    }
+
+    [data-theme="dark"] .profile-panel {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+    .profile-request-list,
+    .profile-room-list {
+        display: grid;
+        gap: .75rem;
+    }
+
+    .profile-request-card,
+    .profile-room-card,
+    .profile-booked-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 22px;
+        padding: .9rem;
+        background: radial-gradient(circle at 96% 10%, rgba(234, 224, 207, .48), transparent 34%), rgba(255, 255, 255, .68);
+        border: 1px solid rgba(17, 24, 68, .10);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+        .profile-request-card:hover,
+        .profile-room-card:hover,
+        .profile-booked-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(75, 86, 148, .28);
+            box-shadow: 0 18px 40px rgba(17, 24, 68, .12), 0 0 0 5px rgba(234, 224, 207, .38);
+        }
+
+    [data-theme="dark"] .profile-request-card,
+    [data-theme="dark"] .profile-room-card,
+    [data-theme="dark"] .profile-booked-card {
+        background: radial-gradient(circle at 96% 10%, rgba(234, 224, 207, .09), transparent 34%), rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+    .profile-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: .85rem;
+    }
+
+    .profile-card-icon {
+        width: 46px;
+        height: 46px;
+        border-radius: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pf-navy), var(--pf-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .18);
+    }
+
+    .profile-card-title {
+        margin: 0;
+        color: var(--pf-navy);
+        font-size: .94rem;
+        font-weight: 950;
+        letter-spacing: -.2px;
+    }
+
+    .profile-card-meta {
+        margin: .22rem 0 0;
+        color: var(--pf-bluegray);
+        font-size: .76rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .profile-card-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .profile-card-meta {
+        color: #cbd5e1;
+    }
+
+    .profile-message-box {
+        margin-top: .75rem;
+        padding: .72rem .78rem;
+        border-radius: 16px;
+        background: rgba(234, 224, 207, .44);
+        color: var(--pf-indigo);
+        font-size: .78rem;
+        line-height: 1.45;
+        font-weight: 650;
+    }
+
+    [data-theme="dark"] .profile-message-box {
+        background: rgba(234, 224, 207, .08);
+        color: #d8deeb;
+    }
+
+    .profile-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .55rem;
+        margin-top: .8rem;
+    }
+
+    .profile-mini-btn {
+        min-height: 38px;
+        border-radius: 14px;
+        padding: .6rem .76rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+        text-decoration: none;
+        color: var(--pf-navy);
+        background: rgba(255, 255, 255, .70);
+        border: 1px solid rgba(17, 24, 68, .10);
+        font-size: .78rem;
+        font-weight: 900;
+        transition: box-shadow .2s ease, transform .2s ease, background .2s ease;
+    }
+
+        .profile-mini-btn.primary {
+            background: linear-gradient(135deg, var(--pf-navy), var(--pf-indigo));
+            color: #ffffff;
+            border-color: transparent;
+        }
+
+        .profile-mini-btn:hover {
+            color: var(--pf-navy);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(17, 24, 68, .12);
+        }
+
+        .profile-mini-btn.primary:hover {
+            color: #ffffff;
+            box-shadow: 0 14px 28px rgba(17, 24, 68, .22), 0 0 0 4px rgba(234, 224, 207, .40);
+        }
+
+    [data-theme="dark"] .profile-mini-btn {
+        color: #f8fafc;
+        background: rgba(255, 255, 255, .055);
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+        [data-theme="dark"] .profile-mini-btn:hover {
+            color: var(--pf-beige);
+        }
+
+    .profile-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .38rem;
+        min-height: 28px;
+        padding: .35rem .55rem;
+        border-radius: 999px;
+        font-size: .70rem;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .status-pending {
+        background: rgba(245, 158, 11, .13);
+        color: #a16207;
+        border: 1px solid rgba(245, 158, 11, .20);
+    }
+
+    .status-approved {
+        background: rgba(16, 185, 129, .12);
+        color: #047857;
+        border: 1px solid rgba(16, 185, 129, .18);
+    }
+
+    .status-closed {
+        background: rgba(100, 116, 139, .12);
+        color: #475569;
+        border: 1px solid rgba(100, 116, 139, .18);
+    }
+
+    [data-theme="dark"] .status-pending {
+        background: rgba(245, 158, 11, .13);
+        color: #fcd34d;
+    }
+
+    [data-theme="dark"] .status-approved {
+        background: rgba(16, 185, 129, .13);
+        color: #6ee7b7;
+    }
+
+    [data-theme="dark"] .status-closed {
+        background: rgba(148, 163, 184, .12);
+        color: #cbd5e1;
+    }
+
+    .profile-room-grid,
+    .profile-booked-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .85rem;
+    }
+
+    .profile-room-facts {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .55rem;
+        margin-top: .85rem;
+    }
+
+    .profile-fact {
+        padding: .62rem;
+        border-radius: 15px;
+        background: rgba(255, 255, 255, .55);
+        border: 1px solid rgba(17, 24, 68, .08);
+    }
+
+        .profile-fact small {
+            display: block;
+            color: var(--pf-bluegray);
+            font-size: .66rem;
+            font-weight: 800;
+            margin-bottom: .14rem;
+        }
+
+        .profile-fact strong {
+            display: block;
+            color: var(--pf-navy);
+            font-size: .77rem;
+            font-weight: 950;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+    [data-theme="dark"] .profile-fact {
+        background: rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .08);
+    }
+
+        [data-theme="dark"] .profile-fact strong {
+            color: #f8fafc;
+        }
+
+    .profile-empty {
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 1.2rem;
+        background: radial-gradient(circle at 96% 8%, rgba(234, 224, 207, .58), transparent 35%), rgba(255, 255, 255, .70);
+        border: 1px solid rgba(17, 24, 68, .10);
+        color: var(--pf-indigo);
+    }
+
+    .profile-empty-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pf-navy), var(--pf-indigo));
+        box-shadow: 0 14px 28px rgba(17, 24, 68, .18);
+        margin-bottom: .85rem;
+    }
+
+    .profile-empty h3 {
+        margin: 0 0 .35rem;
+        color: var(--pf-navy);
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .profile-empty p {
+        margin: 0 0 .85rem;
+        color: var(--pf-indigo);
+        font-size: .85rem;
+        font-weight: 650;
+        line-height: 1.5;
+    }
+
+    [data-theme="dark"] .profile-empty {
+        background: radial-gradient(circle at 96% 8%, rgba(234, 224, 207, .09), transparent 35%), rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+        [data-theme="dark"] .profile-empty h3 {
+            color: #f8fafc;
+        }
+
+        [data-theme="dark"] .profile-empty p {
+            color: #cbd5e1;
+        }
+
+    @@media (max-width: 1199.98px) {
+        .profile-hero-inner {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .profile-side-panel {
+            grid-column: 1 / -1;
+        }
+
+        .profile-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .profile-grid-2 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .profile-page {
+            padding: .85rem .75rem 1.4rem;
+        }
+
+        .profile-hero {
+            border-radius: 26px;
+        }
+
+        .profile-hero-inner {
+            grid-template-columns: 1fr;
+            text-align: center;
+        }
+
+        .profile-avatar-wrap {
+            margin: 0 auto;
+        }
+
+        .profile-contact-grid {
+            justify-content: center;
+        }
+
+        .profile-chip {
+            width: 100%;
+            justify-content: center;
+            border-radius: 16px;
+        }
+
+        .profile-side-row {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: .28rem;
+        }
+
+        .profile-side-value {
+            text-align: left;
+        }
+
+        .profile-section-head {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .profile-stat-grid,
+        .profile-room-grid,
+        .profile-booked-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-card-top {
+            flex-direction: column;
+        }
+
+        .profile-room-facts {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-actions {
+            flex-direction: column;
+        }
+
+        .profile-mini-btn {
+            width: 100%;
+        }
     }
 </style>
 
-<div class="container">
+<section class="profile-page">
+    <div class="profile-shell">
 
-    <!-- Profile header -->
-    <div class="card stat-card mb-4">
-        <div class="card-body p-4">
-            <div class="d-flex align-items-center flex-wrap">
-
+        <div class="profile-hero">
+            <div class="profile-hero-inner">
                 <form asp-controller="Auth" asp-action="UploadProfilePicture" method="post"
-                      enctype="multipart/form-data" id="profilePicForm" class="me-3">
+                      enctype="multipart/form-data" id="profilePicForm" class="profile-avatar-form">
                     @Html.AntiForgeryToken()
-                    <div class="profile-avatar-wrapper">
+
+                    <div class="profile-avatar-wrap">
                         @if (hasPic)
                         {
-                            <img src="@Model.ProfilePicturePath" alt="Profile picture" class="profile-pic" />
+                            <img src="@Model.ProfilePicturePath" alt="Profile picture" class="profile-photo" />
                         }
                         else
                         {
-                            <div class="profile-default-avatar">
-                                <i class="bi bi-person-fill"></i>
+                            <div class="profile-avatar-fallback">
+                                @GetInitials(displayName)
                             </div>
                         }
-                        <label for="profilePicInput" class="profile-pic-edit" title="Change profile picture">
-                            <i class="bi bi-camera-fill"></i>
+
+                        <label for="profilePicInput" class="profile-photo-edit" title="Change profile picture">
+                            <i class="fa-solid fa-camera"></i>
                         </label>
+
                         <input type="file" name="profilePicture" id="profilePicInput"
                                accept="image/jpeg,image/png,image/gif,image/webp"
                                onchange="document.getElementById('profilePicForm').submit();"
@@ -69,258 +903,444 @@
                     </div>
                 </form>
 
-                <div class="flex-grow-1">
-                    @if (!string.IsNullOrWhiteSpace(Model.FullName))
-                    {
-                        <h3 class="mb-0">@Model.FullName</h3>
-                        <p class="text-muted mb-1" style="font-size: 0.9rem;">@@@Model.UserName</p>
-                    }
-                    else
-                    {
-                        <h3 class="mb-1">@Model.UserName</h3>
-                    }
-                    <p class="text-muted mb-1">
-                        <i class="bi bi-envelope me-1"></i>@Model.Email
-                    </p>
-                    @if (!string.IsNullOrWhiteSpace(Model.PhoneNumber))
-                    {
-                        <p class="text-muted mb-1">
-                            <i class="bi bi-telephone me-1"></i>@Model.PhoneNumber
-                        </p>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(Model.Address))
-                    {
-                        <p class="text-muted mb-0">
-                            <i class="bi bi-geo-alt me-1"></i>@Model.Address
-                        </p>
-                    }
+                <div>
+                    <div class="profile-kicker">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>@roleName Profile</span>
+                    </div>
+
+                    <h1 class="profile-name">@displayName</h1>
+                    <p class="profile-username">@@@username</p>
+
+                    <div class="profile-contact-grid">
+                        <div class="profile-chip">
+                            <i class="fa-solid fa-envelope"></i>
+                            <span>@Model.Email</span>
+                        </div>
+
+                        <div class="profile-chip">
+                            <i class="fa-solid fa-phone"></i>
+                            <span>@phoneText</span>
+                        </div>
+
+                        <div class="profile-chip">
+                            <i class="fa-solid fa-location-dot"></i>
+                            <span>@addressText</span>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="profile-side-panel">
+                    <a asp-action="EditProfile" class="profile-edit-btn">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                        Edit Profile
+                    </a>
+
                     @if (hasPic)
                     {
-                        <form asp-controller="Auth" asp-action="RemoveProfilePicture" method="post" class="mt-2"
+                        <form asp-controller="Auth" asp-action="RemoveProfilePicture" method="post"
                               onsubmit="return confirm('Remove your profile picture?');">
                             @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                <i class="bi bi-trash me-1"></i>Remove picture
+                            <button type="submit" class="profile-remove-btn">
+                                <i class="fa-solid fa-trash-can"></i>
+                                Remove Picture
                             </button>
                         </form>
                     }
+
+                    <div class="profile-side-row">
+                        <span class="profile-side-label">
+                            <i class="fa-solid fa-id-badge"></i>
+                            Role
+                        </span>
+                        <span class="profile-side-value">@roleName</span>
+                    </div>
+
+                    <div class="profile-side-row">
+                        <span class="profile-side-label">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            Last Login
+                        </span>
+                        <span class="profile-side-value">@lastLoginText</span>
+                    </div>
+
+                    <div class="profile-side-row">
+                        <span class="profile-side-label">
+                            <i class="fa-solid fa-chart-simple"></i>
+                            Total Activity
+                        </span>
+                        <span class="profile-side-value">@totalActivity</span>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <div class="profile-stat-grid">
+                <div class="profile-stat-card">
+                    <div class="profile-stat-icon">
+                        <i class="fa-solid fa-house-circle-check"></i>
+                    </div>
+                    <h2 class="profile-stat-value">@postedRooms.Count</h2>
+                    <p class="profile-stat-label">Rooms Posted</p>
+                    <p class="profile-stat-hint">Total room listings created from this account.</p>
                 </div>
 
-                <div class="text-end d-flex flex-column align-items-end gap-2">
-                    <a asp-action="EditProfile" class="btn-nx outline sm">
-                        <i class="bi bi-pencil-square"></i> Edit Profile
-                    </a>
-                    <div class="small text-muted">
-                        Role: <strong>@Model.Role?.RoleName</strong><br />
-                        @if (Model.LastLogin.HasValue)
-                        {
-                            <span>Last login: @Model.LastLogin.Value.ToString("dd-MMM-yyyy")</span>
-                        }
+                <div class="profile-stat-card">
+                    <div class="profile-stat-icon">
+                        <i class="fa-solid fa-bookmark-circle-check"></i>
+                    </div>
+                    <h2 class="profile-stat-value">@selections.Count</h2>
+                    <p class="profile-stat-label">Rooms Booked</p>
+                    <p class="profile-stat-hint">Rooms selected or booked as a seeker.</p>
+                </div>
+
+                <div class="profile-stat-card">
+                    <div class="profile-stat-icon">
+                        <i class="fa-solid fa-inbox"></i>
+                    </div>
+                    <h2 class="profile-stat-value">@incomingSelections.Count</h2>
+                    <p class="profile-stat-label">Booking Requests</p>
+                    <p class="profile-stat-hint">Requests received on your own rooms.</p>
+                </div>
+
+                <div class="profile-stat-card">
+                    <div class="profile-stat-icon">
+                        <i class="fa-solid fa-fire-flame-curved"></i>
+                    </div>
+                    <h2 class="profile-stat-value">@activePosted</h2>
+                    <p class="profile-stat-label">Active Listings</p>
+                    <p class="profile-stat-hint">Approved rooms currently available to users.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <div class="profile-grid-2">
+                <div class="profile-panel">
+                    <div class="profile-section-head">
+                        <div>
+                            <h2 class="profile-section-title">
+                                <i class="fa-solid fa-inbox"></i>
+                                Booking Requests on My Rooms
+                                @if (incomingSelections.Any())
+                                {
+                                    <span class="profile-status-badge status-pending">@incomingSelections.Count</span>
+                                }
+                            </h2>
+                            <p class="profile-section-subtitle">People who selected your posted rooms and may need your response.</p>
+                        </div>
+                    </div>
+
+                    @if (incomingSelections.Any())
+                    {
+                        <div class="profile-request-list">
+                            @foreach (var s in incomingSelections)
+                            {
+                                <article class="profile-request-card">
+                                    <div class="profile-card-top">
+                                        <div class="d-flex gap-3 align-items-start">
+                                            <div class="profile-card-icon">
+                                                <i class="fa-solid fa-handshake"></i>
+                                            </div>
+                                            <div>
+                                                <h3 class="profile-card-title">@s.Room?.Title</h3>
+                                                <p class="profile-card-meta">
+                                                    <i class="fa-solid fa-user me-1"></i>@(s.Seeker?.UserName ?? "Unknown user")
+                                                    <span class="mx-1">•</span>
+                                                    <i class="fa-solid fa-calendar me-1"></i>@s.SelectedAt.ToString("dd-MMM-yyyy hh:mm tt")
+                                                </p>
+                                                <p class="profile-card-meta">
+                                                    <i class="fa-solid fa-envelope me-1"></i>@(s.Seeker?.Email ?? "Email unavailable")
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="profile-message-box">
+                                        <i class="fa-solid fa-quote-left me-1"></i>
+                                        @ShortText(s.Message, 110)
+                                    </div>
+
+                                    <div class="profile-actions">
+                                        <a asp-controller="Room" asp-action="Details" asp-route-id="@s.RoomId" class="profile-mini-btn">
+                                            <i class="fa-solid fa-eye"></i>
+                                            View Room
+                                        </a>
+
+                                        @if (s.Seeker != null)
+                                        {
+                                            <a asp-controller="Chat" asp-action="Conversation" asp-route-id="@s.SeekerUserId" class="profile-mini-btn primary">
+                                                <i class="fa-solid fa-comments"></i>
+                                                Start Chat
+                                            </a>
+                                        }
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="profile-empty">
+                            <div class="profile-empty-icon">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <h3>No booking requests yet</h3>
+                            <p>No one has selected your rooms yet. Once someone shows interest, requests will appear here.</p>
+                            <a asp-controller="Room" asp-action="Create" class="profile-mini-btn primary">
+                                <i class="fa-solid fa-plus"></i>
+                                Post a Room
+                            </a>
+                        </div>
+                    }
+                </div>
+
+                <div class="profile-panel">
+                    <div class="profile-section-head">
+                        <div>
+                            <h2 class="profile-section-title">
+                                <i class="fa-solid fa-gauge-high"></i>
+                                Profile Snapshot
+                            </h2>
+                            <p class="profile-section-subtitle">A quick view of your account and listing status.</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-request-list">
+                        <div class="profile-request-card">
+                            <div class="profile-card-top">
+                                <div class="d-flex gap-3 align-items-start">
+                                    <div class="profile-card-icon">
+                                        <i class="fa-solid fa-shield-heart"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="profile-card-title">Account Role</h3>
+                                        <p class="profile-card-meta">You are currently using this platform as <strong>@roleName</strong>.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-request-card">
+                            <div class="profile-card-top">
+                                <div class="d-flex gap-3 align-items-start">
+                                    <div class="profile-card-icon">
+                                        <i class="fa-solid fa-house-lock"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="profile-card-title">Room Status</h3>
+                                        <p class="profile-card-meta">
+                                            @activePosted active, @pendingPosted pending, @closedPosted closed listings from your account.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-request-card">
+                            <div class="profile-card-top">
+                                <div class="d-flex gap-3 align-items-start">
+                                    <div class="profile-card-icon">
+                                        <i class="fa-solid fa-bell"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="profile-card-title">Response Reminder</h3>
+                                        <p class="profile-card-meta">Reply to booking requests quickly to keep your listing experience smooth.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Stats — 3 cards now -->
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card stat-card">
-                <div class="card-body text-center p-4">
-                    <i class="bi bi-house-add-fill text-primary" style="font-size:2.2rem;"></i>
-                    <h2 class="mt-2 mb-0">@postedRooms.Count</h2>
-                    <p class="text-muted mb-0">Rooms Posted</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card stat-card">
-                <div class="card-body text-center p-4">
-                    <i class="bi bi-bookmark-check-fill text-success" style="font-size:2.2rem;"></i>
-                    <h2 class="mt-2 mb-0">@selections.Count</h2>
-                    <p class="text-muted mb-0">Rooms Booked</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card stat-card @(incomingSelections.Any() ? "border-warning" : "")">
-                <div class="card-body text-center p-4">
-                    <i class="bi bi-inbox-fill text-warning" style="font-size:2.2rem;"></i>
-                    <h2 class="mt-2 mb-0">@incomingSelections.Count</h2>
-                    <p class="text-muted mb-0">Booking Requests</p>
-                </div>
-            </div>
-        </div>
-    </div>
+        <div class="profile-section">
+            <div class="profile-panel">
+                <div class="profile-section-head">
+                    <div>
+                        <h2 class="profile-section-title">
+                            <i class="fa-solid fa-house-user"></i>
+                            My Posted Rooms
+                        </h2>
+                        <p class="profile-section-subtitle">Manage the rooms you have shared on Bachelor’s Point.</p>
+                    </div>
 
-    <!-- Booking Requests on My Rooms (NEW) -->
-    <h4 class="mb-3 mt-4">
-        <i class="bi bi-inbox me-2 text-warning"></i>Booking Requests on My Rooms
-        @if (incomingSelections.Any())
-        {
-            <span class="badge bg-warning text-dark ms-2">@incomingSelections.Count</span>
-        }
-    </h4>
-    @if (incomingSelections.Any())
-    {
-        <div class="card stat-card mb-4">
-            <div class="table-responsive">
-                <table class="table mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Room</th>
-                            <th>Interested User</th>
-                            <th>Email</th>
-                            <th>When</th>
-                            <th>Message</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var s in incomingSelections)
+                    <a asp-controller="Room" asp-action="Create" class="profile-mini-btn primary">
+                        <i class="fa-solid fa-plus"></i>
+                        Post New Room
+                    </a>
+                </div>
+
+                @if (postedRooms.Any())
+                {
+                    <div class="profile-room-grid">
+                        @foreach (var room in postedRooms)
                         {
-                            <tr>
-                                <td><strong>@s.Room?.Title</strong></td>
-                                <td>@s.Seeker?.UserName</td>
-                                <td><small class="text-muted">@s.Seeker?.Email</small></td>
-                                <td><small class="text-muted">@s.SelectedAt.ToString("dd-MMM-yyyy hh:mm tt")</small></td>
-                                <td>
-                                    @if (!string.IsNullOrWhiteSpace(s.Message))
+                            <article class="profile-room-card">
+                                <div class="profile-card-top">
+                                    <div class="d-flex gap-3 align-items-start">
+                                        <div class="profile-card-icon">
+                                            <i class="fa-solid fa-building-user"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="profile-card-title">@room.Title</h3>
+                                            <p class="profile-card-meta">
+                                                <i class="fa-solid fa-location-dot me-1"></i>@room.Location
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    @if (!room.IsApproved)
                                     {
-                                        <span class="text-muted small">
-                                            @(s.Message.Length > 40 ? s.Message.Substring(0, 40) + "..." : s.Message)
+                                        <span class="profile-status-badge status-pending">
+                                            <i class="fa-solid fa-clock"></i>
+                                            Pending
+                                        </span>
+                                    }
+                                    else if (room.IsAvailable)
+                                    {
+                                        <span class="profile-status-badge status-approved">
+                                            <i class="fa-solid fa-circle-check"></i>
+                                            Approved
                                         </span>
                                     }
                                     else
                                     {
-                                        <em class="text-muted small">No message</em>
+                                        <span class="profile-status-badge status-closed">
+                                            <i class="fa-solid fa-lock"></i>
+                                            Closed
+                                        </span>
                                     }
-                                </td>
-                                <td>
-                                    <a asp-controller="Room" asp-action="Details" asp-route-id="@s.RoomId"
-                                       class="btn btn-sm btn-outline-primary">View</a>
-                                    @if (s.Seeker != null)
-                                    {
-                                        <a asp-controller="Chat" asp-action="Conversation" asp-route-id="@s.SeekerUserId"
-                                           class="btn btn-sm btn-outline-success">
-                                            <i class="bi bi-chat-dots"></i> Chat
-                                        </a>
-                                    }
-                                </td>
-                            </tr>
+                                </div>
+
+                                <div class="profile-room-facts">
+                                    <div class="profile-fact">
+                                        <small>Rent</small>
+                                        <strong>BDT @room.Price</strong>
+                                    </div>
+                                    <div class="profile-fact">
+                                        <small>Posted</small>
+                                        <strong>@room.CreatedAt.ToString("dd-MMM-yyyy")</strong>
+                                    </div>
+                                    <div class="profile-fact">
+                                        <small>Status</small>
+                                        <strong>@(room.IsApproved ? (room.IsAvailable ? "Live" : "Closed") : "Review")</strong>
+                                    </div>
+                                </div>
+
+                                <div class="profile-actions">
+                                    <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Id" class="profile-mini-btn primary">
+                                        <i class="fa-solid fa-eye"></i>
+                                        View Details
+                                    </a>
+                                </div>
+                            </article>
                         }
-                    </tbody>
-                </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="profile-empty">
+                        <div class="profile-empty-icon">
+                            <i class="fa-solid fa-house-circle-exclamation"></i>
+                        </div>
+                        <h3>You have not posted any rooms yet</h3>
+                        <p>Create your first room listing so seekers can find and contact you.</p>
+                        <a asp-controller="Room" asp-action="Create" class="profile-mini-btn primary">
+                            <i class="fa-solid fa-house-circle-check"></i>
+                            Post Your First Room
+                        </a>
+                    </div>
+                }
             </div>
         </div>
-    }
-    else
-    {
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle me-1"></i> No one has selected your rooms yet.
-        </div>
-    }
 
-    <!-- Posted Rooms -->
-    <h4 class="mb-3 mt-4"><i class="bi bi-house-add-fill me-2"></i>My Posted Rooms</h4>
-    @if (postedRooms.Any())
-    {
-        <div class="card stat-card mb-4">
-            <div class="table-responsive">
-                <table class="table mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Title</th>
-                            <th>Location</th>
-                            <th>Price</th>
-                            <th>Posted</th>
-                            <th>Status</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var room in postedRooms)
-                        {
-                            <tr>
-                                <td>@room.Title</td>
-                                <td>@room.Location</td>
-                                <td>BDT @room.Price</td>
-                                <td>@room.CreatedAt.ToString("dd-MMM-yyyy")</td>
-                                <td>
-                                    @if (!room.IsApproved)
-                                    {
-                                        <span class="badge-pending"><i class="bi bi-clock"></i> Pending</span>
-                                    }
-                                    else if (room.IsAvailable)
-                                    {
-                                        <span class="badge bg-success">Approved</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary">Closed</span>
-                                    }
-                                </td>
-                                <td>
-                                    <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Id" class="btn btn-sm btn-outline-primary">View</a>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle me-1"></i> You haven't posted any rooms yet.
-            <a asp-controller="Room" asp-action="Create" class="alert-link">Post your first room</a>.
-        </div>
-    }
+        <div class="profile-section">
+            <div class="profile-panel">
+                <div class="profile-section-head">
+                    <div>
+                        <h2 class="profile-section-title">
+                            <i class="fa-solid fa-bookmark-circle-check"></i>
+                            My Booked Rooms
+                        </h2>
+                        <p class="profile-section-subtitle">Rooms you selected or booked as a seeker.</p>
+                    </div>
 
-    <!-- Booked Rooms (as seeker) -->
-    <h4 class="mb-3 mt-4"><i class="bi bi-bookmark-check-fill me-2"></i>My Booked Rooms</h4>
-    @if (selections.Any())
-    {
-        <div class="card stat-card mb-4">
-            <div class="table-responsive">
-                <table class="table mb-0 align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Room</th>
-                            <th>Owner</th>
-                            <th>Location</th>
-                            <th>Booked On</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                    <a asp-controller="Room" asp-action="Index" class="profile-mini-btn">
+                        <i class="fa-solid fa-magnifying-glass-location"></i>
+                        Browse Rooms
+                    </a>
+                </div>
+
+                @if (selections.Any())
+                {
+                    <div class="profile-booked-grid">
                         @foreach (var s in selections)
                         {
-                            <tr>
-                                <td>@s.Room?.Title</td>
-                                <td>@s.Room?.Owner?.UserName</td>
-                                <td>@s.Room?.Location</td>
-                                <td>@s.SelectedAt.ToString("dd-MMM-yyyy hh:mm tt")</td>
-                                <td>
+                            <article class="profile-booked-card">
+                                <div class="profile-card-top">
+                                    <div class="d-flex gap-3 align-items-start">
+                                        <div class="profile-card-icon">
+                                            <i class="fa-solid fa-key"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="profile-card-title">@s.Room?.Title</h3>
+                                            <p class="profile-card-meta">
+                                                <i class="fa-solid fa-user-tie me-1"></i>Owner: @(s.Room?.Owner?.UserName ?? "Unknown")
+                                            </p>
+                                            <p class="profile-card-meta">
+                                                <i class="fa-solid fa-location-dot me-1"></i>@(s.Room?.Location ?? "Location unavailable")
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="profile-room-facts">
+                                    <div class="profile-fact">
+                                        <small>Booked On</small>
+                                        <strong>@s.SelectedAt.ToString("dd-MMM-yyyy")</strong>
+                                    </div>
+                                    <div class="profile-fact">
+                                        <small>Time</small>
+                                        <strong>@s.SelectedAt.ToString("hh:mm tt")</strong>
+                                    </div>
+                                    <div class="profile-fact">
+                                        <small>Type</small>
+                                        <strong>Selection</strong>
+                                    </div>
+                                </div>
+
+                                <div class="profile-actions">
                                     @if (s.Room != null)
                                     {
-                                        <a asp-controller="Room" asp-action="Details" asp-route-id="@s.RoomId" class="btn btn-sm btn-outline-primary">View</a>
+                                        <a asp-controller="Room" asp-action="Details" asp-route-id="@s.RoomId" class="profile-mini-btn primary">
+                                            <i class="fa-solid fa-eye"></i>
+                                            View Room
+                                        </a>
                                     }
-                                </td>
-                            </tr>
+                                </div>
+                            </article>
                         }
-                    </tbody>
-                </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="profile-empty">
+                        <div class="profile-empty-icon">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </div>
+                        <h3>You have not booked any rooms yet</h3>
+                        <p>Browse available rooms and select the ones that match your location and budget.</p>
+                        <a asp-controller="Room" asp-action="Index" class="profile-mini-btn primary">
+                            <i class="fa-solid fa-arrow-right"></i>
+                            Browse Rooms
+                        </a>
+                    </div>
+                }
             </div>
         </div>
-    }
-    else
-    {
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle me-1"></i> You haven't booked any rooms yet.
-            <a asp-controller="Room" asp-action="Index" class="alert-link">Browse rooms</a>.
-        </div>
-    }
 
-</div>
+    </div>
+</section>

@@ -2,252 +2,1532 @@
 @model List<Payment>
 @{
     ViewData["Title"] = "Pending Payments";
-    var regPayments  = Model.Where(p => p.Type == PaymentType.Registration).ToList();
-    var roomPayments = Model.Where(p => p.Type == PaymentType.RoomPosting).ToList();
+
+    var regPayments = Model.Where(p => p.Type == PaymentType.Registration).OrderByDescending(p => p.SubmittedAt).ToList();
+    var roomPayments = Model.Where(p => p.Type == PaymentType.RoomPosting).OrderByDescending(p => p.SubmittedAt).ToList();
+
+    var totalPending = Model.Count;
+    var totalAmount = Model.Sum(p => p.Amount);
+    DateTime? latestSubmitted = Model.Any() ? Model.Max(p => p.SubmittedAt) : null;
+
+    string GetInitials(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "?";
+
+        var parts = value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+            return parts[0].Length >= 2 ? parts[0].Substring(0, 2).ToUpper() : parts[0].ToUpper();
+
+        return (parts[0][0].ToString() + parts[^1][0].ToString()).ToUpper();
+    }
+
+    string GetUserName(Payment p) => p.User?.UserName ?? p.User?.FullName ?? "Unknown";
+    string GetUserEmail(Payment p) => p.User?.Email ?? "No email";
+
+    string FormatDate(DateTime date) => date.ToString("dd MMM yyyy");
+    string FormatTime(DateTime date) => date.ToString("hh:mm tt");
 }
 
 <style>
-    .pay-table th {
-        font-size: 0.78rem;
+    /*
+        Admin Pending Payments UI
+        Palette:
+        #111844 - Deep navy
+        #4B5694 - Soft indigo
+        #7288AE - Muted blue
+        #EAE0CF - Warm beige
+
+        Scope: this page only. No functionality change.
+    */
+
+    :root {
+        --pay-navy: #111844;
+        --pay-indigo: #4B5694;
+        --pay-bluegray: #7288AE;
+        --pay-beige: #EAE0CF;
+        --pay-white: rgba(255, 255, 255, .88);
+        --pay-border: rgba(17, 24, 68, .12);
+        --pay-soft: rgba(234, 224, 207, .48);
+        --pay-shadow: 0 22px 62px rgba(17, 24, 68, .12);
+        --pay-shadow-hover: 0 28px 76px rgba(17, 24, 68, .18);
+        --pay-success: #10b981;
+        --pay-danger: #ef4444;
+        --pay-warning: #f59e0b;
+    }
+
+    body:has(.payment-admin-page) {
+        background:
+            radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .12), transparent 30%),
+            radial-gradient(circle at 94% 88%, rgba(234, 224, 207, .58), transparent 34%),
+            linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
+
+    [data-theme="dark"] body:has(.payment-admin-page) {
+        background:
+            radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .13), transparent 30%),
+            radial-gradient(circle at 94% 88%, rgba(75, 86, 148, .24), transparent 34%),
+            linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
+    }
+
+    .payment-admin-page {
+        position: relative;
+        padding: 1.1rem 1rem 2rem;
+        min-height: calc(100dvh - 64px);
+    }
+
+    .payment-admin-page::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background-image:
+            linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+        background-size: 46px 46px;
+        mask-image: radial-gradient(circle at center, black, transparent 76%);
+        pointer-events: none;
+    }
+
+    [data-theme="dark"] .payment-admin-page::before {
+        background-image:
+            linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .payment-shell {
+        width: min(100%, 1320px);
+        margin: 0 auto;
+    }
+
+    .payment-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 30px;
+        padding: clamp(1.35rem, 3vw, 2.25rem);
+        color: #ffffff;
+        background:
+            radial-gradient(circle at 92% 18%, rgba(234, 224, 207, .34), transparent 28%),
+            linear-gradient(135deg, var(--pay-navy) 0%, var(--pay-indigo) 58%, var(--pay-bluegray) 100%);
+        box-shadow: var(--pay-shadow);
+        border: 1px solid rgba(255, 255, 255, .13);
+    }
+
+    .payment-hero::before {
+        content: "";
+        position: absolute;
+        width: 420px;
+        height: 420px;
+        right: -150px;
+        top: -160px;
+        border-radius: 50%;
+        background: rgba(234, 224, 207, .18);
+        pointer-events: none;
+    }
+
+    .payment-hero::after {
+        content: "";
+        position: absolute;
+        width: 280px;
+        height: 280px;
+        left: -110px;
+        bottom: -150px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .10);
+        pointer-events: none;
+    }
+
+    .payment-hero-content {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(320px, .8fr);
+        gap: 1.4rem;
+        align-items: center;
+    }
+
+    .payment-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .45rem .8rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .16);
+        color: #ffffff;
+        font-size: .78rem;
+        font-weight: 850;
+        border: 1px solid rgba(234, 224, 207, .22);
+        margin-bottom: .9rem;
+    }
+
+    .payment-hero h1 {
+        margin: 0 0 .55rem;
+        font-size: clamp(2rem, 4vw, 3.75rem);
+        line-height: 1;
+        letter-spacing: -1.6px;
+        font-weight: 950;
+    }
+
+    .payment-hero p {
+        max-width: 650px;
+        margin: 0;
+        color: rgba(255, 255, 255, .76);
+        font-size: clamp(.94rem, 1.25vw, 1.05rem);
+        line-height: 1.6;
+        font-weight: 500;
+    }
+
+    .payment-hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-top: 1.25rem;
+    }
+
+    .payment-hero-btn {
+        min-height: 44px;
+        border-radius: 14px;
+        padding: .75rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .55rem;
+        font-size: .88rem;
+        font-weight: 850;
+        text-decoration: none;
+        transition: box-shadow .22s ease, filter .22s ease, transform .22s ease, background .22s ease;
+    }
+
+    .payment-hero-btn.primary {
+        background: #ffffff;
+        color: var(--pay-navy);
+        box-shadow: 0 14px 30px rgba(0, 0, 0, .16);
+    }
+
+    .payment-hero-btn.primary:hover {
+        color: var(--pay-navy);
+        filter: brightness(1.04);
+        transform: translateY(-2px);
+        box-shadow:
+            0 18px 38px rgba(0, 0, 0, .22),
+            0 0 0 5px rgba(234, 224, 207, .20);
+    }
+
+    .payment-hero-btn.soft {
+        background: rgba(255, 255, 255, .12);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    .payment-hero-btn.soft:hover {
+        background: rgba(255, 255, 255, .18);
+        color: #ffffff;
+        transform: translateY(-2px);
+    }
+
+    .payment-summary-panel {
+        border-radius: 24px;
+        padding: 1.15rem;
+        background: rgba(255, 255, 255, .13);
+        border: 1px solid rgba(255, 255, 255, .16);
+        backdrop-filter: blur(16px);
+    }
+
+    .payment-summary-number {
+        font-size: clamp(2.4rem, 4vw, 3.35rem);
+        line-height: 1;
+        font-weight: 950;
+        letter-spacing: -1.4px;
+        color: #ffffff;
+    }
+
+    .payment-summary-panel span {
+        display: block;
+        color: rgba(255, 255, 255, .78);
+        font-size: .88rem;
         font-weight: 700;
-        color: var(--muted);
+        margin-top: .45rem;
+    }
+
+    .payment-summary-mini {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .55rem;
+        margin-top: 1rem;
+    }
+
+    .payment-summary-mini div {
+        border-radius: 16px;
+        padding: .7rem .55rem;
+        background: rgba(255, 255, 255, .10);
+        text-align: center;
+    }
+
+    .payment-summary-mini strong {
+        display: block;
+        color: #ffffff;
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .payment-summary-mini small {
+        color: rgba(255, 255, 255, .70);
+        font-size: .68rem;
+        font-weight: 750;
+    }
+
+    .payment-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .9rem;
+        margin-top: 1rem;
+    }
+
+    .payment-stat-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 1.05rem;
+        background: var(--pay-white);
+        border: 1px solid var(--pay-border);
+        box-shadow: var(--pay-shadow);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+    .payment-stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--pay-shadow-hover);
+        border-color: rgba(75, 86, 148, .28);
+    }
+
+    .payment-stat-card::after {
+        content: "";
+        position: absolute;
+        width: 110px;
+        height: 110px;
+        right: -48px;
+        top: -48px;
+        border-radius: 36px;
+        background: rgba(234, 224, 207, .42);
+        transform: rotate(18deg);
+    }
+
+    [data-theme="dark"] .payment-stat-card {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+    [data-theme="dark"] .payment-stat-card::after {
+        background: rgba(234, 224, 207, .08);
+    }
+
+    .payment-stat-icon {
+        position: relative;
+        z-index: 1;
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pay-navy), var(--pay-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .20);
+        margin-bottom: .8rem;
+    }
+
+    .payment-stat-value {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--pay-navy);
+        font-size: 1.65rem;
+        font-weight: 950;
+        letter-spacing: -.8px;
+        line-height: 1;
+    }
+
+    .payment-stat-label {
+        position: relative;
+        z-index: 1;
+        margin: .35rem 0 .15rem;
+        color: var(--pay-indigo);
+        font-size: .82rem;
+        font-weight: 850;
+    }
+
+    .payment-stat-hint {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--pay-bluegray);
+        font-size: .74rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .payment-stat-value {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .payment-stat-label {
+        color: #EAE0CF;
+    }
+
+    [data-theme="dark"] .payment-stat-hint {
+        color: #cbd5e1;
+    }
+
+    .payment-section {
+        margin-top: 1.15rem;
+    }
+
+    .payment-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.05rem 1.15rem;
+        border-bottom: 1px solid rgba(17, 24, 68, .10);
+    }
+
+    [data-theme="dark"] .payment-section-head {
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    .payment-panel {
+        overflow: hidden;
+        border-radius: 26px;
+        background: var(--pay-white);
+        border: 1px solid var(--pay-border);
+        box-shadow: var(--pay-shadow);
+    }
+
+    [data-theme="dark"] .payment-panel {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+    .payment-section-title {
+        margin: 0;
+        color: var(--pay-navy);
+        font-size: 1.15rem;
+        font-weight: 950;
+        letter-spacing: -.35px;
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+    }
+
+    .payment-section-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pay-navy), var(--pay-indigo));
+        box-shadow:
+            0 12px 24px rgba(17, 24, 68, .18),
+            0 0 0 4px rgba(234, 224, 207, .46);
+        flex-shrink: 0;
+    }
+
+    .payment-count-badge {
+        min-width: 30px;
+        height: 30px;
+        padding: 0 .55rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: var(--pay-danger);
+        font-size: .78rem;
+        font-weight: 950;
+        box-shadow: 0 10px 22px rgba(239, 68, 68, .20);
+    }
+
+    [data-theme="dark"] .payment-section-title {
+        color: #f8fafc;
+    }
+
+    .payment-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .payment-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .payment-table th {
+        padding: .85rem 1rem;
+        color: var(--pay-indigo);
+        background: rgba(234, 224, 207, .30);
+        border-bottom: 1px solid rgba(17, 24, 68, .10);
         text-transform: uppercase;
-        letter-spacing: 0.4px;
-        padding: 0.65rem 1rem;
-        background: var(--bg);
-        border-bottom: 1px solid var(--border);
+        letter-spacing: .55px;
+        font-size: .73rem;
+        font-weight: 950;
+        white-space: nowrap;
     }
-    .pay-table td {
-        padding: 0.85rem 1rem;
-        font-size: 0.88rem;
-        border-bottom: 1px solid var(--border);
+
+    .payment-table td {
+        padding: .95rem 1rem;
         vertical-align: middle;
+        border-bottom: 1px solid rgba(17, 24, 68, .08);
+        color: var(--pay-navy);
+        font-size: .88rem;
     }
-    .pay-table tr:last-child td { border-bottom: none; }
-    .trxid-badge {
-        font-family: monospace;
-        background: var(--bg);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-        padding: 2px 8px;
-        font-size: 0.88rem;
-        letter-spacing: 0.5px;
+
+    .payment-table tbody tr {
+        transition: background .18s ease, transform .18s ease;
+    }
+
+    .payment-table tbody tr:hover {
+        background: rgba(234, 224, 207, .24);
+    }
+
+    .payment-table tr:last-child td {
+        border-bottom: 0;
+    }
+
+    [data-theme="dark"] .payment-table th {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .08);
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    [data-theme="dark"] .payment-table td {
+        color: #f8fafc;
+        border-bottom-color: rgba(234, 224, 207, .08);
+    }
+
+    [data-theme="dark"] .payment-table tbody tr:hover {
+        background: rgba(234, 224, 207, .06);
+    }
+
+    .payment-user-cell {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        min-width: 150px;
+    }
+
+    .payment-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--pay-navy), var(--pay-indigo));
+        font-weight: 950;
+        font-size: .82rem;
+        box-shadow:
+            0 10px 20px rgba(17, 24, 68, .16),
+            0 0 0 4px rgba(234, 224, 207, .42);
+        flex-shrink: 0;
+    }
+
+    .payment-user-name {
+        color: var(--pay-navy);
+        font-weight: 950;
+        line-height: 1.15;
+    }
+
+    .payment-user-sub {
+        margin-top: .15rem;
+        color: var(--pay-bluegray);
+        font-size: .73rem;
+        font-weight: 650;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .payment-user-name {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .payment-user-sub {
+        color: #cbd5e1;
+    }
+
+    .payment-email {
+        color: var(--pay-indigo);
+        font-weight: 650;
+        word-break: break-word;
+    }
+
+    [data-theme="dark"] .payment-email {
+        color: #cbd5e1;
+    }
+
+    .payment-amount {
+        display: inline-flex;
+        align-items: center;
+        gap: .42rem;
+        color: #047857;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .payment-amount {
+        color: #6ee7b7;
+    }
+
+    .payment-trx {
+        border: 0;
+        max-width: 260px;
+        padding: .5rem .65rem;
+        border-radius: 13px;
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        color: var(--pay-navy);
+        background: rgba(234, 224, 207, .42);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: .82rem;
+        font-weight: 800;
+        box-shadow: inset 0 0 0 1px rgba(17, 24, 68, .10);
         cursor: pointer;
+        transition: box-shadow .18s ease, background .18s ease, color .18s ease;
+    }
+
+    .payment-trx:hover {
+        background: rgba(234, 224, 207, .68);
+        box-shadow:
+            inset 0 0 0 1px rgba(75, 86, 148, .18),
+            0 0 0 4px rgba(114, 136, 174, .13);
+    }
+
+    .payment-trx-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .payment-trx {
+        color: #f8fafc;
+        background: rgba(234, 224, 207, .08);
+        box-shadow: inset 0 0 0 1px rgba(234, 224, 207, .12);
+    }
+
+    [data-theme="dark"] .payment-trx:hover {
+        background: rgba(234, 224, 207, .13);
+        box-shadow:
+            inset 0 0 0 1px rgba(234, 224, 207, .18),
+            0 0 0 4px rgba(234, 224, 207, .08);
+    }
+
+    .payment-date {
+        color: var(--pay-indigo);
+        font-size: .82rem;
+        font-weight: 750;
+        white-space: nowrap;
+    }
+
+    .payment-date small {
+        display: block;
+        color: var(--pay-bluegray);
+        font-size: .72rem;
+        margin-top: .12rem;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .payment-date {
+        color: #EAE0CF;
+    }
+
+    [data-theme="dark"] .payment-date small {
+        color: #cbd5e1;
+    }
+
+    .payment-room-link {
+        color: var(--pay-navy);
+        font-weight: 950;
+        text-decoration: none;
+    }
+
+    .payment-room-link:hover {
+        color: var(--pay-indigo);
+        text-decoration: underline;
+    }
+
+    .payment-room-sub {
+        color: var(--pay-bluegray);
+        font-size: .74rem;
+        font-weight: 650;
+        margin-top: .15rem;
+    }
+
+    [data-theme="dark"] .payment-room-link {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .payment-room-sub {
+        color: #cbd5e1;
+    }
+
+    .payment-actions {
+        display: flex;
+        gap: .55rem;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .payment-action-btn {
+        min-height: 40px;
+        border: 0;
+        border-radius: 14px;
+        padding: .65rem .9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .48rem;
+        font-size: .82rem;
+        font-weight: 950;
+        text-decoration: none;
+        transition: transform .18s ease, box-shadow .18s ease, filter .18s ease, background .18s ease;
+        white-space: nowrap;
+    }
+
+    .payment-action-btn.verify {
+        color: #ffffff;
+        background: linear-gradient(135deg, #059669, #10b981);
+        box-shadow: 0 12px 24px rgba(16, 185, 129, .18);
+    }
+
+    .payment-action-btn.verify:hover {
+        color: #ffffff;
+        filter: brightness(1.05);
+        transform: translateY(-2px);
+        box-shadow:
+            0 16px 30px rgba(16, 185, 129, .24),
+            0 0 0 5px rgba(16, 185, 129, .12);
+    }
+
+    .payment-action-btn.reject {
+        color: var(--pay-danger);
+        background: rgba(255, 255, 255, .72);
+        border: 1px solid rgba(239, 68, 68, .22);
+    }
+
+    .payment-action-btn.reject:hover {
+        color: #ffffff;
+        background: var(--pay-danger);
+        transform: translateY(-2px);
+        box-shadow:
+            0 16px 30px rgba(239, 68, 68, .20),
+            0 0 0 5px rgba(239, 68, 68, .10);
+    }
+
+    [data-theme="dark"] .payment-action-btn.reject {
+        color: #fca5a5;
+        background: rgba(239, 68, 68, .08);
+        border-color: rgba(248, 113, 113, .18);
+    }
+
+    [data-theme="dark"] .payment-action-btn.reject:hover {
+        color: #ffffff;
+        background: #ef4444;
+    }
+
+    .payment-empty {
+        position: relative;
+        overflow: hidden;
+        border-radius: 30px;
+        padding: 2rem;
+        text-align: center;
+        background: var(--pay-white);
+        border: 1px solid var(--pay-border);
+        box-shadow: var(--pay-shadow);
+    }
+
+    .payment-empty-icon {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 1rem;
+        border-radius: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, #059669, #10b981);
+        font-size: 1.8rem;
+        box-shadow:
+            0 16px 34px rgba(16, 185, 129, .20),
+            0 0 0 6px rgba(234, 224, 207, .58);
+    }
+
+    .payment-empty h2 {
+        margin: 0 0 .4rem;
+        color: var(--pay-navy);
+        font-weight: 950;
+        letter-spacing: -.6px;
+    }
+
+    .payment-empty p {
+        margin: 0;
+        color: var(--pay-indigo);
+        font-weight: 600;
+    }
+
+    [data-theme="dark"] .payment-empty {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+    [data-theme="dark"] .payment-empty h2 {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .payment-empty p {
+        color: #cbd5e1;
+    }
+
+    .payment-mobile-stack {
+        display: none;
+        padding: .85rem;
+        gap: .85rem;
+    }
+
+    .payment-mobile-card {
+        border-radius: 22px;
+        padding: 1rem;
+        background: rgba(255, 255, 255, .70);
+        border: 1px solid rgba(17, 24, 68, .10);
+        box-shadow: 0 14px 32px rgba(17, 24, 68, .08);
+    }
+
+    [data-theme="dark"] .payment-mobile-card {
+        background: rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+    .payment-mobile-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        margin-bottom: .8rem;
+    }
+
+    .payment-mobile-meta {
+        display: grid;
+        gap: .55rem;
+        margin-bottom: .85rem;
+    }
+
+    .payment-mobile-meta-row {
+        display: grid;
+        grid-template-columns: 95px minmax(0, 1fr);
+        gap: .6rem;
+        color: var(--pay-indigo);
+        font-size: .82rem;
+        font-weight: 650;
+    }
+
+    .payment-mobile-meta-row strong {
+        color: var(--pay-navy);
+        font-weight: 900;
+    }
+
+    [data-theme="dark"] .payment-mobile-meta-row {
+        color: #cbd5e1;
+    }
+
+    [data-theme="dark"] .payment-mobile-meta-row strong {
+        color: #f8fafc;
+    }
+
+    .payment-modal .modal-content {
+        border: 1px solid rgba(17, 24, 68, .12);
+        border-radius: 26px;
+        background:
+            radial-gradient(circle at 95% 10%, rgba(234, 224, 207, .46), transparent 34%),
+            rgba(255, 255, 255, .96);
+        box-shadow: 0 28px 80px rgba(17, 24, 68, .20);
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .payment-modal .modal-content {
+        background:
+            radial-gradient(circle at 95% 10%, rgba(234, 224, 207, .08), transparent 34%),
+            rgba(17, 24, 68, .96);
+        border-color: rgba(234, 224, 207, .12);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, .45);
+    }
+
+    .payment-modal .modal-header,
+    .payment-modal .modal-footer {
+        border-color: rgba(17, 24, 68, .10);
+    }
+
+    [data-theme="dark"] .payment-modal .modal-header,
+    [data-theme="dark"] .payment-modal .modal-footer {
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+    .payment-modal-title {
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+        color: var(--pay-navy);
+        font-weight: 950;
+    }
+
+    .payment-modal-title i {
+        width: 38px;
+        height: 38px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: var(--pay-danger);
+    }
+
+    [data-theme="dark"] .payment-modal-title {
+        color: #f8fafc;
+    }
+
+    .payment-modal-desc {
+        color: var(--pay-indigo);
+        font-weight: 650;
+        line-height: 1.55;
+    }
+
+    [data-theme="dark"] .payment-modal-desc {
+        color: #cbd5e1;
+    }
+
+    .payment-modal textarea {
+        border-radius: 16px;
+        border: 1px solid rgba(17, 24, 68, .13);
+        background: rgba(255, 255, 255, .76);
+        color: var(--pay-navy);
+        box-shadow: none;
+    }
+
+    .payment-modal textarea:focus {
+        border-color: var(--pay-bluegray);
+        box-shadow:
+            0 0 0 4px rgba(114, 136, 174, .18),
+            0 10px 24px rgba(17, 24, 68, .08);
+    }
+
+    [data-theme="dark"] .payment-modal textarea {
+        background: rgba(234, 224, 207, .08);
+        border-color: rgba(234, 224, 207, .14);
+        color: #f8fafc;
+    }
+
+    .payment-modal-btn {
+        min-height: 42px;
+        border-radius: 14px;
+        padding: .65rem 1rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+        font-weight: 900;
+        border: 1px solid transparent;
+        transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+    .payment-modal-btn.cancel {
+        color: var(--pay-indigo);
+        background: rgba(255, 255, 255, .68);
+        border-color: rgba(17, 24, 68, .12);
+    }
+
+    .payment-modal-btn.cancel:hover {
+        color: var(--pay-navy);
+        background: rgba(234, 224, 207, .46);
+    }
+
+    .payment-modal-btn.danger {
+        color: #ffffff;
+        background: var(--pay-danger);
+        border-color: rgba(239, 68, 68, .35);
+    }
+
+    .payment-modal-btn.danger:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 28px rgba(239, 68, 68, .22);
+    }
+
+    [data-theme="dark"] .payment-modal-btn.cancel {
+        color: #f8fafc;
+        background: rgba(234, 224, 207, .08);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+    [data-theme="dark"] .payment-modal-btn.cancel:hover {
+        color: #EAE0CF;
+        background: rgba(234, 224, 207, .12);
+    }
+
+    @@media (max-width: 1199.98px) {
+        .payment-hero-content {
+            grid-template-columns: 1fr;
+        }
+
+        .payment-summary-panel {
+            max-width: 560px;
+        }
+
+        .payment-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 991.98px) {
+        .payment-table-wrap {
+            display: none;
+        }
+
+        .payment-mobile-stack {
+            display: grid;
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .payment-admin-page {
+            padding: .85rem .75rem 1.5rem;
+        }
+
+        .payment-hero {
+            border-radius: 24px;
+        }
+
+        .payment-hero-actions {
+            flex-direction: column;
+        }
+
+        .payment-hero-btn {
+            width: 100%;
+        }
+
+        .payment-stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .payment-section-head {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .payment-section-title {
+            font-size: 1rem;
+        }
+
+        .payment-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+        }
+
+        .payment-action-btn {
+            width: 100%;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .payment-summary-mini {
+            grid-template-columns: 1fr;
+        }
+
+        .payment-mobile-meta-row {
+            grid-template-columns: 1fr;
+            gap: .18rem;
+        }
     }
 </style>
 
-<div class="container py-3">
+<section class="payment-admin-page">
+    <div class="payment-shell">
+        <div class="payment-hero">
+            <div class="payment-hero-content">
+                <div>
+                    <div class="payment-kicker">
+                        <i class="fa-solid fa-money-check-dollar"></i>
+                        <span>Admin Payment Control</span>
+                    </div>
 
-    <div class="d-flex align-items-center justify-content-between mb-4">
-        <h2 style="font-weight:800;margin:0;">
-            <i class="bi bi-wallet2 me-2" style="color:var(--primary);"></i>
-            Pending Payments
-        </h2>
-        <span style="color:var(--muted);font-size:0.9rem;">
-            @Model.Count pending
-        </span>
-    </div>
+                    <h1>Pending Payments</h1>
 
-    @if (!Model.Any())
-    {
-        <div class="nx-alert nx-alert-success">
-            <i class="bi bi-check-circle-fill"></i>
-            <span>No pending payments. All caught up!</span>
-        </div>
-    }
-    else
-    {
-        <!-- ── Registration Payments ── -->
-        @if (regPayments.Any())
-        {
-            <div class="nx-card mb-4">
-                <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-                    <h5 style="margin:0;font-weight:700;">
-                        <i class="bi bi-person-plus-fill me-2" style="color:var(--primary);"></i>
-                        Registration Fees
-                        <span class="nx-badge ms-2">@regPayments.Count</span>
-                    </h5>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table class="pay-table w-100">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>User</th>
-                                <th>Email</th>
-                                <th>Amount</th>
-                                <th>TrxID</th>
-                                <th>Submitted</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var p in regPayments)
-                            {
-                                <tr>
-                                    <td style="color:var(--muted);">@p.Id</td>
-                                    <td style="font-weight:600;">@(p.User?.UserName ?? "—")</td>
-                                    <td style="color:var(--muted);">@(p.User?.Email ?? "—")</td>
-                                    <td>
-                                        <span style="font-weight:700;color:var(--success);">
-                                            BDT @p.Amount.ToString("0")
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="trxid-badge" title="Click to copy"
-                                              onclick="navigator.clipboard.writeText('@p.TransactionId');this.textContent='Copied!';setTimeout(()=>this.textContent='@p.TransactionId',1500)">
-                                            @p.TransactionId
-                                        </span>
-                                    </td>
-                                    <td style="color:var(--muted);font-size:0.8rem;">
-                                        @p.SubmittedAt.ToString("dd MMM yyyy")
-                                        <br />@p.SubmittedAt.ToString("hh:mm tt")
-                                    </td>
-                                    <td>
-                                        <div class="d-flex gap-2">
-                                            <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
-                                                @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn-nx success sm"
-                                                        onclick="return confirm('Verify TrxID: @p.TransactionId ?')">
-                                                    <i class="bi bi-check-lg"></i> Verify
-                                                </button>
-                                            </form>
-                                            <button type="button" class="btn-nx outline-danger sm"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#rejectModal"
-                                                    data-id="@p.Id"
-                                                    data-trx="@p.TransactionId"
-                                                    data-user="@(p.User?.UserName)">
-                                                <i class="bi bi-x-lg"></i> Reject
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        }
+                    <p>
+                        Review registration and room posting payments, verify valid transactions, and reject suspicious records with an admin note.
+                    </p>
 
-        <!-- ── Room Posting Payments ── -->
-        @if (roomPayments.Any())
-        {
-            <div class="nx-card mb-4">
-                <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-                    <h5 style="margin:0;font-weight:700;">
-                        <i class="bi bi-house-add-fill me-2" style="color:var(--warning);"></i>
-                        Room Posting Fees
-                        <span class="nx-badge nx-badge-warning ms-2">@roomPayments.Count</span>
-                    </h5>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table class="pay-table w-100">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Owner</th>
-                                <th>Room</th>
-                                <th>Rent</th>
-                                <th>Fee (20%)</th>
-                                <th>TrxID</th>
-                                <th>Submitted</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var p in roomPayments)
-                            {
-                                <tr>
-                                    <td style="color:var(--muted);">@p.Id</td>
-                                    <td style="font-weight:600;">@(p.User?.UserName ?? "—")</td>
-                                    <td>
-                                        @if (p.Room != null)
-                                        {
-                                            <a asp-controller="Room" asp-action="Details" asp-route-id="@p.Room.Id"
-                                               class="auth-link" style="font-size:0.85rem;">
-                                                @p.Room.Title
-                                            </a>
-                                            <br />
-                                            <span style="color:var(--muted);font-size:0.78rem;">
-                                                @(p.Room.District ?? p.Room.Location)
-                                            </span>
-                                        }
-                                        else { <span style="color:var(--muted);">Deleted</span> }
-                                    </td>
-                                    <td style="color:var(--muted);">
-                                        @(p.Room != null ? "BDT " + p.Room.Price : "—")
-                                    </td>
-                                    <td>
-                                        <span style="font-weight:700;color:var(--success);">
-                                            BDT @p.Amount.ToString("0")
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="trxid-badge" title="Click to copy"
-                                              onclick="navigator.clipboard.writeText('@p.TransactionId');this.textContent='Copied!';setTimeout(()=>this.textContent='@p.TransactionId',1500)">
-                                            @p.TransactionId
-                                        </span>
-                                    </td>
-                                    <td style="color:var(--muted);font-size:0.8rem;">
-                                        @p.SubmittedAt.ToString("dd MMM yyyy")
-                                        <br />@p.SubmittedAt.ToString("hh:mm tt")
-                                    </td>
-                                    <td>
-                                        <div class="d-flex gap-2">
-                                            <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
-                                                @Html.AntiForgeryToken()
-                                                <button type="submit" class="btn-nx success sm"
-                                                        onclick="return confirm('Verify and PUBLISH room: @(p.Room?.Title) ?')">
-                                                    <i class="bi bi-check-lg"></i> Verify &amp; Publish
-                                                </button>
-                                            </form>
-                                            <button type="button" class="btn-nx outline-danger sm"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#rejectModal"
-                                                    data-id="@p.Id"
-                                                    data-trx="@p.TransactionId"
-                                                    data-user="@(p.User?.UserName)">
-                                                <i class="bi bi-x-lg"></i> Reject
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        }
-    }
-</div>
+                    <div class="payment-hero-actions">
+                        <a asp-controller="Home" asp-action="Index" class="payment-hero-btn primary">
+                            <i class="fa-solid fa-table-columns"></i>
+                            Back to Dashboard
+                        </a>
 
-<!-- Reject Modal -->
-<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content" style="border:1px solid var(--border);border-radius:var(--radius-xl);
-                                          background:var(--white);">
-            <form id="rejectForm" method="post">
-                @Html.AntiForgeryToken()
-                <div class="modal-header" style="border-color:var(--border);">
-                    <h5 class="modal-title" style="font-weight:700;">Reject Payment</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="rejectDesc" style="font-size:0.9rem;color:var(--muted);"></p>
-                    <div class="mb-2">
-                        <label class="form-label" style="font-size:0.85rem;font-weight:600;">
-                            Reason (optional)
-                        </label>
-                        <textarea name="note" class="form-control" rows="3"
-                                  placeholder="e.g. Transaction ID not found, wrong amount…"
-                                  style="height:auto;"></textarea>
+                        <a asp-controller="Room" asp-action="Pending" class="payment-hero-btn soft">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            Pending Rooms
+                        </a>
+
+                        <a asp-controller="Kyc" asp-action="Pending" class="payment-hero-btn soft">
+                            <i class="fa-solid fa-id-card-clip"></i>
+                            KYC Requests
+                        </a>
                     </div>
                 </div>
-                <div class="modal-footer" style="border-color:var(--border);">
-                    <button type="button" class="btn-nx outline" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn-nx danger">
-                        <i class="bi bi-x-circle"></i> Confirm Reject
+
+                <div class="payment-summary-panel">
+                    <div class="payment-summary-number">@totalPending</div>
+                    <span>payment(s) need admin decision</span>
+
+                    <div class="payment-summary-mini">
+                        <div>
+                            <strong>@regPayments.Count</strong>
+                            <small>Registration</small>
+                        </div>
+                        <div>
+                            <strong>@roomPayments.Count</strong>
+                            <small>Room Fees</small>
+                        </div>
+                        <div>
+                            <strong>BDT @totalAmount.ToString("N0")</strong>
+                            <small>Total Amount</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="payment-stat-grid">
+            <div class="payment-stat-card">
+                <div class="payment-stat-icon">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+                <h3 class="payment-stat-value">@totalPending</h3>
+                <p class="payment-stat-label">Total Pending</p>
+                <p class="payment-stat-hint">All unverified payment records.</p>
+            </div>
+
+            <div class="payment-stat-card">
+                <div class="payment-stat-icon">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <h3 class="payment-stat-value">@regPayments.Count</h3>
+                <p class="payment-stat-label">Registration Fees</p>
+                <p class="payment-stat-hint">Payments submitted for account unlock.</p>
+            </div>
+
+            <div class="payment-stat-card">
+                <div class="payment-stat-icon">
+                    <i class="fa-solid fa-house-circle-check"></i>
+                </div>
+                <h3 class="payment-stat-value">@roomPayments.Count</h3>
+                <p class="payment-stat-label">Room Posting Fees</p>
+                <p class="payment-stat-hint">Payments submitted for room publishing.</p>
+            </div>
+
+            <div class="payment-stat-card">
+                <div class="payment-stat-icon">
+                    <i class="fa-solid fa-calendar-check"></i>
+                </div>
+                <h3 class="payment-stat-value">@(latestSubmitted.HasValue ? latestSubmitted.Value.ToString("dd MMM") : "—")</h3>
+                <p class="payment-stat-label">Latest Submission</p>
+                <p class="payment-stat-hint">Most recent pending payment time.</p>
+            </div>
+        </div>
+
+        @if (!Model.Any())
+        {
+            <div class="payment-section">
+                <div class="payment-empty">
+                    <div class="payment-empty-icon">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <h2>All payments are clear</h2>
+                    <p>No pending payments right now. Your payment queue is clean.</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            @if (regPayments.Any())
+            {
+                <div class="payment-section">
+                    <div class="payment-panel">
+                        <div class="payment-section-head">
+                            <h2 class="payment-section-title">
+                                <span class="payment-section-icon">
+                                    <i class="fa-solid fa-user-plus"></i>
+                                </span>
+                                Registration Fees
+                            </h2>
+
+                            <span class="payment-count-badge">@regPayments.Count</span>
+                        </div>
+
+                        <div class="payment-table-wrap">
+                            <table class="payment-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>User</th>
+                                        <th>Email</th>
+                                        <th>Amount</th>
+                                        <th>TrxID</th>
+                                        <th>Submitted</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in regPayments)
+                                    {
+                                        <tr>
+                                            <td style="font-weight:850;color:var(--pay-bluegray);">@p.Id</td>
+                                            <td>
+                                                <div class="payment-user-cell">
+                                                    <div class="payment-avatar">@GetInitials(GetUserName(p))</div>
+                                                    <div>
+                                                        <div class="payment-user-name">@GetUserName(p)</div>
+                                                        <div class="payment-user-sub">Registration unlock</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="payment-email">@GetUserEmail(p)</div>
+                                            </td>
+                                            <td>
+                                                <span class="payment-amount">
+                                                    <i class="fa-solid fa-bangladeshi-taka-sign"></i>
+                                                    BDT @p.Amount.ToString("N0")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
+                                                    <i class="fa-regular fa-copy"></i>
+                                                    <span class="payment-trx-text">@p.TransactionId</span>
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <div class="payment-date">
+                                                    @FormatDate(p.SubmittedAt)
+                                                    <small>@FormatTime(p.SubmittedAt)</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="payment-actions">
+                                                    <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
+                                                        @Html.AntiForgeryToken()
+                                                        <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify this registration payment?')">
+                                                            <i class="fa-solid fa-check"></i>
+                                                            Verify
+                                                        </button>
+                                                    </form>
+
+                                                    <button type="button"
+                                                            class="payment-action-btn reject"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#rejectModal"
+                                                            data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
+                                                            data-trx="@p.TransactionId"
+                                                            data-user="@GetUserName(p)">
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                        Reject
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="payment-mobile-stack">
+                            @foreach (var p in regPayments)
+                            {
+                                <div class="payment-mobile-card">
+                                    <div class="payment-mobile-top">
+                                        <div class="payment-user-cell">
+                                            <div class="payment-avatar">@GetInitials(GetUserName(p))</div>
+                                            <div>
+                                                <div class="payment-user-name">@GetUserName(p)</div>
+                                                <div class="payment-user-sub">Registration payment</div>
+                                            </div>
+                                        </div>
+                                        <span class="payment-amount">BDT @p.Amount.ToString("N0")</span>
+                                    </div>
+
+                                    <div class="payment-mobile-meta">
+                                        <div class="payment-mobile-meta-row">
+                                            <strong>Email</strong>
+                                            <span>@GetUserEmail(p)</span>
+                                        </div>
+                                        <div class="payment-mobile-meta-row">
+                                            <strong>TrxID</strong>
+                                            <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
+                                                <i class="fa-regular fa-copy"></i>
+                                                <span class="payment-trx-text">@p.TransactionId</span>
+                                            </button>
+                                        </div>
+                                        <div class="payment-mobile-meta-row">
+                                            <strong>Submitted</strong>
+                                            <span>@FormatDate(p.SubmittedAt), @FormatTime(p.SubmittedAt)</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="payment-actions">
+                                        <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify this registration payment?')">
+                                                <i class="fa-solid fa-check"></i>
+                                                Verify
+                                            </button>
+                                        </form>
+
+                                        <button type="button"
+                                                class="payment-action-btn reject"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#rejectModal"
+                                                data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
+                                                data-trx="@p.TransactionId"
+                                                data-user="@GetUserName(p)">
+                                            <i class="fa-solid fa-xmark"></i>
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (roomPayments.Any())
+            {
+                <div class="payment-section">
+                    <div class="payment-panel">
+                        <div class="payment-section-head">
+                            <h2 class="payment-section-title">
+                                <span class="payment-section-icon">
+                                    <i class="fa-solid fa-house-circle-check"></i>
+                                </span>
+                                Room Posting Fees
+                            </h2>
+
+                            <span class="payment-count-badge">@roomPayments.Count</span>
+                        </div>
+
+                        <div class="payment-table-wrap">
+                            <table class="payment-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Owner</th>
+                                        <th>Room</th>
+                                        <th>Rent</th>
+                                        <th>Fee</th>
+                                        <th>TrxID</th>
+                                        <th>Submitted</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in roomPayments)
+                                    {
+                                        <tr>
+                                            <td style="font-weight:850;color:var(--pay-bluegray);">@p.Id</td>
+                                            <td>
+                                                <div class="payment-user-cell">
+                                                    <div class="payment-avatar">@GetInitials(GetUserName(p))</div>
+                                                    <div>
+                                                        <div class="payment-user-name">@GetUserName(p)</div>
+                                                        <div class="payment-user-sub">Room owner</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (p.Room != null)
+                                                {
+                                                    <a asp-controller="Room" asp-action="Details" asp-route-id="@p.Room.Id" class="payment-room-link">
+                                                        @p.Room.Title
+                                                    </a>
+                                                    <div class="payment-room-sub">
+                                                        <i class="fa-solid fa-location-dot me-1"></i>
+                                                        @(p.Room.District ?? p.Room.Location)
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="payment-room-sub">Deleted room</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="payment-date">
+                                                    @(p.Room != null ? "BDT " + p.Room.Price.ToString("N0") : "—")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="payment-amount">
+                                                    <i class="fa-solid fa-bangladeshi-taka-sign"></i>
+                                                    BDT @p.Amount.ToString("N0")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
+                                                    <i class="fa-regular fa-copy"></i>
+                                                    <span class="payment-trx-text">@p.TransactionId</span>
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <div class="payment-date">
+                                                    @FormatDate(p.SubmittedAt)
+                                                    <small>@FormatTime(p.SubmittedAt)</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="payment-actions">
+                                                    <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
+                                                        @Html.AntiForgeryToken()
+                                                        <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify and publish this room payment?')">
+                                                            <i class="fa-solid fa-check"></i>
+                                                            Verify &amp; Publish
+                                                        </button>
+                                                    </form>
+
+                                                    <button type="button"
+                                                            class="payment-action-btn reject"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#rejectModal"
+                                                            data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
+                                                            data-trx="@p.TransactionId"
+                                                            data-user="@GetUserName(p)">
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                        Reject
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="payment-mobile-stack">
+                            @foreach (var p in roomPayments)
+                            {
+                                <div class="payment-mobile-card">
+                                    <div class="payment-mobile-top">
+                                        <div class="payment-user-cell">
+                                            <div class="payment-avatar">@GetInitials(GetUserName(p))</div>
+                                            <div>
+                                                <div class="payment-user-name">@GetUserName(p)</div>
+                                                <div class="payment-user-sub">Room posting payment</div>
+                                            </div>
+                                        </div>
+                                        <span class="payment-amount">BDT @p.Amount.ToString("N0")</span>
+                                    </div>
+
+                                    <div class="payment-mobile-meta">
+                                        <div class="payment-mobile-meta-row">
+                                            <strong>Room</strong>
+                                            <span>
+                                                @if (p.Room != null)
+                                                {
+                                                    <a asp-controller="Room" asp-action="Details" asp-route-id="@p.Room.Id" class="payment-room-link">@p.Room.Title</a>
+                                                }
+                                                else
+                                                {
+                                                    <span>Deleted room</span>
+                                                }
+                                            </span>
+                                        </div>
+                                        <div class="payment-mobile-meta-row">
+                                            <strong>Rent</strong>
+                                            <span>@(p.Room != null ? "BDT " + p.Room.Price.ToString("N0") : "—")</span>
+                                        </div>
+                                        <div class="payment-mobile-meta-row">
+                                            <strong>TrxID</strong>
+                                            <button type="button" class="payment-trx" data-copy="@p.TransactionId" title="Click to copy Transaction ID">
+                                                <i class="fa-regular fa-copy"></i>
+                                                <span class="payment-trx-text">@p.TransactionId</span>
+                                            </button>
+                                        </div>
+                                        <div class="payment-mobile-meta-row">
+                                            <strong>Submitted</strong>
+                                            <span>@FormatDate(p.SubmittedAt), @FormatTime(p.SubmittedAt)</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="payment-actions">
+                                        <form asp-action="Verify" asp-route-id="@p.Id" method="post" class="m-0">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="payment-action-btn verify" onclick="return confirm('Verify and publish this room payment?')">
+                                                <i class="fa-solid fa-check"></i>
+                                                Verify &amp; Publish
+                                            </button>
+                                        </form>
+
+                                        <button type="button"
+                                                class="payment-action-btn reject"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#rejectModal"
+                                                data-action="@Url.Action("Reject", "Payment", new { id = p.Id })"
+                                                data-trx="@p.TransactionId"
+                                                data-user="@GetUserName(p)">
+                                            <i class="fa-solid fa-xmark"></i>
+                                            Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</section>
+
+<div class="modal fade payment-modal" id="rejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="rejectForm" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="modal-header">
+                    <h5 class="modal-title payment-modal-title">
+                        <i class="fa-solid fa-ban"></i>
+                        Reject Payment
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p id="rejectDesc" class="payment-modal-desc mb-3"></p>
+
+                    <div>
+                        <label class="form-label" style="font-size:.85rem;font-weight:900;color:var(--pay-navy);">
+                            <i class="fa-solid fa-note-sticky me-1"></i>
+                            Reason <span style="color:var(--pay-bluegray);font-weight:700;">(optional)</span>
+                        </label>
+                        <textarea name="note" class="form-control" rows="3" placeholder="Example: Transaction ID not found, wrong amount, duplicate payment..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="payment-modal-btn cancel" data-bs-dismiss="modal">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        Cancel
+                    </button>
+                    <button type="submit" class="payment-modal-btn danger">
+                        <i class="fa-solid fa-xmark"></i>
+                        Confirm Reject
                     </button>
                 </div>
             </form>
@@ -257,15 +1537,42 @@
 
 @section Scripts {
     <script>
-        const rejectModal = document.getElementById('rejectModal');
-        rejectModal.addEventListener('show.bs.modal', function (e) {
-            const btn  = e.relatedTarget;
-            const id   = btn.dataset.id;
-            const trx  = btn.dataset.trx;
-            const user = btn.dataset.user;
-            document.getElementById('rejectDesc').textContent =
-                `Rejecting payment from ${user} — TrxID: ${trx}`;
-            document.getElementById('rejectForm').action = `/Payment/Reject/${id}`;
+        document.querySelectorAll('[data-copy]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const value = button.getAttribute('data-copy') || '';
+                const text = button.querySelector('.payment-trx-text');
+                const oldText = text ? text.textContent : '';
+
+                const showCopied = function () {
+                    if (text) {
+                        text.textContent = 'Copied!';
+                        setTimeout(function () {
+                            text.textContent = oldText;
+                        }, 1300);
+                    }
+                };
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(value).then(showCopied).catch(showCopied);
+                } else {
+                    showCopied();
+                }
+            });
         });
+
+        const rejectModal = document.getElementById('rejectModal');
+        if (rejectModal) {
+            rejectModal.addEventListener('show.bs.modal', function (e) {
+                const btn = e.relatedTarget;
+                const action = btn.getAttribute('data-action');
+                const trx = btn.getAttribute('data-trx') || 'Unknown transaction';
+                const user = btn.getAttribute('data-user') || 'Unknown user';
+
+                document.getElementById('rejectDesc').textContent =
+                    `You are rejecting payment from ${user}. Transaction ID: ${trx}. Add a note if needed.`;
+
+                document.getElementById('rejectForm').action = action;
+            });
+        }
     </script>
 }

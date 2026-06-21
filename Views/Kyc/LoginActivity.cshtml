@@ -1,78 +1,967 @@
 @model List<Bachelor_s_Point.Models.LoginHistory>
 @{
     ViewData["Title"] = "Login Activity";
+
     int totalLogins = ViewBag.TotalLogins ?? 0;
     int distinctUsers = ViewBag.DistinctUsers ?? 0;
     int todayLogins = ViewBag.TodayLogins ?? 0;
+
+    var recentLogin = Model.OrderByDescending(x => x.LoginAt).FirstOrDefault();
+    string latestLoginText = recentLogin == null ? "No activity yet" : recentLogin.LoginAt.ToString("dd MMM yyyy, hh:mm tt");
+
+    int adminLogins = Model.Count(x => string.Equals(x.User?.Role?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase));
+    int userLogins = Math.Max(0, totalLogins - adminLogins);
+
+    var busiestUser = Model
+        .GroupBy(x => x.User?.UserName ?? x.Email ?? "Unknown")
+        .OrderByDescending(g => g.Count())
+        .FirstOrDefault();
+
+    string busiestUserName = busiestUser?.Key ?? "No user yet";
+    int busiestUserCount = busiestUser?.Count() ?? 0;
+
+    string Initials(string? name, string? email)
+    {
+        string source = !string.IsNullOrWhiteSpace(name) ? name : (email ?? "U");
+        var parts = source.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+        return source.Substring(0, 1).ToUpper();
+    }
+
+    string TimeAgo(DateTime time)
+    {
+        var span = DateTime.Now - time;
+        if (span.TotalMinutes < 1) return "Just now";
+        if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} min ago";
+        if (span.TotalHours < 24) return $"{(int)span.TotalHours} hr ago";
+        if (span.TotalDays < 2) return "Yesterday";
+        if (span.TotalDays < 30) return $"{(int)span.TotalDays} days ago";
+        return time.ToString("dd MMM yyyy");
+    }
 }
 
-<div class="container py-3">
-    <h2 style="font-weight: 800; margin-bottom: 1.25rem;">
-        <i class="bi bi-activity me-2" style="color: var(--primary);"></i>User Login Activity
-    </h2>
+<style>
+    /*
+            Login Activity Page UI/UX
+            Palette:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
+        */
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="nx-card p-3 text-center">
-                <i class="bi bi-box-arrow-in-right" style="font-size: 2rem; color: var(--primary);"></i>
-                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@totalLogins</h2>
-                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Total Logins</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="nx-card p-3 text-center">
-                <i class="bi bi-people-fill" style="font-size: 2rem; color: var(--success);"></i>
-                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@distinctUsers</h2>
-                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Distinct Users Logged In</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="nx-card p-3 text-center">
-                <i class="bi bi-calendar-day-fill" style="font-size: 2rem; color: var(--warning);"></i>
-                <h2 style="font-weight: 800; margin: 0.4rem 0 0;">@todayLogins</h2>
-                <p style="color: var(--muted); margin: 0; font-size: 0.88rem;">Logins Today</p>
-            </div>
-        </div>
-    </div>
-
-    @if (!Model.Any())
-    {
-        <div class="nx-alert nx-alert-info">
-            <i class="bi bi-info-circle-fill"></i>
-            <span>No login records yet.</span>
-        </div>
+    :root {
+        --la-navy: #111844;
+        --la-indigo: #4B5694;
+        --la-bluegray: #7288AE;
+        --la-beige: #EAE0CF;
+        --la-card: rgba(255, 255, 255, .88);
+        --la-border: rgba(17, 24, 68, .12);
+        --la-shadow: 0 20px 55px rgba(17, 24, 68, .10);
+        --la-shadow-hover: 0 28px 78px rgba(17, 24, 68, .16);
     }
-    else
-    {
-        <p style="color: var(--muted); font-size: 0.85rem;">Showing the most recent @Model.Count logins.</p>
-        <div class="nx-card" style="overflow: hidden;">
-            <table class="table mb-0" style="font-size: 0.9rem;">
-                <thead style="background: var(--bg);">
-                    <tr>
-                        <th style="padding: 0.85rem 1rem;">#</th>
-                        <th style="padding: 0.85rem 1rem;">User</th>
-                        <th style="padding: 0.85rem 1rem;">Email</th>
-                        <th style="padding: 0.85rem 1rem;">Login Date</th>
-                        <th style="padding: 0.85rem 1rem;">Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @{ int rowNum = 1; }
-                    @foreach (var l in Model)
+
+    body:has(.login-activity-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .11), transparent 30%), radial-gradient(circle at 94% 86%, rgba(234, 224, 207, .62), transparent 34%), linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
+
+    [data-theme="dark"] body:has(.login-activity-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .13), transparent 30%), radial-gradient(circle at 94% 86%, rgba(75, 86, 148, .22), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
+    }
+
+    .login-activity-page {
+        position: relative;
+        padding: 1.1rem 1rem 2rem;
+    }
+
+        .login-activity-page::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 76%);
+            pointer-events: none;
+        }
+
+    [data-theme="dark"] .login-activity-page::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .la-shell {
+        width: min(100%, 1320px);
+        margin: 0 auto;
+    }
+
+    .la-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 30px;
+        padding: clamp(1.4rem, 3vw, 2.2rem);
+        background: radial-gradient(circle at 90% 18%, rgba(234, 224, 207, .35), transparent 28%), linear-gradient(135deg, var(--la-navy) 0%, var(--la-indigo) 62%, var(--la-bluegray) 100%);
+        color: #ffffff;
+        box-shadow: var(--la-shadow);
+        border: 1px solid rgba(255, 255, 255, .12);
+    }
+
+        .la-hero::before {
+            content: "";
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            right: -120px;
+            top: -140px;
+            border-radius: 50%;
+            background: rgba(234, 224, 207, .18);
+            pointer-events: none;
+        }
+
+        .la-hero::after {
+            content: "";
+            position: absolute;
+            width: 290px;
+            height: 290px;
+            left: -125px;
+            bottom: -155px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .10);
+            pointer-events: none;
+        }
+
+    .la-hero-inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+        gap: 1.4rem;
+        align-items: center;
+    }
+
+    .la-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        padding: .45rem .85rem;
+        border-radius: 999px;
+        background: rgba(234, 224, 207, .16);
+        color: #ffffff;
+        font-size: .78rem;
+        font-weight: 850;
+        border: 1px solid rgba(234, 224, 207, .20);
+        margin-bottom: .9rem;
+    }
+
+    .la-hero h1 {
+        margin: 0 0 .55rem;
+        font-size: clamp(2rem, 4vw, 3.6rem);
+        line-height: 1;
+        letter-spacing: -1.6px;
+        font-weight: 950;
+    }
+
+    .la-hero p {
+        max-width: 720px;
+        margin: 0;
+        color: rgba(255, 255, 255, .76);
+        font-size: clamp(.94rem, 1.25vw, 1.05rem);
+        line-height: 1.6;
+        font-weight: 500;
+    }
+
+    .la-hero-pulse {
+        margin-top: 1.35rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+    }
+
+    .la-pill {
+        min-height: 42px;
+        border-radius: 999px;
+        padding: .65rem .9rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        background: rgba(255, 255, 255, .12);
+        color: rgba(255, 255, 255, .92);
+        border: 1px solid rgba(255, 255, 255, .16);
+        font-size: .82rem;
+        font-weight: 800;
+        backdrop-filter: blur(12px);
+    }
+
+    .la-side-panel {
+        position: relative;
+        border-radius: 24px;
+        padding: 1.15rem;
+        background: rgba(255, 255, 255, .14);
+        border: 1px solid rgba(255, 255, 255, .16);
+        backdrop-filter: blur(16px);
+    }
+
+    .la-side-icon {
+        width: 58px;
+        height: 58px;
+        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(234, 224, 207, .16);
+        color: #ffffff;
+        font-size: 1.55rem;
+        box-shadow: 0 0 0 6px rgba(234, 224, 207, .08);
+        margin-bottom: .9rem;
+    }
+
+    .la-side-panel strong {
+        display: block;
+        color: #ffffff;
+        font-size: 1.3rem;
+        font-weight: 950;
+        line-height: 1.2;
+    }
+
+    .la-side-panel span {
+        display: block;
+        margin-top: .35rem;
+        color: rgba(255, 255, 255, .72);
+        font-size: .8rem;
+        font-weight: 750;
+    }
+
+    .la-side-mini {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .55rem;
+        margin-top: 1rem;
+    }
+
+        .la-side-mini div {
+            border-radius: 16px;
+            padding: .7rem;
+            background: rgba(255, 255, 255, .10);
+            text-align: center;
+        }
+
+        .la-side-mini b {
+            display: block;
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 950;
+        }
+
+        .la-side-mini small {
+            color: rgba(255, 255, 255, .68);
+            font-size: .66rem;
+            font-weight: 750;
+        }
+
+    .la-section {
+        margin-top: 1.35rem;
+    }
+
+    .la-section-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: .85rem;
+    }
+
+    .la-title {
+        margin: 0;
+        color: var(--la-navy);
+        font-size: 1.12rem;
+        font-weight: 950;
+        letter-spacing: -.45px;
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+    }
+
+        .la-title i {
+            color: var(--la-indigo);
+        }
+
+    .la-subtitle {
+        margin: .25rem 0 0;
+        color: var(--la-indigo);
+        font-size: .83rem;
+        font-weight: 650;
+    }
+
+    [data-theme="dark"] .la-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .la-subtitle {
+        color: #cbd5e1;
+    }
+
+    .la-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .9rem;
+    }
+
+    .la-stat-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 24px;
+        padding: 1.05rem;
+        background: var(--la-card);
+        border: 1px solid var(--la-border);
+        box-shadow: var(--la-shadow);
+        transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    }
+
+        .la-stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--la-shadow-hover);
+            border-color: rgba(75, 86, 148, .28);
+        }
+
+        .la-stat-card::after {
+            content: "";
+            position: absolute;
+            width: 112px;
+            height: 112px;
+            right: -48px;
+            top: -48px;
+            border-radius: 36px;
+            background: rgba(234, 224, 207, .42);
+            transform: rotate(18deg);
+        }
+
+    [data-theme="dark"] .la-stat-card {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+        [data-theme="dark"] .la-stat-card::after {
+            background: rgba(234, 224, 207, .08);
+        }
+
+    .la-stat-icon {
+        position: relative;
+        z-index: 1;
+        width: 44px;
+        height: 44px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--la-navy), var(--la-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .20);
+        margin-bottom: .8rem;
+    }
+
+    .la-stat-value {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--la-navy);
+        font-size: 1.75rem;
+        font-weight: 950;
+        letter-spacing: -.8px;
+        line-height: 1;
+    }
+
+    .la-stat-label {
+        position: relative;
+        z-index: 1;
+        margin: .35rem 0 .15rem;
+        color: var(--la-indigo);
+        font-size: .82rem;
+        font-weight: 900;
+    }
+
+    .la-stat-hint {
+        position: relative;
+        z-index: 1;
+        margin: 0;
+        color: var(--la-bluegray);
+        font-size: .74rem;
+        font-weight: 650;
+        line-height: 1.4;
+    }
+
+    [data-theme="dark"] .la-stat-value {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .la-stat-label {
+        color: #EAE0CF;
+    }
+
+    [data-theme="dark"] .la-stat-hint {
+        color: #cbd5e1;
+    }
+
+    .la-main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        align-items: start;
+    }
+
+    .la-panel {
+        border-radius: 26px;
+        padding: 1rem;
+        background: var(--la-card);
+        border: 1px solid var(--la-border);
+        box-shadow: var(--la-shadow);
+        overflow: hidden;
+    }
+
+    [data-theme="dark"] .la-panel {
+        background: rgba(17, 24, 68, .76);
+        border-color: rgba(234, 224, 207, .11);
+    }
+
+    .la-table-wrap {
+        overflow-x: auto;
+        border-radius: 20px;
+        border: 1px solid rgba(17, 24, 68, .09);
+    }
+
+    [data-theme="dark"] .la-table-wrap {
+        border-color: rgba(234, 224, 207, .09);
+    }
+
+    .la-table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+        margin: 0;
+    }
+
+        .la-table thead {
+            background: linear-gradient(135deg, rgba(234, 224, 207, .55), rgba(114, 136, 174, .10));
+        }
+
+    [data-theme="dark"] .la-table thead {
+        background: rgba(234, 224, 207, .08);
+    }
+
+    .la-table th {
+        padding: .86rem .9rem;
+        color: var(--la-indigo);
+        font-size: .74rem;
+        font-weight: 950;
+        letter-spacing: .7px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        border-bottom: 1px solid rgba(17, 24, 68, .10);
+    }
+
+    .la-table td {
+        padding: .82rem .9rem;
+        border-bottom: 1px solid rgba(17, 24, 68, .08);
+        vertical-align: middle;
+        color: var(--la-navy);
+        font-size: .86rem;
+        font-weight: 650;
+    }
+
+    .la-table tbody tr {
+        background: rgba(255, 255, 255, .56);
+        transition: background .2s ease, transform .2s ease;
+    }
+
+        .la-table tbody tr:hover {
+            background: rgba(234, 224, 207, .30);
+        }
+
+        .la-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+    [data-theme="dark"] .la-table th {
+        color: #EAE0CF;
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    [data-theme="dark"] .la-table td {
+        color: #f8fafc;
+        border-bottom-color: rgba(234, 224, 207, .08);
+    }
+
+    [data-theme="dark"] .la-table tbody tr {
+        background: rgba(255, 255, 255, .035);
+    }
+
+        [data-theme="dark"] .la-table tbody tr:hover {
+            background: rgba(234, 224, 207, .07);
+        }
+
+    .la-user-cell {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        min-width: 170px;
+    }
+
+    .la-avatar {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--la-navy), var(--la-indigo));
+        font-size: .82rem;
+        font-weight: 950;
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .20), 0 0 0 4px rgba(234, 224, 207, .46);
+    }
+
+    [data-theme="dark"] .la-avatar {
+        background: linear-gradient(135deg, #4B5694, #7288AE);
+        box-shadow: 0 12px 26px rgba(0, 0, 0, .28), 0 0 0 4px rgba(234, 224, 207, .10);
+    }
+
+    .la-user-name {
+        display: block;
+        color: var(--la-navy);
+        font-weight: 950;
+        line-height: 1.2;
+    }
+
+    .la-user-role {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        margin-top: .22rem;
+        color: var(--la-bluegray);
+        font-size: .68rem;
+        font-weight: 800;
+    }
+
+    .la-email {
+        color: var(--la-indigo);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: .78rem;
+        overflow-wrap: anywhere;
+    }
+
+    .la-date-badge,
+    .la-time-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .42rem;
+        min-height: 34px;
+        border-radius: 12px;
+        padding: .48rem .65rem;
+        background: rgba(234, 224, 207, .48);
+        color: var(--la-navy);
+        font-size: .76rem;
+        font-weight: 850;
+        white-space: nowrap;
+    }
+
+    .la-time-badge {
+        background: rgba(114, 136, 174, .13);
+        color: var(--la-indigo);
+    }
+
+    [data-theme="dark"] .la-user-name {
+        color: #ffffff;
+    }
+
+    [data-theme="dark"] .la-user-role,
+    [data-theme="dark"] .la-email {
+        color: #cbd5e1;
+    }
+
+    [data-theme="dark"] .la-date-badge {
+        background: rgba(234, 224, 207, .10);
+        color: #EAE0CF;
+    }
+
+    [data-theme="dark"] .la-time-badge {
+        background: rgba(114, 136, 174, .13);
+        color: #dbeafe;
+    }
+
+    .la-row-no {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--la-indigo);
+        background: rgba(234, 224, 207, .45);
+        font-weight: 950;
+        font-size: .78rem;
+    }
+
+    [data-theme="dark"] .la-row-no {
+        background: rgba(234, 224, 207, .08);
+        color: #EAE0CF;
+    }
+
+    .la-mobile-list {
+        display: none;
+        gap: .75rem;
+    }
+
+    .la-login-card {
+        border-radius: 20px;
+        padding: .85rem;
+        background: rgba(255, 255, 255, .68);
+        border: 1px solid rgba(17, 24, 68, .09);
+    }
+
+    [data-theme="dark"] .la-login-card {
+        background: rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .09);
+    }
+
+    .la-login-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        margin-bottom: .75rem;
+    }
+
+    .la-login-card-meta {
+        display: grid;
+        gap: .45rem;
+        color: var(--la-indigo);
+        font-size: .78rem;
+        font-weight: 700;
+    }
+
+    [data-theme="dark"] .la-login-card-meta {
+        color: #cbd5e1;
+    }
+
+    .la-empty {
+        padding: 1.1rem;
+        border-radius: 20px;
+        background: rgba(234, 224, 207, .35);
+        color: var(--la-indigo);
+        font-size: .88rem;
+        font-weight: 750;
+        display: flex;
+        gap: .65rem;
+        align-items: center;
+    }
+
+    [data-theme="dark"] .la-empty {
+        background: rgba(234, 224, 207, .08);
+        color: #cbd5e1;
+    }
+
+    @@media (max-width: 1199.98px) {
+        .la-hero-inner,
+        .la-main-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .la-side-panel {
+            max-width: 580px;
+        }
+
+        .la-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 767.98px) {
+        .login-activity-page {
+            padding: .85rem .75rem 1.4rem;
+        }
+
+        .la-hero {
+            border-radius: 24px;
+        }
+
+        .la-hero-pulse {
+            flex-direction: column;
+        }
+
+        .la-pill {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .la-section-head {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .la-table-wrap {
+            display: none;
+        }
+
+        .la-mobile-list {
+            display: grid;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .la-stat-grid,
+        .la-side-mini {
+            grid-template-columns: 1fr;
+        }
+
+        .la-hero h1 {
+            font-size: 2rem;
+        }
+    }
+</style>
+
+<section class="login-activity-page">
+    <div class="la-shell">
+
+        <div class="la-hero">
+            <div class="la-hero-inner">
+                <div>
+                    <div class="la-kicker">
+                        <i class="fa-solid fa-wave-square"></i>
+                        <span>Security Activity Monitor</span>
+                    </div>
+
+                    <h1>User Login Activity</h1>
+                    <p>
+                        Track recent sign-ins, identify active users, and monitor account access patterns from one security-focused admin view.
+                    </p>
+
+                    <div class="la-hero-pulse">
+                        <span class="la-pill">
+                            <i class="fa-solid fa-right-to-bracket"></i>
+                            @totalLogins total logins
+                        </span>
+                        <span class="la-pill">
+                            <i class="fa-solid fa-users-viewfinder"></i>
+                            @distinctUsers unique user(s)
+                        </span>
+                        <span class="la-pill">
+                            <i class="fa-solid fa-calendar-day"></i>
+                            @todayLogins today
+                        </span>
+                    </div>
+                </div>
+
+                <aside class="la-side-panel">
+                    <div class="la-side-icon">
+                        <i class="fa-solid fa-shield-heart"></i>
+                    </div>
+                    <strong>@latestLoginText</strong>
+                    <span>Latest recorded successful login</span>
+
+                    <div class="la-side-mini">
+                        <div>
+                            <b>@adminLogins</b>
+                            <small>Admin logins</small>
+                        </div>
+                        <div>
+                            <b>@userLogins</b>
+                            <small>User logins</small>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </div>
+
+        <div class="la-section">
+            <div class="la-section-head">
+                <div>
+                    <h2 class="la-title">
+                        <i class="fa-solid fa-chart-simple"></i>
+                        Activity Overview
+                    </h2>
+                    <p class="la-subtitle">Quick security numbers from recent and historical login records.</p>
+                </div>
+            </div>
+
+            <div class="la-stat-grid">
+                <div class="la-stat-card">
+                    <div class="la-stat-icon">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    </div>
+                    <h3 class="la-stat-value">@totalLogins</h3>
+                    <p class="la-stat-label">Total Logins</p>
+                    <p class="la-stat-hint">All successful sign-ins stored in login history.</p>
+                </div>
+
+                <div class="la-stat-card">
+                    <div class="la-stat-icon">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <h3 class="la-stat-value">@distinctUsers</h3>
+                    <p class="la-stat-label">Distinct Users</p>
+                    <p class="la-stat-hint">Different accounts that logged in at least once.</p>
+                </div>
+
+                <div class="la-stat-card">
+                    <div class="la-stat-icon">
+                        <i class="fa-solid fa-calendar-check"></i>
+                    </div>
+                    <h3 class="la-stat-value">@todayLogins</h3>
+                    <p class="la-stat-label">Today</p>
+                    <p class="la-stat-hint">Login activity recorded for the current day.</p>
+                </div>
+
+                <div class="la-stat-card">
+                    <div class="la-stat-icon">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <h3 class="la-stat-value">@busiestUserCount</h3>
+                    <p class="la-stat-label">Top User</p>
+                    <p class="la-stat-hint">@busiestUserName has the highest recent login count.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="la-section">
+            <div class="la-main-grid">
+                <div class="la-panel">
+                    <div class="la-section-head">
+                        <div>
+                            <h2 class="la-title">
+                                <i class="fa-solid fa-timeline"></i>
+                                Recent Login Timeline
+                            </h2>
+                            <p class="la-subtitle">Showing the most recent @Model.Count login record(s).</p>
+                        </div>
+                    </div>
+
+                    @if (!Model.Any())
                     {
-                        <tr>
-                            <td style="padding: 0.85rem 1rem; color: var(--muted);">@rowNum</td>
-                            <td style="padding: 0.85rem 1rem;">
-                                <strong>@(l.User?.UserName ?? "-")</strong>
-                            </td>
-                            <td style="padding: 0.85rem 1rem;">@(l.Email ?? l.User?.Email ?? "-")</td>
-                            <td style="padding: 0.85rem 1rem;">@l.LoginAt.ToString("dd-MMM-yyyy")</td>
-                            <td style="padding: 0.85rem 1rem; color: var(--muted);">@l.LoginAt.ToString("hh:mm tt")</td>
-                        </tr>
-                        rowNum++;
+                        <div class="la-empty">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>No login records yet.</span>
+                        </div>
                     }
-                </tbody>
-            </table>
+                    else
+                    {
+                        <div class="la-table-wrap">
+                            <table class="la-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>User</th>
+                                        <th>Email</th>
+                                        <th>Login Date</th>
+                                        <th>Time</th>
+                                        <th>Age</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{
+                                        int rowNum = 1;
+                                    }
+                                    @foreach (var l in Model)
+                                    {
+                                        string userName = l.User?.UserName ?? "Unknown";
+                                        string email = l.Email ?? l.User?.Email ?? "No email";
+                                        string roleName = l.User?.Role?.RoleName ?? "Account";
+
+                                        <tr>
+                                            <td>
+                                                <span class="la-row-no">@rowNum</span>
+                                            </td>
+                                            <td>
+                                                <div class="la-user-cell">
+                                                    <span class="la-avatar">@Initials(userName, email)</span>
+                                                    <div>
+                                                        <span class="la-user-name">@userName</span>
+                                                        <span class="la-user-role">
+                                                            <i class="fa-solid fa-user-shield"></i>
+                                                            @roleName
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="la-email">@email</span>
+                                            </td>
+                                            <td>
+                                                <span class="la-date-badge">
+                                                    <i class="fa-solid fa-calendar-days"></i>
+                                                    @l.LoginAt.ToString("dd-MMM-yyyy")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="la-time-badge">
+                                                    <i class="fa-solid fa-clock"></i>
+                                                    @l.LoginAt.ToString("hh:mm tt")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="la-time-badge">
+                                                    <i class="fa-solid fa-hourglass-half"></i>
+                                                    @TimeAgo(l.LoginAt)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        rowNum++;
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="la-mobile-list">
+                            @{
+                                int cardNum = 1;
+                            }
+                            @foreach (var l in Model)
+                            {
+                                string userName = l.User?.UserName ?? "Unknown";
+                                string email = l.Email ?? l.User?.Email ?? "No email";
+                                string roleName = l.User?.Role?.RoleName ?? "Account";
+
+                                <article class="la-login-card">
+                                    <div class="la-login-card-top">
+                                        <div class="la-user-cell">
+                                            <span class="la-avatar">@Initials(userName, email)</span>
+                                            <div>
+                                                <span class="la-user-name">@userName</span>
+                                                <span class="la-user-role">
+                                                    <i class="fa-solid fa-user-shield"></i>
+                                                    @roleName
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span class="la-row-no">@cardNum</span>
+                                    </div>
+
+                                    <div class="la-login-card-meta">
+                                        <span>
+                                            <i class="fa-solid fa-envelope me-1"></i>
+                                            @email
+                                        </span>
+                                        <span>
+                                            <i class="fa-solid fa-calendar-days me-1"></i>
+                                            @l.LoginAt.ToString("dd-MMM-yyyy")
+                                            <span class="mx-1">•</span>
+                                            @l.LoginAt.ToString("hh:mm tt")
+                                        </span>
+                                        <span>
+                                            <i class="fa-solid fa-hourglass-half me-1"></i>
+                                            @TimeAgo(l.LoginAt)
+                                        </span>
+                                    </div>
+                                </article>
+                                cardNum++;
+                            }
+                        </div>
+                    }
+                </div>
+
+            </div>
         </div>
-    }
-</div>
+
+    </div>
+</section>
