@@ -35,6 +35,7 @@ builder.Services.AddHttpClient<ISSLCommerzService, SSLCommerzService>();
 // ── Repositories ────────────────────────────────────────────
 builder.Services.AddScoped<IUserRepository,               UserRepository>();
 builder.Services.AddScoped<IRoleRepository,               RoleRepository>();
+builder.Services.AddScoped<IAdminRepository,              AdminRepository>();
 builder.Services.AddScoped<IRoomRepository,               RoomRepository>();
 builder.Services.AddScoped<IRoomSelectionRepository,      RoomSelectionRepository>();
 builder.Services.AddScoped<IRoomImageRepository,          RoomImageRepository>();

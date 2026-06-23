@@ -6,6 +6,7 @@ namespace Bachelor_s_Point.Application.Interfaces.UnitOfWork
     {
         IUserRepository               UserRepo        { get; }
         IRoleRepository               RoleRepo        { get; }
+        IAdminRepository              AdminRepo       { get; }
         IRoomRepository               RoomRepo        { get; }
         IRoomSelectionRepository      SelectionRepo   { get; }
         IRoomImageRepository          RoomImageRepo   { get; }

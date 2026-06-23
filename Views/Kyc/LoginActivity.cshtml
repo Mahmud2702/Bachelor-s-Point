@@ -5,6 +5,11 @@
     int totalLogins = ViewBag.TotalLogins ?? 0;
     int distinctUsers = ViewBag.DistinctUsers ?? 0;
     int todayLogins = ViewBag.TodayLogins ?? 0;
+    int currentPage  = ViewBag.CurrentPage ?? 1;
+    int totalPages   = ViewBag.TotalPages ?? 1;
+    int pageSize     = ViewBag.PageSize ?? 10;
+    int totalRecords = ViewBag.TotalRecords ?? 0;
+    int rowOffset    = (currentPage - 1) * pageSize;
 
     var recentLogin = Model.OrderByDescending(x => x.LoginAt).FirstOrDefault();
     string latestLoginText = recentLogin == null ? "No activity yet" : recentLogin.LoginAt.ToString("dd MMM yyyy, hh:mm tt");
@@ -833,7 +838,7 @@
                                 <i class="bi bi-graph-up"></i>
                                 Recent Login Timeline
                             </h2>
-                            <p class="la-subtitle">Showing the most recent @Model.Count login record(s).</p>
+                            <p class="la-subtitle">Showing @(rowOffset + 1)–@(rowOffset + Model.Count) of @totalRecords record(s).</p>
                         </div>
                     </div>
 
@@ -860,7 +865,7 @@
                                 </thead>
                                 <tbody>
                                     @{
-                                        int rowNum = 1;
+                                        int rowNum = rowOffset + 1;
                                     }
                                     @foreach (var l in Model)
                                     {
@@ -914,7 +919,7 @@
 
                         <div class="la-mobile-list">
                             @{
-                                int cardNum = 1;
+                                int cardNum = rowOffset + 1;
                             }
                             @foreach (var l in Model)
                             {
@@ -956,6 +961,52 @@
                                 </article>
                                 cardNum++;
                             }
+                        </div>
+                    }
+
+                    @* ── Pagination ── *@
+                    @if (totalPages > 1)
+                    {
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;padding:1rem 1.25rem;border-top:1px solid var(--la-border);">
+                            <span style="font-size:.84rem;color:var(--la-bluegray);">
+                                Page <strong>@currentPage</strong> of <strong>@totalPages</strong>
+                                &nbsp;·&nbsp; @totalRecords records
+                            </span>
+
+                            <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                                @* Previous *@
+                                @if (currentPage > 1)
+                                {
+                                    <a asp-action="LoginActivity" asp-route-page="@(currentPage - 1)" asp-route-pageSize="@pageSize"
+                                       style="padding:.4rem .85rem;border-radius:var(--radius-md);border:1.5px solid var(--la-border);background:var(--la-card);color:var(--la-navy);font-size:.83rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;">
+                                        <i class="bi bi-chevron-left"></i> Prev
+                                    </a>
+                                }
+
+                                @* Page numbers (show up to 5 around current) *@
+                                @{
+                                    int startPg = Math.Max(1, currentPage - 2);
+                                    int endPg   = Math.Min(totalPages, startPg + 4);
+                                    if (endPg - startPg < 4) startPg = Math.Max(1, endPg - 4);
+                                }
+                                @for (int p = startPg; p <= endPg; p++)
+                                {
+                                    bool isActive = p == currentPage;
+                                    <a asp-action="LoginActivity" asp-route-page="@p" asp-route-pageSize="@pageSize"
+                                       style="padding:.4rem .75rem;border-radius:var(--radius-md);border:1.5px solid @(isActive ? "var(--la-indigo)" : "var(--la-border)");background:@(isActive ? "var(--la-indigo)" : "var(--la-card)");color:@(isActive ? "#fff" : "var(--la-navy)");font-size:.83rem;font-weight:700;text-decoration:none;min-width:36px;text-align:center;">
+                                        @p
+                                    </a>
+                                }
+
+                                @* Next *@
+                                @if (currentPage < totalPages)
+                                {
+                                    <a asp-action="LoginActivity" asp-route-page="@(currentPage + 1)" asp-route-pageSize="@pageSize"
+                                       style="padding:.4rem .85rem;border-radius:var(--radius-md);border:1.5px solid var(--la-border);background:var(--la-card);color:var(--la-navy);font-size:.83rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;">
+                                        Next <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                }
+                            </div>
                         </div>
                     }
                 </div>

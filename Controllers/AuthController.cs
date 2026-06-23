@@ -154,7 +154,6 @@ namespace Bachelor_s_Point.Controllers
         {
             if (User.Identity?.IsAuthenticated == true)
                 return RedirectToAction("Index", "Home");
-            ViewBag.LoginType = @as;
             return View();
         }
 
@@ -162,34 +161,26 @@ namespace Bachelor_s_Point.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(LoginDto dto, string? @as = null)
         {
-            ViewBag.LoginType = @as;
             if (!ModelState.IsValid) return View(dto);
 
+            // ── Step 1: check Admin table first ──────────────────
+            var admin = await _authService.LoginAdminAsync(dto);
+            if (admin != null)
+            {
+                await SignInAdminAsync(admin, dto.RememberMe);
+                TempData["Success"] = $"Welcome back, {admin.Name}!";
+                return RedirectToAction("Index", "Home");
+            }
+
+            // ── Step 2: check regular User table ─────────────────
             var user = await _authService.LoginAsync(dto);
             if (user == null)
             {
-                ModelState.AddModelError("", "Invalid email or password");
+                ModelState.AddModelError("", "Invalid email or password.");
                 return View(dto);
             }
-
-            string? roleName = user.Role?.RoleName;
-
-            if (@as == "admin" && roleName != "Admin")
-            {
-                ModelState.AddModelError("", "This is not an admin account. Use the User login.");
-                return View(dto);
-            }
-            if (@as == "user" && roleName == "Admin")
-            {
-                ModelState.AddModelError("", "Admin accounts must use the Admin login.");
-                return View(dto);
-            }
-
-            // No payment block — users can always log in.
-            // Unverified users just see blurred rooms until they pay.
 
             await SignInUserAsync(user, dto.RememberMe);
-
             TempData["Success"] = $"Welcome back, {user.UserName}!";
             return RedirectToAction("Index", "Home");
         }
@@ -202,7 +193,7 @@ namespace Bachelor_s_Point.Controllers
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             Response.Cookies.Delete("UserMode");
-            return RedirectToAction(nameof(RoleSelect));
+            return RedirectToAction(nameof(Login));
         }
 
         [HttpGet]
@@ -495,6 +486,31 @@ namespace Bachelor_s_Point.Controllers
         /// Issues an auth cookie. Includes PaymentVerified claim so views can
         /// show/blur content without hitting the database on every request.
         /// </summary>
+        private async Task SignInAdminAsync(Admin admin, bool rememberMe)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, $"admin_{admin.Id}"),
+                new Claim(ClaimTypes.Name,           admin.Name),
+                new Claim(ClaimTypes.Email,           admin.Email),
+                new Claim(ClaimTypes.Role,            "Admin"),
+                new Claim("PaymentVerified",          "True"),
+                new Claim("IsAdminAccount",           "True")
+            };
+
+            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var principal = new ClaimsPrincipal(identity);
+
+            DateTimeOffset expiry = rememberMe
+                ? DateTimeOffset.UtcNow.AddDays(30)
+                : DateTimeOffset.UtcNow.AddHours(8);
+
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal,
+                new AuthenticationProperties { IsPersistent = rememberMe, ExpiresUtc = expiry });
+        }
+
         private async Task SignInUserAsync(User user, bool rememberMe)
         {
             string roleName = user.Role?.RoleName ?? string.Empty;
@@ -534,6 +550,9 @@ namespace Bachelor_s_Point.Controllers
         private int GetCurrentUserId()
         {
             var val = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(val)) return 0;
+            // Admin sessions use "admin_N" format — return 0 (admin actions don't need a User ID)
+            if (val.StartsWith("admin_")) return 0;
             return int.TryParse(val, out int id) ? id : 0;
         }
     }

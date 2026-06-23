@@ -16,6 +16,11 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
         Task<string> ResendOtpAsync(string email);
         Task<User?> LoginAsync(LoginDto dto);
 
+        /// <summary>
+        /// Checks the separate Admin table. Returns the Admin if credentials match, null otherwise.
+        /// </summary>
+        Task<Admin?> LoginAdminAsync(LoginDto dto);
+
         Task<string> StartPasswordResetAsync(string email);
         Task<string> ResetPasswordAsync(ResetPasswordDto dto);
         Task<string> ResendPasswordResetOtpAsync(string email);

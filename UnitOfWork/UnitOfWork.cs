@@ -10,6 +10,7 @@ namespace Bachelor_s_Point.UnitOfWork
 
         public IUserRepository                UserRepo         { get; }
         public IRoleRepository                RoleRepo         { get; }
+        public IAdminRepository               AdminRepo        { get; }
         public IRoomRepository                RoomRepo         { get; }
         public IRoomSelectionRepository       SelectionRepo    { get; }
         public IRoomImageRepository           RoomImageRepo    { get; }
@@ -24,6 +25,7 @@ namespace Bachelor_s_Point.UnitOfWork
             AppDbContext context,
             IUserRepository                userRepo,
             IRoleRepository                roleRepo,
+            IAdminRepository               adminRepo,
             IRoomRepository                roomRepo,
             IRoomSelectionRepository       selectionRepo,
             IRoomImageRepository           roomImageRepo,
@@ -37,6 +39,7 @@ namespace Bachelor_s_Point.UnitOfWork
             _context         = context;
             UserRepo         = userRepo;
             RoleRepo         = roleRepo;
+            AdminRepo        = adminRepo;
             RoomRepo         = roomRepo;
             SelectionRepo    = selectionRepo;
             RoomImageRepo    = roomImageRepo;

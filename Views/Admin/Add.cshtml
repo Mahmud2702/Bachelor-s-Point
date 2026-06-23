@@ -1,0 +1,65 @@
+@{
+    ViewData["Title"] = "Add Admin";
+}
+
+<div class="container py-4" style="max-width:540px;">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <div style="width:48px;height:48px;border-radius:var(--radius-lg);background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3rem;flex-shrink:0;">
+            <i class="bi bi-person-plus-fill"></i>
+        </div>
+        <div>
+            <h2 style="font-weight:800;margin:0;font-size:1.45rem;">Add New Admin</h2>
+            <p style="color:var(--muted);margin:0;font-size:.87rem;">New admin can log in immediately after being added.</p>
+        </div>
+    </div>
+
+    <div class="nx-card p-4">
+        <form asp-action="Add" method="post">
+            @Html.AntiForgeryToken()
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Display Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Rahman" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                <input type="email" name="email" class="form-control" placeholder="admin@example.com" required />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                <div style="position:relative;">
+                    <input type="password" name="password" id="newAdminPass" class="form-control" placeholder="Minimum 8 characters" required minlength="8" />
+                    <button type="button" onclick="togglePw()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;padding:0;">
+                        <i class="bi bi-eye" id="pwIcon"></i>
+                    </button>
+                </div>
+                <small style="color:var(--muted);">Use a strong password — admin accounts have full system access.</small>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn-nx success">
+                    <i class="bi bi-check-lg"></i> Add Admin
+                </button>
+                <a asp-action="Index" class="btn-nx outline">
+                    <i class="bi bi-arrow-left"></i> Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function togglePw() {
+        const inp = document.getElementById('newAdminPass');
+        const icon = document.getElementById('pwIcon');
+        if (inp.type === 'password') {
+            inp.type = 'text';
+            icon.className = 'bi bi-eye-slash';
+        } else {
+            inp.type = 'password';
+            icon.className = 'bi bi-eye';
+        }
+    }
+</script>

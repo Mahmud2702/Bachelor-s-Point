@@ -9,6 +9,7 @@ namespace Bachelor_s_Point.Data
 
         public DbSet<User>                Users                { get; set; }
         public DbSet<Role>                Roles                { get; set; }
+        public DbSet<Admin>               Admins               { get; set; }
         public DbSet<Room>                Rooms                { get; set; }
         public DbSet<RoomSelection>       RoomSelections       { get; set; }
         public DbSet<RoomImage>           RoomImages           { get; set; }
@@ -105,6 +106,22 @@ namespace Bachelor_s_Point.Data
 
             modelBuilder.Entity<Payment>()
                 .HasIndex(p => new { p.UserId, p.Type });
+
+            modelBuilder.Entity<Admin>()
+                .HasIndex(a => a.Email)
+                .IsUnique();
+
+            // Default admin seed — password is "Admin@1234" hashed with ASP.NET Identity PasswordHasher.
+            // Change this after first login via the database directly.
+            modelBuilder.Entity<Admin>().HasData(
+                new Admin
+                {
+                    Id           = 1,
+                    Email        = "admin@bachelorspoint.com",
+                    Name         = "Admin",
+                    PasswordHash = "AQAAAAIAAYagAAAAEJ6tCWF5E2kQa5qDd9RFj7b7bVSZz8m4Nw5Qk5Xv8V7pN1Xx3P5Ky2Wq9Zr6Tn8Uw==" // Admin@1234
+                }
+            );
 
             modelBuilder.Entity<Role>().HasData(
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },

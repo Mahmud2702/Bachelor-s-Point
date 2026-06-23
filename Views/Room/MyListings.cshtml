@@ -1,11 +1,14 @@
 @model IEnumerable<Room>
 @{
     ViewData["Title"] = "My Listings";
+    var all      = Model.ToList();
+    var live     = all.Where(r => r.IsApproved && r.IsAvailable).ToList();
+    var due      = all.Where(r => !r.IsApproved).ToList();
+    var closed   = all.Where(r => r.IsApproved && !r.IsAvailable).ToList();
 }
 
 <div class="container py-3">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h2 style="font-weight:800;margin:0;">
             <i class="bi bi-house-fill me-2" style="color:var(--primary);"></i>My Listings
         </h2>
@@ -14,7 +17,7 @@
         </a>
     </div>
 
-    @if (!Model.Any())
+    @if (!all.Any())
     {
         <div class="nx-alert nx-alert-info">
             <i class="bi bi-info-circle-fill"></i>
@@ -23,9 +26,35 @@
     }
     else
     {
+        <!-- Tab buttons -->
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+            <button onclick="filterTab('all')" id="tab-all"
+                    style="padding:.45rem 1.1rem;border-radius:999px;border:1.5px solid var(--primary);background:var(--primary);color:#fff;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;">
+                All <span style="background:rgba(255,255,255,.25);border-radius:999px;padding:.05rem .45rem;margin-left:.3rem;font-size:.78rem;">@all.Count</span>
+            </button>
+            <button onclick="filterTab('live')" id="tab-live"
+                    style="padding:.45rem 1.1rem;border-radius:999px;border:1.5px solid var(--success);background:var(--white);color:var(--success);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;">
+                <i class="bi bi-check-circle-fill me-1"></i>Live
+                <span style="background:var(--success-light);border-radius:999px;padding:.05rem .45rem;margin-left:.3rem;font-size:.78rem;">@live.Count</span>
+            </button>
+            <button onclick="filterTab('due')" id="tab-due"
+                    style="padding:.45rem 1.1rem;border-radius:999px;border:1.5px solid var(--warning);background:var(--white);color:var(--warning);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;">
+                <i class="bi bi-cash-coin me-1"></i>Due Payment
+                <span style="background:var(--warning-light);border-radius:999px;padding:.05rem .45rem;margin-left:.3rem;font-size:.78rem;">@due.Count</span>
+            </button>
+            @if (closed.Any())
+            {
+                <button onclick="filterTab('closed')" id="tab-closed"
+                        style="padding:.45rem 1.1rem;border-radius:999px;border:1.5px solid var(--border);background:var(--white);color:var(--muted);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s;">
+                    Closed
+                    <span style="background:var(--bg);border-radius:999px;padding:.05rem .45rem;margin-left:.3rem;font-size:.78rem;">@closed.Count</span>
+                </button>
+            }
+        </div>
+
         <div class="nx-card" style="overflow:hidden;">
             <div style="overflow-x:auto;">
-                <table style="width:100%;border-collapse:collapse;">
+                <table style="width:100%;border-collapse:collapse;" id="listings-table">
                     <thead>
                         <tr style="background:var(--bg);border-bottom:1px solid var(--border);">
                             <th style="padding:.7rem 1rem;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;">Title</th>
@@ -37,9 +66,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var room in Model)
+                        @foreach (var room in all)
                         {
-                            <tr style="border-bottom:1px solid var(--border);">
+                            string statusClass = room.IsApproved && room.IsAvailable ? "live"
+                                               : room.IsApproved && !room.IsAvailable ? "closed"
+                                               : "due";
+                            <tr class="listing-row row-@statusClass" style="border-bottom:1px solid var(--border);">
                                 <td style="padding:.85rem 1rem;font-weight:700;font-size:.9rem;">@room.Title</td>
                                 <td style="padding:.85rem 1rem;font-size:.85rem;color:var(--muted);">
                                     @(!string.IsNullOrWhiteSpace(room.District) ? room.District : room.Location)
@@ -88,5 +120,31 @@
                 </table>
             </div>
         </div>
+
+        <script>
+            function filterTab(type) {
+                // Update row visibility
+                document.querySelectorAll('.listing-row').forEach(row => {
+                    row.style.display = (type === 'all' || row.classList.contains('row-' + type)) ? '' : 'none';
+                });
+
+                // Update button styles
+                const tabs = { all: 'var(--primary)', live: 'var(--success)', due: 'var(--warning)', closed: 'var(--muted)' };
+                Object.keys(tabs).forEach(t => {
+                    const btn = document.getElementById('tab-' + t);
+                    if (!btn) return;
+                    const color = tabs[t];
+                    if (t === type) {
+                        btn.style.background = color;
+                        btn.style.color = '#fff';
+                        btn.style.borderColor = color;
+                    } else {
+                        btn.style.background = 'var(--white)';
+                        btn.style.color = color;
+                        btn.style.borderColor = color;
+                    }
+                });
+            }
+        </script>
     }
 </div>

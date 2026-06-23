@@ -1,0 +1,84 @@
+@model IEnumerable<Admin>
+@{
+    ViewData["Title"] = "Admin Accounts";
+    var list = Model.ToList();
+}
+
+<div class="container py-4" style="max-width:760px;">
+
+    <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:48px;height:48px;border-radius:var(--radius-lg);background:linear-gradient(135deg,var(--primary-dark),var(--primary));display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3rem;flex-shrink:0;">
+                <i class="bi bi-shield-lock-fill"></i>
+            </div>
+            <div>
+                <h2 style="font-weight:800;margin:0;font-size:1.45rem;">Admin Accounts</h2>
+                <p style="color:var(--muted);margin:0;font-size:.87rem;">Manage who can access the admin panel.</p>
+            </div>
+        </div>
+        <a asp-action="Add" class="btn-nx success">
+            <i class="bi bi-plus-lg"></i> Add Admin
+        </a>
+    </div>
+
+    <div class="nx-card" style="overflow:hidden;">
+        @if (!list.Any())
+        {
+            <div class="p-4 text-center" style="color:var(--muted);">
+                <i class="bi bi-person-x" style="font-size:2rem;"></i>
+                <p class="mt-2 mb-0">No admin accounts found.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="padding:.75rem 1.1rem;">#</th>
+                            <th style="padding:.75rem 1.1rem;">Name</th>
+                            <th style="padding:.75rem 1.1rem;">Email</th>
+                            <th style="padding:.75rem 1.1rem;text-align:right;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int n = 1; }
+                        @foreach (var admin in list)
+                        {
+                            <tr>
+                                <td style="padding:.85rem 1.1rem;color:var(--muted);font-size:.85rem;">@n</td>
+                                <td style="padding:.85rem 1.1rem;">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div style="width:36px;height:36px;border-radius:50%;background:var(--primary-light);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;flex-shrink:0;">
+                                            @admin.Name.Substring(0, 1).ToUpper()
+                                        </div>
+                                        <span style="font-weight:700;">@admin.Name</span>
+                                    </div>
+                                </td>
+                                <td style="padding:.85rem 1.1rem;color:var(--muted);">@admin.Email</td>
+                                <td style="padding:.85rem 1.1rem;text-align:right;">
+                                    @if (list.Count > 1)
+                                    {
+                                        <form asp-action="Delete" method="post" class="d-inline"
+                                              onsubmit="return confirm('Remove admin @admin.Name? This cannot be undone.');">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@admin.Id" />
+                                            <button type="submit" class="btn-nx danger sm">
+                                                <i class="bi bi-trash"></i> Remove
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:var(--muted);font-size:.82rem;">Last admin — cannot remove</span>
+                                    }
+                                </td>
+                            </tr>
+                            n++;
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

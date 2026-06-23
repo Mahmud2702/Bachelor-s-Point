@@ -489,7 +489,7 @@
 
     .kyc-workspace {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 330px;
+        grid-template-columns: 1fr;
         gap: 1rem;
         align-items: start;
     }
@@ -1378,98 +1378,6 @@
                         </div>
                     }
                 </div>
-
-                <aside class="kyc-side-stack">
-                    <div class="kyc-side-card">
-                        <h3>
-                            <i class="bi bi-list-check"></i>
-                            Review Checklist
-                        </h3>
-
-                        <div class="kyc-check-list">
-                            <div class="kyc-check-item">
-                                <div class="kyc-check-icon">
-                                    <i class="bi bi-person-fill"></i>
-                                </div>
-                                <div>
-                                    <strong>Match user identity</strong>
-                                    <span>Compare user photo with NID information before approving.</span>
-                                </div>
-                            </div>
-
-                            <div class="kyc-check-item">
-                                <div class="kyc-check-icon">
-                                    <i class="bi bi-person-vcard"></i>
-                                </div>
-                                <div>
-                                    <strong>Check NID clarity</strong>
-                                    <span>Reject blurry, cropped, fake, or unreadable identity documents.</span>
-                                </div>
-                            </div>
-
-                            <div class="kyc-check-item">
-                                <div class="kyc-check-icon">
-                                    <i class="bi bi-shield-check"></i>
-                                </div>
-                                <div>
-                                    <strong>Protect platform trust</strong>
-                                    <span>Approve only when identity data looks consistent and safe.</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="kyc-side-card">
-                        <h3>
-                            <i class="bi bi-clock-history"></i>
-                            Latest Submission
-                        </h3>
-
-                        @if (latestSubmission == null)
-                        {
-                            <div class="kyc-empty" style="padding: 1rem; border-radius: 18px;">
-                                <div class="kyc-empty-icon" style="width:56px;height:56px;font-size:1.25rem;border-radius:18px;">
-                                    <i class="bi bi-inbox-fill"></i>
-                                </div>
-                                <h3 style="font-size:1rem;">Nothing yet</h3>
-                                <p style="font-size:.78rem;">No users have submitted KYC documents.</p>
-                            </div>
-                        }
-                        else
-                        {
-                            string latestName = latestSubmission.User?.UserName ?? "Unknown User";
-                            string latestEmail = latestSubmission.User?.Email ?? "No email found";
-
-                            <div class="kyc-latest">
-                                <div class="kyc-user-cell">
-                                    @if (!string.IsNullOrWhiteSpace(latestSubmission.UserPhotoPath))
-                                    {
-                                        <img src="@latestSubmission.UserPhotoPath" class="kyc-avatar" alt="@latestName" />
-                                    }
-                                    else
-                                    {
-                                        <div class="kyc-avatar-fallback">@Initials(latestName, latestEmail)</div>
-                                    }
-
-                                    <div>
-                                        <div class="kyc-user-name">@latestName</div>
-                                        <div class="kyc-user-email">@latestEmail</div>
-                                    </div>
-                                </div>
-
-                                <div class="kyc-latest-time">
-                                    <i class="bi bi-calendar-check-fill"></i>
-                                    Submitted @TimeAgo(latestSubmission.SubmittedAt)
-                                </div>
-
-                                <a asp-action="Review" asp-route-id="@latestSubmission.Id" class="kyc-action-btn w-100 mt-3">
-                                    <i class="bi bi-eye-fill"></i>
-                                    Open Latest Record
-                                </a>
-                            </div>
-                        }
-                    </div>
-                </aside>
             </div>
         </div>
 

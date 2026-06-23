@@ -213,6 +213,19 @@ namespace Bachelor_s_Point.Services
             return user;
         }
 
+        public async Task<Admin?> LoginAdminAsync(LoginDto dto)
+        {
+            if (dto == null || string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.Password))
+                return null;
+
+            var admin = await _unitOfWork.AdminRepo.GetByEmailAsync(dto.Email);
+            if (admin == null || string.IsNullOrEmpty(admin.PasswordHash)) return null;
+
+            var hasher = new PasswordHasher<Admin>();
+            var result = hasher.VerifyHashedPassword(admin, admin.PasswordHash, dto.Password);
+            return result == PasswordVerificationResult.Failed ? null : admin;
+        }
+
         // ── FORGOT PASSWORD ──────────────────────────────────────
 
         public async Task<string> StartPasswordResetAsync(string email)

@@ -178,9 +178,10 @@
 
     .role-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 520px);
         gap: clamp(1.1rem, 2.8vw, 2rem);
         align-items: stretch;
+        justify-content: center;
     }
 
     .role-option {
@@ -575,7 +576,7 @@
 
             <div class="role-hero fade-up">
                 <div class="role-kicker">
-                    <i class="bi bi-house-door-fill"></i>
+                    <i class="fa-solid fa-house-chimney"></i>
                     <span>Bachelor's Point</span>
                 </div>
 
@@ -589,23 +590,6 @@
             </div>
 
             <div class="role-grid">
-                <a asp-action="Login" asp-route-as="admin" class="role-option admin fade-up" aria-label="Continue as Admin">
-                    <div class="role-icon">
-                        <i class="bi bi-shield-check"></i>
-                    </div>
-
-                    <h2>Admin</h2>
-
-                    <p>
-                        Approve room posts, verify users, manage roles, and monitor platform activity.
-                    </p>
-
-                    <span class="role-action">
-                        Continue as Admin
-                        <i class="bi bi-arrow-right"></i>
-                    </span>
-                </a>
-
                 <a asp-action="Login" asp-route-as="user" class="role-option user fade-up" aria-label="Continue as User">
                     <div class="role-icon">
                         <i class="bi bi-people-fill"></i>
@@ -619,7 +603,7 @@
 
                     <span class="role-action">
                         Continue as User
-                        <i class="bi bi-arrow-right"></i>
+                        <i class="fa-solid fa-arrow-right"></i>
                     </span>
                 </a>
             </div>
@@ -627,7 +611,7 @@
             <div class="role-register">
                 Don’t have an account?
                 <a asp-action="Register" asp-route-as="user">
-                    <i class="bi bi-person-plus-fill me-1"></i>
+                    <i class="fa-solid fa-user-plus me-1"></i>
                     Create one free
                 </a>
             </div>

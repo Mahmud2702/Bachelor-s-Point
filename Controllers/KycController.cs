@@ -199,17 +199,144 @@ namespace Bachelor_s_Point.Controllers
         // ADMIN — login activity
         // ============================================================
 
-        // GET: /Kyc/LoginActivity
+        // GET: /Kyc/DownloadKyc/{id}
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> LoginActivity()
+        public async Task<IActionResult> DownloadKyc(int id)
         {
-            ViewBag.TotalLogins = await _unitOfWork.LoginHistoryRepo.GetTotalLoginCountAsync();
-            ViewBag.DistinctUsers = await _unitOfWork.LoginHistoryRepo.GetDistinctUserCountAsync();
-            ViewBag.TodayLogins = await _unitOfWork.LoginHistoryRepo.GetTodayLoginCountAsync();
+            var kyc = await _kycService.GetByIdAsync(id);
+            if (kyc == null) return NotFound();
 
-            var recent = await _unitOfWork.LoginHistoryRepo.GetRecentAsync(200);
-            return View(recent);
+            string userName    = kyc.User?.UserName ?? "-";
+            string email       = kyc.User?.Email ?? "-";
+            string phone       = kyc.User?.PhoneNumber ?? "-";
+            string address     = kyc.User?.Address ?? "-";
+            string nameOnNid   = kyc.FullNameOnNid ?? "-";
+            string nidNumber   = kyc.NidNumber ?? "-";
+            string status      = kyc.Status ?? "-";
+            string submitted   = kyc.SubmittedAt.ToString("dd-MMM-yyyy hh:mm tt");
+            string reviewed    = kyc.ReviewedAt.HasValue ? kyc.ReviewedAt.Value.ToString("dd-MMM-yyyy hh:mm tt") : "-";
+            string rejectNote  = !string.IsNullOrEmpty(kyc.RejectionReason) ? kyc.RejectionReason : "-";
+            string now         = DateTime.Now.ToString("dd-MMM-yyyy hh:mm tt");
+
+            string baseUrl = $"{Request.Scheme}://{Request.Host}";
+
+            string html = $@"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+<meta charset=""UTF-8"">
+<meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+<title>KYC Report — {userName}</title>
+<style>
+  * {{ box-sizing:border-box; margin:0; padding:0; }}
+  body {{ font-family:'Segoe UI',Arial,sans-serif; color:#111844; background:#fff; padding:32px; }}
+  .header {{ border-bottom:3px solid #4B5694; padding-bottom:14px; margin-bottom:22px; display:flex; justify-content:space-between; align-items:flex-end; }}
+  .header h1 {{ font-size:1.35rem; font-weight:800; color:#111844; }}
+  .header small {{ font-size:.78rem; color:#7288AE; }}
+  .badge {{ display:inline-block; padding:3px 12px; border-radius:999px; font-size:.78rem; font-weight:700; }}
+  .badge-verified {{ background:#d1fae5; color:#065f46; }}
+  .badge-pending  {{ background:#fef3c7; color:#92400e; }}
+  .badge-rejected {{ background:#fee2e2; color:#991b1b; }}
+  section {{ margin-bottom:22px; }}
+  section h2 {{ font-size:.82rem; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#7288AE; margin-bottom:10px; border-bottom:1px solid #E7E1D4; padding-bottom:6px; }}
+  table {{ width:100%; border-collapse:collapse; font-size:.9rem; }}
+  td {{ padding:7px 10px; border-bottom:1px solid #f0ece4; }}
+  td:first-child {{ color:#7288AE; width:160px; font-weight:600; }}
+  td:last-child {{ font-weight:700; }}
+  .doc-grid {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:8px; }}
+  .doc-box {{ border:1px solid #E7E1D4; border-radius:8px; overflow:hidden; }}
+  .doc-box img {{ width:100%; display:block; max-height:200px; object-fit:cover; }}
+  .doc-label {{ font-size:.72rem; color:#7288AE; padding:5px 8px; background:#f8f5ee; text-align:center; font-weight:600; }}
+  .footer {{ margin-top:28px; border-top:1px solid #E7E1D4; padding-top:12px; font-size:.75rem; color:#9AA3C6; display:flex; justify-content:space-between; }}
+  @media print {{
+    body {{ padding:18px; }}
+    @page {{ margin:1.2cm; }}
+  }}
+</style>
+</head>
+<body>
+  <div class=""header"">
+    <div>
+      <h1>🏠 Bachelor's Point — KYC Verification Record</h1>
+      <small>Downloaded: {now}</small>
+    </div>
+    <span class=""badge {(status == "Verified" ? "badge-verified" : status == "Rejected" ? "badge-rejected" : "badge-pending")}"">
+      {status}
+    </span>
+  </div>
+
+  <section>
+    <h2>User Information</h2>
+    <table>
+      <tr><td>Username</td><td>{userName}</td></tr>
+      <tr><td>Email</td><td>{email}</td></tr>
+      <tr><td>Phone</td><td>{phone}</td></tr>
+      <tr><td>Address</td><td>{address}</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>NID Information</h2>
+    <table>
+      <tr><td>Full Name on NID</td><td>{nameOnNid}</td></tr>
+      <tr><td>NID Number</td><td>{nidNumber}</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Verification Status</h2>
+    <table>
+      <tr><td>Status</td><td>{status}</td></tr>
+      <tr><td>Submitted</td><td>{submitted}</td></tr>
+      <tr><td>Reviewed</td><td>{reviewed}</td></tr>
+      {(status == "Rejected" ? $"<tr><td>Rejection Reason</td><td>{rejectNote}</td></tr>" : "")}
+    </table>
+  </section>
+
+  <section>
+    <h2>Identity Documents</h2>
+    <div class=""doc-grid"">
+      {(!string.IsNullOrEmpty(kyc.NidFrontImagePath) ? $@"<div class=""doc-box""><img src=""{baseUrl}{kyc.NidFrontImagePath}"" /><div class=""doc-label"">NID — Front</div></div>" : "")}
+      {(!string.IsNullOrEmpty(kyc.NidBackImagePath) ? $@"<div class=""doc-box""><img src=""{baseUrl}{kyc.NidBackImagePath}"" /><div class=""doc-label"">NID — Back</div></div>" : "")}
+      {(!string.IsNullOrEmpty(kyc.UserPhotoPath) ? $@"<div class=""doc-box""><img src=""{baseUrl}{kyc.UserPhotoPath}"" /><div class=""doc-label"">User Photo</div></div>" : "")}
+    </div>
+  </section>
+
+  <div class=""footer"">
+    <span>Bachelor's Point — Confidential KYC Record</span>
+    <span>Record ID: {id}</span>
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body>
+</html>";
+
+            return Content(html, "text/html");
+        }
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> LoginActivity(int page = 1, int pageSize = 10)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 5) pageSize = 10;
+
+            ViewBag.TotalLogins    = await _unitOfWork.LoginHistoryRepo.GetTotalLoginCountAsync();
+            ViewBag.DistinctUsers  = await _unitOfWork.LoginHistoryRepo.GetDistinctUserCountAsync();
+            ViewBag.TodayLogins    = await _unitOfWork.LoginHistoryRepo.GetTodayLoginCountAsync();
+
+            var all    = await _unitOfWork.LoginHistoryRepo.GetRecentAsync(2000);
+            int total  = all.Count;
+            int pages  = (int)Math.Ceiling(total / (double)pageSize);
+            if (page > pages && pages > 0) page = pages;
+
+            var paged  = all.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+            ViewBag.CurrentPage  = page;
+            ViewBag.TotalPages   = pages;
+            ViewBag.PageSize     = pageSize;
+            ViewBag.TotalRecords = total;
+
+            return View(paged);
         }
 
         // ============================================================
