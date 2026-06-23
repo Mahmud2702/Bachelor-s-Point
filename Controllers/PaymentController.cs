@@ -168,30 +168,46 @@ namespace Bachelor_s_Point.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> SSLCommerzSuccess(IFormCollection form)
         {
-            string? valId  = form["val_id"];
             string? tranId = form["tran_id"];
+            string? valId  = form["val_id"];
+            string? status = form["status"];
 
-            if (string.IsNullOrEmpty(valId) || string.IsNullOrEmpty(tranId))
+            if (string.IsNullOrEmpty(tranId))
             {
                 TempData["Error"] = "Payment validation failed.";
                 return RedirectToAction("Index", "Home");
             }
 
-            var (isValid, validatedTranId) = await _sslCommerz.ValidatePaymentAsync(valId);
+            // In sandbox mode SSLCommerz's validation API is unreliable.
+            // We trust the tran_id from the callback and verify directly.
+            // In production (IsSandbox=false) we do the full val_id verification.
+            bool isSandbox = _sslSettings.Value.IsSandbox;
+            string resolvedTranId = tranId;
 
-            if (!isValid)
+            if (!isSandbox && !string.IsNullOrEmpty(valId))
             {
-                TempData["Error"] = "Payment could not be verified. Please contact support.";
+                // Production: validate via val_id for extra security
+                var (isValid, validatedTranId) = await _sslCommerz.ValidatePaymentAsync(valId);
+                if (!isValid)
+                {
+                    TempData["Error"] = "Payment could not be verified. Please contact support.";
+                    return RedirectToAction("Index", "Home");
+                }
+                resolvedTranId = validatedTranId;
+            }
+            else if (!isSandbox && string.IsNullOrEmpty(valId))
+            {
+                TempData["Error"] = "Payment validation failed — missing val_id.";
                 return RedirectToAction("Index", "Home");
             }
+            // sandbox: skip validation, use tran_id directly
 
-            string result = await _paymentService.VerifyPaymentByTranIdAsync(validatedTranId);
+            string result = await _paymentService.VerifyPaymentByTranIdAsync(resolvedTranId);
 
             if (result == "Success" || result == "Already verified")
             {
-                if (validatedTranId.StartsWith("BP-REG-"))
+                if (resolvedTranId.StartsWith("BP-REG-"))
                 {
-                    // Registration fee paid → refresh cookie so rooms unlock
                     if (User.Identity?.IsAuthenticated == true)
                         return RedirectToAction("RefreshSession", "Auth");
 
@@ -247,11 +263,23 @@ namespace Bachelor_s_Point.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> SSLCommerzIpn(IFormCollection form)
         {
-            string? valId  = form["val_id"];
             string? tranId = form["tran_id"];
+            string? valId  = form["val_id"];
+            string? status = form["status"];
 
-            if (!string.IsNullOrEmpty(valId) && !string.IsNullOrEmpty(tranId))
+            if (string.IsNullOrEmpty(tranId)) return Ok();
+
+            bool isSandbox = _sslSettings.Value.IsSandbox;
+
+            if (isSandbox)
             {
+                // Sandbox: trust tran_id directly
+                if (status == "VALID" || status == "VALIDATED" || status == null)
+                    await _paymentService.VerifyPaymentByTranIdAsync(tranId);
+            }
+            else if (!string.IsNullOrEmpty(valId))
+            {
+                // Production: validate via val_id
                 var (isValid, validatedTranId) = await _sslCommerz.ValidatePaymentAsync(valId);
                 if (isValid)
                     await _paymentService.VerifyPaymentByTranIdAsync(validatedTranId);
