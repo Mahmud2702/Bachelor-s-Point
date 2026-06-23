@@ -584,34 +584,35 @@
                     Find your perfect bachelor room
                 </h1>
 
-                <p class="role-subtitle">
-                    Choose your role and continue to the right dashboard.
+                                <p class="role-subtitle">
+                    Sign in or create a free account to get started.
                 </p>
             </div>
 
-            <div class="role-grid">
-                <a asp-action="Login" asp-route-as="user" class="role-option user fade-up" aria-label="Continue as User">
+            <div class="role-grid" style="justify-content:center;">
+                <a asp-action="Login" class="role-option user fade-up" aria-label="Sign In"
+                   style="width:min(480px,90vw);">
                     <div class="role-icon">
                         <i class="bi bi-people-fill"></i>
                     </div>
 
-                    <h2>User</h2>
+                    <h2>Sign In</h2>
 
                     <p>
                         Search bachelor rooms, post available rooms, chat with owners, and manage bookings.
                     </p>
 
                     <span class="role-action">
-                        Continue as User
-                        <i class="fa-solid fa-arrow-right"></i>
+                        Continue to Sign In
+                        <i class="bi bi-arrow-right"></i>
                     </span>
                 </a>
             </div>
 
             <div class="role-register">
-                Don’t have an account?
-                <a asp-action="Register" asp-route-as="user">
-                    <i class="fa-solid fa-user-plus me-1"></i>
+                Don't have an account?
+                <a asp-action="Register">
+                    <i class="bi bi-person-plus-fill me-1"></i>
                     Create one free
                 </a>
             </div>

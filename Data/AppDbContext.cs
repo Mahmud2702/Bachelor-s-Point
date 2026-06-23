@@ -127,6 +127,21 @@ namespace Bachelor_s_Point.Data
                 new Role { Id = 1, RoleName = "Admin", RoleDescription = "Can manage all users and system data" },
                 new Role { Id = 2, RoleName = "User",  RoleDescription = "Regular user — can post and select rooms" }
             );
+
+            // Dedicated support account in the Users table so admin can receive chat messages.
+            // Password: Support@1234  (change via User management panel)
+            modelBuilder.Entity<User>().HasData(
+                new User
+                {
+                    Id                = 1,
+                    UserName          = "Support",
+                    Email             = "support@bachelorspoint.com",
+                    PasswordHash      = "AQAAAAIAAYagAAAAEHX0M1Zu1VXdU2V7P5K6pzKrEJnLmWVb3Q8xBPbv9Y7aH2Nk4T1wR6Zc0So3Ye2Nqw==",
+                    Address           = "Bachelor's Point Official Support",
+                    RoleId            = 1,
+                    IsPaymentVerified = true
+                }
+            );
         }
     }
 }

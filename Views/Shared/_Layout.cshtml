@@ -665,6 +665,14 @@
                 }
             </a>
 
+            @if (!isAdminUser && isAuthed)
+            {
+                <a class="bp-nav-item" asp-controller="Chat" asp-action="ContactSupport"
+                   style="font-size:.83rem;padding-left:2.5rem;color:var(--muted);">
+                    <i class="bi bi-headset"></i> Contact Support
+                </a>
+            }
+
             @if (isAdminUser)
             {
                 <div class="bp-sidebar-divider"></div>

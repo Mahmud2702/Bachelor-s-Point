@@ -23,6 +23,7 @@ namespace Bachelor_s_Point.Controllers
             if (userId == 0) return Unauthorized();
 
             var conversations = await _chatService.GetConversationsAsync(userId);
+            ViewBag.IsAdmin = User.IsInRole("Admin");
             return View(conversations);
         }
 
@@ -68,9 +69,28 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction(nameof(Conversation), new { id = receiverId });
         }
 
+        // GET: /Chat/ContactSupport
+        // User clicks this → opens chat with Support (User ID 1)
+        // Admin clicks this → redirected to their full message list
+        [HttpGet]
+        public IActionResult ContactSupport()
+        {
+            if (User.IsInRole("Admin"))
+                return RedirectToAction(nameof(Index));
+
+            return RedirectToAction(nameof(Conversation), new { id = 1 });
+        }
+
+        // Admin is mapped to the Support user (ID = 1) for all chat operations.
+        // Regular users use their own User ID from claims.
         private int GetCurrentUserId()
         {
+            if (User.IsInRole("Admin"))
+                return 1; // Support account in Users table — admin replies as "Support"
+
             var idClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(idClaim) || idClaim.StartsWith("admin_"))
+                return 1;
             return int.TryParse(idClaim, out int id) ? id : 0;
         }
     }
