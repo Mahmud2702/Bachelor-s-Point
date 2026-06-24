@@ -10,13 +10,13 @@
 
 <style>
     /*
-            Login page polish
-            Palette:
-            #111844 - Deep navy
-            #4B5694 - Soft indigo
-            #7288AE - Muted blue
-            #EAE0CF - Warm beige
-        */
+                Login page polish
+                Palette:
+                #111844 - Deep navy
+                #4B5694 - Soft indigo
+                #7288AE - Muted blue
+                #EAE0CF - Warm beige
+            */
 
     :root {
         --login-navy: #111844;
@@ -564,17 +564,34 @@
             </a>
         </form>
 
+        <!-- Google Sign-In -->
+        <div style="display:flex;align-items:center;gap:12px;margin:1.2rem 0 .8rem;">
+            <div style="flex:1;height:1px;background:var(--bp-border,#e2e6f0);"></div>
+            <span style="font-size:.78rem;color:var(--bp-bluegray,#7288AE);white-space:nowrap;">or continue with</span>
+            <div style="flex:1;height:1px;background:var(--bp-border,#e2e6f0);"></div>
+        </div>
+
+        <a asp-action="GoogleLogin" asp-controller="Auth"
+           style="display:flex;align-items:center;justify-content:center;gap:10px;
+            width:100%;padding:13px;border-radius:12px;
+            border:1.5px solid var(--bp-border,#e2e6f0);
+            background:var(--bp-card,#fff);color:var(--bp-navy,#111844);
+            font-weight:600;font-size:.95rem;text-decoration:none;
+            transition:box-shadow .2s,border-color .2s;"
+           onmouseover="this.style.borderColor='#4285f4';this.style.boxShadow='0 2px 8px rgba(66,133,244,.15)'"
+           onmouseout="this.style.borderColor='';this.style.boxShadow=''">
+            <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#4285F4" d="M47.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h13.2c-.6 3-2.4 5.5-5 7.2v6h8c4.7-4.3 7.3-10.7 7.3-17.5z" />
+                <path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.8l-8-6c-2.1 1.4-4.8 2.3-8 2.3-6.1 0-11.3-4.1-13.2-9.7H2.5v6.2C6.5 42.8 14.7 48 24 48z" />
+                <path fill="#FBBC05" d="M10.8 28.8c-.5-1.4-.7-2.8-.7-4.3s.3-2.9.7-4.3v-6.2H2.5C.9 17.3 0 20.5 0 24s.9 6.7 2.5 9.7l8.3-4.9z" />
+                <path fill="#EA4335" d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.6-6.6C35.9 2.5 30.4 0 24 0 14.7 0 6.5 5.2 2.5 12.8l8.3 6.2c1.9-5.6 7.1-9.5 13.2-9.5z" />
+            </svg>
+            Continue with Google
+        </a>
+
         <div class="auth-bottom">
-            @if (loginType == "admin")
-            {
-                <span>Need an admin account?</span>
-                <a asp-action="Register" asp-route-as="admin" class="auth-link">Register as Admin</a>
-            }
-            else
-            {
-                <span>Don't have an account?</span>
-                <a asp-action="Register" asp-route-as="@(string.IsNullOrEmpty(loginType) ? "user" : loginType)" class="auth-link">Create one free</a>
-            }
+            <span>Don't have an account?</span>
+            <a asp-action="Register" class="auth-link">Create one free</a>
         </div>
     </div>
 </section>

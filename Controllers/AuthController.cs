@@ -3,7 +3,9 @@ using Bachelor_s_Point.Application.Interfaces.Services;
 using Bachelor_s_Point.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -11,10 +13,10 @@ namespace Bachelor_s_Point.Controllers
 {
     public class AuthController : Controller
     {
-        private readonly IAuthService    _authService;
-        private readonly IRoleService    _roleService;
-        private readonly IUserService    _userService;
-        private readonly IRoomService    _roomService;
+        private readonly IAuthService _authService;
+        private readonly IRoleService _roleService;
+        private readonly IUserService _userService;
+        private readonly IRoomService _roomService;
         private readonly IWebHostEnvironment _env;
 
         private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
@@ -31,7 +33,7 @@ namespace Bachelor_s_Point.Controllers
             _roleService = roleService;
             _userService = userService;
             _roomService = roomService;
-            _env         = env;
+            _env = env;
         }
 
         // ── ROLE SELECT ─────────────────────────────────────────
@@ -211,7 +213,7 @@ namespace Bachelor_s_Point.Controllers
         public async Task<IActionResult> RefreshSession()
         {
             int userId = GetCurrentUserId();
-            var user   = await _userService.GetUserByIdAsync(userId);
+            var user = await _userService.GetUserByIdAsync(userId);
             if (user == null) return RedirectToAction(nameof(Login));
 
             await SignInUserAsync(user, rememberMe: false);
@@ -250,8 +252,8 @@ namespace Bachelor_s_Point.Controllers
             var user = await _userService.GetUserByIdAsync(userId);
             if (user == null) return NotFound();
 
-            ViewBag.PostedRooms        = await _roomService.GetMyRoomsAsync(userId);
-            ViewBag.Selections         = await _roomService.GetMySelectionsAsync(userId);
+            ViewBag.PostedRooms = await _roomService.GetMyRoomsAsync(userId);
+            ViewBag.Selections = await _roomService.GetMySelectionsAsync(userId);
             ViewBag.IncomingSelections = await _roomService.GetIncomingSelectionsAsync(userId);
 
             return View(user);
@@ -269,15 +271,15 @@ namespace Bachelor_s_Point.Controllers
             var user = await _userService.GetUserByIdAsync(userId);
             if (user == null) return NotFound();
 
-            ViewBag.Email              = user.Email;
+            ViewBag.Email = user.Email;
             ViewBag.ProfilePicturePath = user.ProfilePicturePath;
             return View(new EditProfileDto
             {
-                FullName    = user.FullName,
-                UserName    = user.UserName,
+                FullName = user.FullName,
+                UserName = user.UserName,
                 DateOfBirth = user.DateOfBirth,
                 PhoneNumber = user.PhoneNumber,
-                Address     = user.Address
+                Address = user.Address
             });
         }
 
@@ -292,16 +294,16 @@ namespace Bachelor_s_Point.Controllers
             var user = await _userService.GetUserByIdAsync(userId);
             if (user == null) return NotFound();
 
-            ViewBag.Email              = user.Email;
+            ViewBag.Email = user.Email;
             ViewBag.ProfilePicturePath = user.ProfilePicturePath;
 
             if (!ModelState.IsValid) return View(dto);
 
-            user.FullName    = dto.FullName;
-            user.UserName    = dto.UserName;
+            user.FullName = dto.FullName;
+            user.UserName = dto.UserName;
             user.DateOfBirth = dto.DateOfBirth;
             user.PhoneNumber = dto.PhoneNumber;
-            user.Address     = dto.Address;
+            user.Address = dto.Address;
 
             string result = await _userService.UpdateUserAsync(user);
             if (result != "Success")
@@ -375,7 +377,7 @@ namespace Bachelor_s_Point.Controllers
                 return RedirectToAction(nameof(Profile));
             }
 
-            string webRoot      = !string.IsNullOrEmpty(_env.WebRootPath) ? _env.WebRootPath : Path.Combine(_env.ContentRootPath, "wwwroot");
+            string webRoot = !string.IsNullOrEmpty(_env.WebRootPath) ? _env.WebRootPath : Path.Combine(_env.ContentRootPath, "wwwroot");
             string uploadFolder = Path.Combine(webRoot, "uploads", "profile-pics");
             Directory.CreateDirectory(uploadFolder);
 
@@ -486,6 +488,75 @@ namespace Bachelor_s_Point.Controllers
         /// Issues an auth cookie. Includes PaymentVerified claim so views can
         /// show/blur content without hitting the database on every request.
         /// </summary>
+        // ── GOOGLE OAUTH ─────────────────────────────────────────
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult GoogleLogin(string? returnUrl = null)
+        {
+            var redirectUrl = Url.Action(nameof(GoogleCallback), "Auth", new { returnUrl });
+            var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+            return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> GoogleCallback(string? returnUrl = null)
+        {
+            // Read what Google returned
+            var result = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
+            if (!result.Succeeded || result.Principal == null)
+            {
+                TempData["Error"] = "Google sign-in failed. Please try again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            string? email = result.Principal.FindFirst(ClaimTypes.Email)?.Value;
+            string? fullName = result.Principal.FindFirst(ClaimTypes.Name)?.Value;
+            string? googleId = result.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(email))
+            {
+                TempData["Error"] = "Could not retrieve email from Google. Please try again.";
+                return RedirectToAction(nameof(Login));
+            }
+
+            // ── Find or create the user ──────────────────────────
+            var user = await _userService.GetUserByEmailAsync(email);
+
+            if (user == null)
+            {
+                // New user — auto-register via Google
+                string userName = (fullName ?? email.Split('@')[0])
+                    .Replace(" ", "")
+                    .ToLower();
+
+                // Make username unique if taken
+                string baseUserName = userName;
+                int suffix = 1;
+                while (await _userService.UserNameExistsAsync(userName))
+                    userName = $"{baseUserName}{suffix++}";
+
+                user = new User
+                {
+                    FullName = fullName,
+                    UserName = userName,
+                    Email = email,
+                    PasswordHash = new PasswordHasher<User>().HashPassword(new User(), Guid.NewGuid().ToString()),
+                    RoleId = 2, // User role
+                    IsPaymentVerified = false
+                };
+
+                await _userService.CreateUserAsync(user);
+            }
+
+            // Sign in as normal user
+            await SignInUserAsync(user, rememberMe: true);
+
+            TempData["Success"] = $"Welcome, {user.UserName}!";
+            return RedirectToAction("Index", "Home");
+        }
+
         private async Task SignInAdminAsync(Admin admin, bool rememberMe)
         {
             var claims = new List<Claim>
@@ -498,7 +569,7 @@ namespace Bachelor_s_Point.Controllers
                 new Claim("IsAdminAccount",           "True")
             };
 
-            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
             DateTimeOffset expiry = rememberMe
@@ -524,7 +595,7 @@ namespace Bachelor_s_Point.Controllers
                 new Claim("PaymentVerified",          user.IsPaymentVerified.ToString())
             };
 
-            var identity  = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+            var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var principal = new ClaimsPrincipal(identity);
 
             DateTimeOffset expiry = rememberMe
@@ -540,7 +611,7 @@ namespace Bachelor_s_Point.Controllers
             {
                 Response.Cookies.Append("UserMode", "owner", new CookieOptions
                 {
-                    Expires  = expiry,
+                    Expires = expiry,
                     HttpOnly = false,
                     SameSite = SameSiteMode.Lax
                 });

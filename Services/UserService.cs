@@ -26,6 +26,17 @@ namespace Bachelor_s_Point.Services
             return await _unitOfWork.UserRepo.GetUserWithRoleByIdAsync(id);
         }
 
+        public async Task<User?> GetUserByEmailAsync(string email)
+        {
+            return await _unitOfWork.UserRepo.GetUserByEmailAsync(email);
+        }
+
+        public async Task<bool> UserNameExistsAsync(string userName)
+        {
+            var all = await _unitOfWork.UserRepo.GetAllAsync();
+            return all.Any(u => u.UserName?.ToLower() == userName.ToLower());
+        }
+
         public async Task<string> CreateUserAsync(User user)
         {
             var existing = await _unitOfWork.UserRepo.GetUserByEmailAsync(user.Email!);

@@ -7,6 +7,7 @@ using Bachelor_s_Point.Infrastructure.Settings;
 using Bachelor_s_Point.Repositories;
 using Bachelor_s_Point.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,10 +21,18 @@ builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.LoginPath         = "/Auth/Login";
-        options.AccessDeniedPath  = "/Auth/AccessDenied";
-        options.ExpireTimeSpan    = TimeSpan.FromHours(8);
+        options.LoginPath = "/Auth/Login";
+        options.AccessDeniedPath = "/Auth/AccessDenied";
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
+    })
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Google:ClientId"] ?? "";
+        options.ClientSecret = builder.Configuration["Google:ClientSecret"] ?? "";
+        options.CallbackPath = "/signin-google";
+        options.Scope.Add("email");
+        options.Scope.Add("profile");
     });
 
 builder.Services.AddAuthorization();
@@ -33,37 +42,37 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient<ISSLCommerzService, SSLCommerzService>();
 
 // ── Repositories ────────────────────────────────────────────
-builder.Services.AddScoped<IUserRepository,               UserRepository>();
-builder.Services.AddScoped<IRoleRepository,               RoleRepository>();
-builder.Services.AddScoped<IAdminRepository,              AdminRepository>();
-builder.Services.AddScoped<IRoomRepository,               RoomRepository>();
-builder.Services.AddScoped<IRoomSelectionRepository,      RoomSelectionRepository>();
-builder.Services.AddScoped<IRoomImageRepository,          RoomImageRepository>();
-builder.Services.AddScoped<IChatRepository,               ChatRepository>();
-builder.Services.AddScoped<IPendingRegistrationRepository,PendingRegistrationRepository>();
-builder.Services.AddScoped<IPasswordResetRepository,      PasswordResetRepository>();
-builder.Services.AddScoped<IKycRepository,                KycRepository>();
-builder.Services.AddScoped<ILoginHistoryRepository,       LoginHistoryRepository>();
-builder.Services.AddScoped<IPaymentRepository,            PaymentRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+builder.Services.AddScoped<IAdminRepository, AdminRepository>();
+builder.Services.AddScoped<IRoomRepository, RoomRepository>();
+builder.Services.AddScoped<IRoomSelectionRepository, RoomSelectionRepository>();
+builder.Services.AddScoped<IRoomImageRepository, RoomImageRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
+builder.Services.AddScoped<IPasswordResetRepository, PasswordResetRepository>();
+builder.Services.AddScoped<IKycRepository, KycRepository>();
+builder.Services.AddScoped<ILoginHistoryRepository, LoginHistoryRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 
 // ── Unit of Work ────────────────────────────────────────────
 builder.Services.AddScoped<IUnitOfWork, Bachelor_s_Point.UnitOfWork.UnitOfWork>();
 
 // ── Services ────────────────────────────────────────────────
-builder.Services.AddScoped<IAuthService,    AuthService>();
-builder.Services.AddScoped<IUserService,    UserService>();
-builder.Services.AddScoped<IRoleService,    RoleService>();
-builder.Services.AddScoped<IRoomService,    RoomService>();
-builder.Services.AddScoped<IKycService,     KycService>();
-builder.Services.AddScoped<IChatService,    ChatService>();
-builder.Services.AddScoped<IEmailService,   EmailService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<IRoomService, RoomService>();
+builder.Services.AddScoped<IKycService, KycService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmtpEmailService, SmtpEmailService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 // ── Settings ────────────────────────────────────────────────
-builder.Services.Configure<SmtpOptions>(        builder.Configuration.GetSection("Smtp"));
-builder.Services.Configure<PaymentSettings>(    builder.Configuration.GetSection("Payment"));
-builder.Services.Configure<SSLCommerzSettings>( builder.Configuration.GetSection("SSLCommerz"));
+builder.Services.Configure<SmtpOptions>(builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<PaymentSettings>(builder.Configuration.GetSection("Payment"));
+builder.Services.Configure<SSLCommerzSettings>(builder.Configuration.GetSection("SSLCommerz"));
 
 var app = builder.Build();
 

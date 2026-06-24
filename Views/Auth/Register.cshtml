@@ -12,18 +12,18 @@
 
 <style>
     /*
-            Register Page UI/UX
-            Palette:
-            #111844 - Deep navy
-            #4B5694 - Soft indigo
-            #7288AE - Muted blue
-            #EAE0CF - Warm beige
+                Register Page UI/UX
+                Palette:
+                #111844 - Deep navy
+                #4B5694 - Soft indigo
+                #7288AE - Muted blue
+                #EAE0CF - Warm beige
 
-            Goal:
-            - Desktop/laptop: fit all registration fields in one clean screen.
-            - Mobile/tablet: responsive and scrollable, because forcing everything into one mobile screen would be poor UX.
-            - No functionality change.
-        */
+                Goal:
+                - Desktop/laptop: fit all registration fields in one clean screen.
+                - Mobile/tablet: responsive and scrollable, because forcing everything into one mobile screen would be poor UX.
+                - No functionality change.
+            */
 
     :root {
         --reg-navy: #111844;
@@ -830,9 +830,34 @@
                         </button>
                     </div>
 
+                    <!-- Google Sign-Up -->
+                    <div style="display:flex;align-items:center;gap:12px;margin:.8rem 0;">
+                        <div style="flex:1;height:1px;background:rgba(114,136,174,.25);"></div>
+                        <span style="font-size:.75rem;color:rgba(114,136,174,.8);white-space:nowrap;">or sign up with</span>
+                        <div style="flex:1;height:1px;background:rgba(114,136,174,.25);"></div>
+                    </div>
+
+                    <a asp-action="GoogleLogin" asp-controller="Auth"
+                       style="display:flex;align-items:center;justify-content:center;gap:10px;
+                        width:100%;padding:12px;border-radius:12px;
+                        border:1.5px solid rgba(114,136,174,.3);
+                        background:rgba(255,255,255,.08);color:#fff;
+                        font-weight:600;font-size:.92rem;text-decoration:none;
+                        transition:background .2s,border-color .2s;"
+                       onmouseover="this.style.background='rgba(255,255,255,.14)';this.style.borderColor='rgba(255,255,255,.4)'"
+                       onmouseout="this.style.background='rgba(255,255,255,.08)';this.style.borderColor='rgba(114,136,174,.3)'">
+                        <svg width="19" height="19" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#4285F4" d="M47.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h13.2c-.6 3-2.4 5.5-5 7.2v6h8c4.7-4.3 7.3-10.7 7.3-17.5z" />
+                            <path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.8l-8-6c-2.1 1.4-4.8 2.3-8 2.3-6.1 0-11.3-4.1-13.2-9.7H2.5v6.2C6.5 42.8 14.7 48 24 48z" />
+                            <path fill="#FBBC05" d="M10.8 28.8c-.5-1.4-.7-2.8-.7-4.3s.3-2.9.7-4.3v-6.2H2.5C.9 17.3 0 20.5 0 24s.9 6.7 2.5 9.7l8.3-4.9z" />
+                            <path fill="#EA4335" d="M24 9.5c3.4 0 6.5 1.2 8.9 3.5l6.6-6.6C35.9 2.5 30.4 0 24 0 14.7 0 6.5 5.2 2.5 12.8l8.3 6.2c1.9-5.6 7.1-9.5 13.2-9.5z" />
+                        </svg>
+                        Continue with Google
+                    </a>
+
                     <div class="register-bottom">
                         Already have an account?
-                        <a asp-action="Login" asp-route-as="@regType">Sign in</a>
+                        <a asp-action="Login">Sign in</a>
                     </div>
 
                 </div>

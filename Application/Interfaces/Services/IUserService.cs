@@ -8,6 +8,10 @@ namespace Bachelor_s_Point.Application.Interfaces.Services
 
         Task<User?> GetUserByIdAsync(int id);
 
+        Task<User?> GetUserByEmailAsync(string email);
+
+        Task<bool> UserNameExistsAsync(string userName);
+
         Task<string> CreateUserAsync(User user);
 
         Task<string> UpdateUserAsync(User user);
