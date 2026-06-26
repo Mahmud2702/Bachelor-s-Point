@@ -9,6 +9,8 @@
     int unreadCount = 0;
     int pendingKycCount = 0;
     int dueRoomPaymentCount = 0;
+    bool currentUserPaymentVerified = false;
+    string currentUserKycStatus = "NotSubmitted";
     bool isAuthed = User.Identity != null && User.Identity.IsAuthenticated;
     bool isAdminUser = isAuthed && User.IsInRole("Admin");
     string currentPath = Context.Request.Path.ToString().ToLower();
@@ -19,14 +21,18 @@
         if (int.TryParse(idClaim, out int currentUid))
         {
             var currentUser = await UserService.GetUserByIdAsync(currentUid);
-            currentUserPic  = currentUser?.ProfilePicturePath;
+            currentUserPic = currentUser?.ProfilePicturePath;
             currentUserName = currentUser?.UserName;
-            unreadCount     = await ChatService.GetUnreadCountAsync(currentUid);
+            unreadCount = await ChatService.GetUnreadCountAsync(currentUid);
+            currentUserPaymentVerified = currentUser?.IsPaymentVerified ?? false;
 
             if (!isAdminUser)
             {
                 var myRooms = await RoomService.GetMyRoomsAsync(currentUid);
                 dueRoomPaymentCount = myRooms.Count(r => !r.IsApproved);
+
+                var myKyc = await KycService.GetByUserIdAsync(currentUid);
+                currentUserKycStatus = myKyc?.Status ?? "NotSubmitted";
             }
         }
         if (isAdminUser)
@@ -49,10 +55,10 @@
     <title>@ViewData["Title"] - Bachelor's Point</title>
 
     <script>
-        (function () {
-            const t = localStorage.getItem('bp-theme') || 'light';
-            document.documentElement.setAttribute('data-theme', t);
-        })();
+            (function () {
+                const t = localStorage.getItem('bp-theme') || 'light';
+                document.documentElement.setAttribute('data-theme', t);
+            })();
     </script>
 
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -60,745 +66,1450 @@
     <link href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet" />
 
     <style>
-        :root {
-            /* Brand palette: deep navy / indigo-blue / blue-grey / cream */
-            --primary: #4B5694;
-            --primary-dark: #111844;
-            --primary-mid: #7288AE;
-            --primary-light: rgba(234,224,207,0.55);
-            --primary-rgb: 75,86,148;
-            --cream: #EAE0CF;
-            --cream-strong: #E1D3B8;
-            --success: #10b981;
-            --success-light: #ecfdf5;
-            --warning: #f59e0b;
-            --warning-light: #fffbeb;
-            --danger: #ef4444;
-            --danger-light: #fef2f2;
-            --border: #E7E1D4;
-            --text: #161B3D;
-            --muted: #5F6785;
-            --bg: #F8F5EE;
-            --white: #ffffff;
-            --sidebar-w: 230px;
-            --topbar-h: 58px;
-            --radius-sm: 8px;
-            --radius-md: 10px;
-            --radius-lg: 12px;
-            --radius-xl: 16px;
-            --radius-2xl: 24px;
-            --shadow-sm: 0 1px 3px rgba(17,24,68,.05),0 1px 2px rgba(17,24,68,.06);
-            --shadow-md: 0 8px 30px rgba(17,24,68,.08);
-            --shadow-lg: 0 20px 50px rgba(17,24,68,.12);
-            --shadow-glow: 0 0 0 4px rgba(75,86,148,.16);
-            --transition: all .25s cubic-bezier(.4,0,.2,1);
-            --font-base: 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
-        }
-        [data-theme="dark"] {
-            --primary:#8DA0C9; --primary-dark:#7288AE; --primary-mid:#9FB0D4;
-            --primary-light:rgba(114,136,174,.16);
-            --primary-rgb:141,160,201;
-            --cream:#EAE0CF; --cream-strong:#D9C9A8;
-            --success:#34d399; --success-light:rgba(52,211,153,.1);
-            --warning:#fbbf24; --warning-light:rgba(251,191,36,.1);
-            --danger:#f87171; --danger-light:rgba(248,113,113,.1);
-            --border:#262C52; --text:#F3F0E7; --muted:#9AA3C6;
-            --bg:#0A0D22; --white:#13183A;
-            --shadow-sm:0 1px 3px rgba(0,0,0,.25);
-            --shadow-md:0 8px 30px rgba(0,0,0,.32);
-            --shadow-lg:0 20px 50px rgba(0,0,0,.45);
-            --shadow-glow:0 0 0 4px rgba(141,160,201,.22);
-        }
+            :root {
+                /* Brand palette: deep navy / indigo-blue / blue-grey / cream */
+                --primary: #4B5694;
+                --primary-dark: #111844;
+                --primary-mid: #7288AE;
+                --primary-light: rgba(234,224,207,0.55);
+                --primary-rgb: 75,86,148;
+                --cream: #EAE0CF;
+                --cream-strong: #E1D3B8;
+                --success: #10b981;
+                --success-light: #ecfdf5;
+                --warning: #f59e0b;
+                --warning-light: #fffbeb;
+                --danger: #ef4444;
+                --danger-light: #fef2f2;
+                --border: #E7E1D4;
+                --text: #161B3D;
+                --muted: #5F6785;
+                --bg: #F8F5EE;
+                --white: #ffffff;
+                --sidebar-w: 230px;
+                --topbar-h: 58px;
+                --radius-sm: 8px;
+                --radius-md: 10px;
+                --radius-lg: 12px;
+                --radius-xl: 16px;
+                --radius-2xl: 24px;
+                --shadow-sm: 0 1px 3px rgba(17,24,68,.05),0 1px 2px rgba(17,24,68,.06);
+                --shadow-md: 0 8px 30px rgba(17,24,68,.08);
+                --shadow-lg: 0 20px 50px rgba(17,24,68,.12);
+                --shadow-glow: 0 0 0 4px rgba(75,86,148,.16);
+                --transition: all .25s cubic-bezier(.4,0,.2,1);
+                --font-base: 'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;
+            }
 
-        *{box-sizing:border-box;}
-        body{
-            font-family:var(--font-base);
-            background:var(--bg); color:var(--text);
-            margin:0; padding:0;
-            transition:background .3s ease,color .3s ease;
-        }
-        a{color:var(--primary);text-decoration:none;transition:var(--transition);}
-        a:hover{color:var(--primary-dark);}
+            [data-theme="dark"] {
+                --primary: #8DA0C9;
+                --primary-dark: #7288AE;
+                --primary-mid: #9FB0D4;
+                --primary-light: rgba(114,136,174,.16);
+                --primary-rgb: 141,160,201;
+                --cream: #EAE0CF;
+                --cream-strong: #D9C9A8;
+                --success: #34d399;
+                --success-light: rgba(52,211,153,.1);
+                --warning: #fbbf24;
+                --warning-light: rgba(251,191,36,.1);
+                --danger: #f87171;
+                --danger-light: rgba(248,113,113,.1);
+                --border: #262C52;
+                --text: #F3F0E7;
+                --muted: #9AA3C6;
+                --bg: #0A0D22;
+                --white: #13183A;
+                --shadow-sm: 0 1px 3px rgba(0,0,0,.25);
+                --shadow-md: 0 8px 30px rgba(0,0,0,.32);
+                --shadow-lg: 0 20px 50px rgba(0,0,0,.45);
+                --shadow-glow: 0 0 0 4px rgba(141,160,201,.22);
+            }
 
-        /* ── SIDEBAR ── */
-        .bp-sidebar {
-            position: fixed;
-            left: 0; top: 0; bottom: 0;
-            width: var(--sidebar-w);
-            background: var(--white);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            z-index: 200;
-            transition: transform .3s ease;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-        .bp-sidebar::-webkit-scrollbar { width: 4px; }
-        .bp-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+            * {
+                box-sizing: border-box;
+            }
 
-        .bp-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 1.1rem 1.2rem 0.8rem;
-            text-decoration: none;
-            color: var(--text);
-            flex-shrink: 0;
-        }
-        .bp-brand:hover { color: var(--primary); }
-        .bp-brand-icon {
-            width: 38px; height: 38px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            border-radius: var(--radius-lg);
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 1.1rem;
-            box-shadow: 0 4px 12px rgba(17,24,68,.3);
-            flex-shrink: 0;
-            transition: var(--transition);
-        }
-        .bp-brand:hover .bp-brand-icon { transform: rotate(-8deg) scale(1.05); }
-        .bp-brand-name {
-            font-size: 1rem; font-weight: 800; letter-spacing: -.4px;
-            background: linear-gradient(135deg, var(--text), var(--primary-dark));
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        [data-theme="dark"] .bp-brand-name {
-            background: linear-gradient(135deg,#fff,var(--primary-mid));
-            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-        }
+            body {
+                font-family: var(--font-base);
+                background: var(--bg);
+                color: var(--text);
+                margin: 0;
+                padding: 0;
+                transition: background .3s ease,color .3s ease;
+            }
 
-        .bp-sidenav { padding: 0.3rem 0.65rem; flex: 1; }
+            a {
+                color: var(--primary);
+                text-decoration: none;
+                transition: var(--transition);
+            }
 
-        .bp-nav-section {
-            font-size: 0.68rem;
-            font-weight: 700;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .7px;
-            padding: 0.9rem 0.6rem 0.35rem;
-        }
+                a:hover {
+                    color: var(--primary-dark);
+                }
 
-        .bp-nav-item {
-            display: flex;
-            align-items: center;
-            gap: 0.7rem;
-            padding: 0.55rem 0.75rem;
-            border-radius: var(--radius-md);
-            color: var(--muted);
-            font-size: 0.875rem;
-            font-weight: 600;
-            text-decoration: none;
-            transition: var(--transition);
-            position: relative;
-            margin-bottom: 2px;
-        }
-        .bp-nav-item i { font-size: 1.05rem; flex-shrink: 0; width: 20px; text-align: center; }
-        .bp-nav-item:hover {
-            background: var(--primary-light);
-            color: var(--primary);
-        }
-        .bp-nav-item.active {
-            background: var(--primary-light);
-            color: var(--primary);
-            font-weight: 700;
-        }
-        .bp-nav-item.active i { color: var(--primary); }
+            /* ── SIDEBAR ── */
+            .bp-sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: var(--sidebar-w);
+                background: var(--white);
+                border-right: 1px solid var(--border);
+                display: flex;
+                flex-direction: column;
+                z-index: 200;
+                transition: transform .3s ease;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
 
-        .bp-nav-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--danger);
-            color: #fff;
-            border-radius: 999px;
-            font-size: 0.65rem;
-            font-weight: 700;
-            min-width: 18px;
-            height: 18px;
-            padding: 0 5px;
-            margin-left: auto;
-        }
-        .bp-nav-badge.warning { background: var(--warning); color: #000; }
-        [data-theme="dark"] .bp-nav-badge.warning { color: #fff; }
-        @@keyframes pulse-dot {
-            0%,100%{transform:scale(1);opacity:1;}
-            50%{transform:scale(1.2);opacity:.8;}
-        }
-        .bp-nav-badge.pulse { animation: pulse-dot 1.6s ease-in-out infinite; }
+                .bp-sidebar::-webkit-scrollbar {
+                    width: 4px;
+                }
 
-        .bp-sidebar-divider {
-            height: 1px;
-            background: var(--border);
-            margin: 0.5rem 0.65rem;
-        }
+                .bp-sidebar::-webkit-scrollbar-thumb {
+                    background: var(--border);
+                    border-radius: 99px;
+                }
 
-        /* ── SIDEBAR BOTTOM (user info) ── */
-        .bp-sidebar-footer {
-            padding: 0.75rem 0.9rem;
-            border-top: 1px solid var(--border);
-            flex-shrink: 0;
-        }
-        .bp-sidebar-user {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.5rem 0.6rem;
-            border-radius: var(--radius-lg);
-            cursor: pointer;
-            text-decoration: none;
-            color: var(--text);
-            transition: var(--transition);
-        }
-        .bp-sidebar-user:hover { background: var(--primary-light); color: var(--primary); }
-        .bp-sidebar-user-name { font-size: 0.83rem; font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .bp-sidebar-user-role { font-size: 0.7rem; color: var(--muted); }
-        .nav-avatar {
-            width: 32px; height: 32px;
-            border-radius: 50%; object-fit: cover;
-            border: 2px solid var(--border); flex-shrink: 0;
-        }
-        .nav-avatar-default {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            background: var(--primary-light); color: var(--primary);
-            display: inline-flex; align-items: center; justify-content: center;
-            font-size: .9rem; font-weight: 700;
-            border: 2px solid var(--border); flex-shrink: 0;
-        }
+            .bp-brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 1.1rem 1.2rem 0.8rem;
+                text-decoration: none;
+                color: var(--text);
+                flex-shrink: 0;
+            }
 
-        /* ── TOPBAR ── */
-        .bp-topbar {
-            position: sticky; top: 0; z-index: 100;
-            background: rgba(var(--white-rgb, 255,255,255),.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
-            height: var(--topbar-h);
-            display: flex; align-items: center;
-            padding: 0 1.25rem;
-            gap: 0.75rem;
-        }
-        [data-theme="dark"] .bp-topbar { background: rgba(19,24,58,.85); }
+                .bp-brand:hover {
+                    color: var(--primary);
+                }
 
-        .bp-topbar-hamburger {
-            display: none;
-            background: none; border: none;
-            color: var(--muted); font-size: 1.3rem;
-            cursor: pointer; padding: 6px;
-            border-radius: var(--radius-md);
-            transition: var(--transition);
-        }
-        .bp-topbar-hamburger:hover { background: var(--primary-light); color: var(--primary); }
+            .bp-brand-icon {
+                width: 38px;
+                height: 38px;
+                background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+                border-radius: var(--radius-lg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #fff;
+                font-size: 1.1rem;
+                box-shadow: 0 4px 12px rgba(17,24,68,.3);
+                flex-shrink: 0;
+                transition: var(--transition);
+            }
 
-        .bp-topbar-right {
-            margin-left: auto;
-            display: flex; align-items: center; gap: 0.5rem;
-        }
+            .bp-brand:hover .bp-brand-icon {
+                transform: rotate(-8deg) scale(1.05);
+            }
 
-        .theme-pill-btn {
-            background: transparent; border: none;
-            color: var(--muted); width: 36px; height: 36px;
-            border-radius: var(--radius-md);
-            display: inline-flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: var(--transition);
-        }
-        .theme-pill-btn:hover { background: var(--primary-light); color: var(--primary); }
+            .bp-brand-name {
+                font-size: 1rem;
+                font-weight: 800;
+                letter-spacing: -.4px;
+                background: linear-gradient(135deg, var(--text), var(--primary-dark));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
 
-        /* mode pill in topbar */
-        .mode-pill {
-            background: var(--primary-light); color: var(--primary);
-            border-radius: 999px; padding: .35rem .9rem;
-            font-size: .82rem; font-weight: 600;
-            display: inline-flex; align-items: center; gap: .4rem;
-            border: 1px solid transparent; cursor: pointer;
-            transition: var(--transition); text-decoration: none;
-        }
-        .mode-pill:hover { border-color: var(--primary-mid); color: var(--primary-dark); }
+            [data-theme="dark"] .bp-brand-name {
+                background: linear-gradient(135deg,#fff,var(--primary-mid));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
 
-        /* ── MAIN CONTENT AREA ── */
-        .bp-main {
-            margin-left: var(--sidebar-w);
-            min-height: 100vh;
-            display: flex; flex-direction: column;
-        }
-        .bp-content { flex: 1; }
+            .bp-sidenav {
+                padding: 0.3rem 0.65rem;
+                flex: 1;
+            }
 
-        /* ── MOBILE OVERLAY ── */
-        .bp-overlay {
-            display: none;
-            position: fixed; inset: 0;
-            background: rgba(0,0,0,.4);
-            z-index: 199;
-        }
-        .bp-overlay.show { display: block; }
+            .bp-nav-section {
+                font-size: 0.68rem;
+                font-weight: 700;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: .7px;
+                padding: 0.9rem 0.6rem 0.35rem;
+            }
 
-        @@media (max-width: 768px) {
-            .bp-sidebar { transform: translateX(-100%); }
-            .bp-sidebar.open { transform: translateX(0); }
-            .bp-main { margin-left: 0; }
-            .bp-topbar-hamburger { display: inline-flex; }
-        }
+            .bp-nav-item {
+                display: flex;
+                align-items: center;
+                gap: 0.7rem;
+                padding: 0.55rem 0.75rem;
+                border-radius: var(--radius-md);
+                color: var(--muted);
+                font-size: 0.875rem;
+                font-weight: 600;
+                text-decoration: none;
+                transition: var(--transition);
+                position: relative;
+                margin-bottom: 2px;
+            }
 
-        /* ── BUTTONS ── */
-        .btn-auth,.btn-nx,.btn-hero{position:relative;overflow:hidden;}
-        .btn-auth{
-            width:100%; height:52px; border:none;
-            border-radius:var(--radius-lg); background:var(--primary);
-            color:#fff; font-family:var(--font-base); font-weight:700;
-            font-size:15px; cursor:pointer; transition:var(--transition);
-            display:inline-flex; align-items:center; justify-content:center;
-            gap:8px; text-decoration:none;
-        }
-        .btn-auth:hover{background:var(--primary-dark);color:#fff;transform:translateY(-2px);box-shadow:0 6px 20px rgba(var(--primary-rgb),.3);}
-        .btn-auth.outline{background:var(--white);color:var(--primary);border:2px solid var(--border);}
-        .btn-auth.outline:hover{border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark);box-shadow:none;}
-        .btn-auth.success{background:var(--success);}
-        .btn-auth.success:hover{background:#059669;box-shadow:0 6px 20px rgba(16,185,129,.25);}
-        .btn-auth.danger{background:var(--danger);}
-        .btn-auth.danger:hover{background:#dc2626;box-shadow:0 6px 20px rgba(239,68,68,.25);}
+                .bp-nav-item i {
+                    font-size: 1.05rem;
+                    flex-shrink: 0;
+                    width: 20px;
+                    text-align: center;
+                }
 
-        .btn-nx{
-            height:38px; padding:0 18px; border:none;
-            border-radius:var(--radius-md); background:var(--primary);
-            color:#fff; font-family:var(--font-base); font-weight:600;
-            font-size:13px; cursor:pointer; transition:var(--transition);
-            display:inline-flex; align-items:center; justify-content:center;
-            gap:6px; text-decoration:none;
-        }
-        .btn-nx:hover{background:var(--primary-dark);color:#fff;transform:translateY(-1px);}
-        .btn-nx.outline{background:var(--white);color:var(--text);border:1px solid var(--border);}
-        .btn-nx.outline:hover{background:var(--primary-light);color:var(--primary);border-color:var(--primary);}
-        .btn-nx.outline-danger{background:var(--white);color:var(--danger);border:1px solid var(--border);}
-        .btn-nx.outline-danger:hover{background:var(--danger-light);border-color:var(--danger);}
-        .btn-nx.success{background:var(--success);}
-        .btn-nx.success:hover{background:#059669;color:#fff;}
-        .btn-nx.warning{background:var(--warning);}
-        .btn-nx.warning:hover{background:#d97706;color:#fff;}
-        .btn-nx.danger{background:var(--danger);}
-        .btn-nx.danger:hover{background:#dc2626;color:#fff;}
-        .btn-nx.sm{height:32px;padding:0 12px;font-size:12px;}
+                .bp-nav-item:hover {
+                    background: var(--primary-light);
+                    color: var(--primary);
+                }
 
-        .auth-link{color:var(--primary);font-weight:600;text-decoration:none;transition:var(--transition);}
-        .auth-link:hover{color:var(--primary-dark);text-decoration:underline;}
+                .bp-nav-item.active {
+                    background: var(--primary-light);
+                    color: var(--primary);
+                    font-weight: 700;
+                }
 
-        /* ── CARDS ── */
-        .nx-card{
-            background:var(--white); border:1px solid var(--border);
-            border-radius:var(--radius-xl); box-shadow:var(--shadow-sm);
-            transition:var(--transition); overflow:hidden; position:relative;
-        }
-        .nx-card:hover{box-shadow:var(--shadow-md);transform:translateY(-6px);border-color:var(--primary-mid);}
+                    .bp-nav-item.active i {
+                        color: var(--primary);
+                    }
 
-        /* ── ALERTS ── */
-        .nx-alert{
-            border:1px solid; border-radius:var(--radius-md);
-            padding:1rem 1.25rem; font-size:.92rem;
-            display:flex; align-items:center; gap:.6rem;
-            box-shadow:var(--shadow-sm); transition:var(--transition);
-        }
-        .nx-alert-success{background:var(--success-light);border-color:rgba(16,185,129,.2);color:#047857;}
-        .nx-alert-danger{background:var(--danger-light);border-color:rgba(239,68,68,.2);color:#b91c1c;}
-        .nx-alert-warning{background:var(--warning-light);border-color:rgba(245,158,11,.2);color:#b45309;}
-        .nx-alert-info{background:var(--primary-light);border-color:rgba(var(--primary-rgb),.25);color:var(--primary-dark);}
-        [data-theme="dark"] .nx-alert-success{color:#34d399;}
-        [data-theme="dark"] .nx-alert-danger{color:#f87171;}
-        [data-theme="dark"] .nx-alert-warning{color:#fbbf24;}
-        [data-theme="dark"] .nx-alert-info{color:var(--primary-mid);}
-        .nx-alert .btn-close{padding:.6rem;color:var(--text);}
+            .bp-nav-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: var(--danger);
+                color: #fff;
+                border-radius: 999px;
+                font-size: 0.65rem;
+                font-weight: 700;
+                min-width: 18px;
+                height: 18px;
+                padding: 0 5px;
+                margin-left: auto;
+            }
 
-        /* ── BADGES ── */
-        .nx-badge{
-            display:inline-block; background:var(--danger); color:#fff;
-            border-radius:999px; padding:.15rem .5rem; font-size:.72rem; font-weight:700;
-        }
-        .nx-badge-warning{background:var(--warning);color:#000;}
-        [data-theme="dark"] .nx-badge-warning{color:#fff;}
+                .bp-nav-badge.warning {
+                    background: var(--warning);
+                    color: #000;
+                }
 
-        .badge-pending{
-            background:var(--warning-light); color:#b45309;
-            border:1px solid rgba(245,158,11,.15);
-            padding:.25rem .75rem; border-radius:999px; font-size:.75rem; font-weight:600;
-        }
-        .badge-approved{
-            background:var(--success-light); color:#047857;
-            border:1px solid rgba(16,185,129,.15);
-            padding:.25rem .75rem; border-radius:999px; font-size:.75rem; font-weight:600;
-        }
-        [data-theme="dark"] .badge-pending{color:#fbbf24;}
-        [data-theme="dark"] .badge-approved{color:#34d399;}
+            [data-theme="dark"] .bp-nav-badge.warning {
+                color: #fff;
+            }
 
-        /* ── FORM ── */
-        .form-control,.form-select{
-            font-family:var(--font-base); border:1px solid var(--border);
-            border-radius:var(--radius-lg); padding:.7rem 1.1rem;
-            font-size:.93rem; height:52px;
-            background-color:var(--white); color:var(--text); transition:var(--transition);
-        }
-        .form-control:focus,.form-select:focus{
-            border-color:var(--primary); box-shadow:var(--shadow-glow);
-            background-color:var(--white); color:var(--text); outline:none;
-        }
-        .form-control::placeholder{color:var(--muted);opacity:.65;}
-        textarea.form-control{height:auto;min-height:90px;}
-        .form-label{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.45rem;}
+            @@keyframes pulse-dot {
+                0%, 100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
 
-        /* ── AUTH CARD ── */
-        .auth-card{
-            max-width:520px; margin:3rem auto;
-            background:var(--white); border:1px solid var(--border);
-            border-radius:var(--radius-2xl); padding:40px;
-            box-shadow:var(--shadow-lg);
-        }
+                50% {
+                    transform: scale(1.2);
+                    opacity: .8;
+                }
+            }
 
-        /* ── HERO ── */
-        .nx-hero{
-            background:linear-gradient(135deg,#111844 0%,#1A2150 50%,#4B5694 100%);
-            color:#fff; padding:5rem 1.5rem;
-            border-radius:var(--radius-2xl); margin:1.5rem 0 3rem;
-            text-align:center; position:relative; overflow:hidden;
-            box-shadow:0 20px 40px rgba(17,24,68,.3);
-        }
-        [data-theme="dark"] .nx-hero{background:linear-gradient(135deg,#05060f 0%,#0A0D22 50%,#1A2150 100%);border:1px solid rgba(255,255,255,.05);}
-        .nx-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 80% at 50% -10%,rgba(234,224,207,.18),transparent);pointer-events:none;}
-        .nx-hero>*{position:relative;z-index:1;}
-        .nx-hero h1{font-weight:800;letter-spacing:-.8px;margin-bottom:.8rem;}
-        .nx-hero .lead{opacity:.88;font-weight:400;max-width:600px;margin:0 auto;}
+            .bp-nav-badge.pulse {
+                animation: pulse-dot 1.6s ease-in-out infinite;
+            }
 
-        .btn-hero{
-            display:inline-flex; align-items:center; gap:8px;
-            background:#fff; color:var(--primary-dark); font-weight:700; font-size:15px;
-            padding:14px 34px; border-radius:var(--radius-lg); border:none;
-            text-decoration:none; transition:var(--transition);
-            box-shadow:0 4px 15px rgba(0,0,0,.1);
-        }
-        .btn-hero:hover{color:var(--primary);transform:translateY(-2px);box-shadow:0 8px 25px rgba(255,255,255,.25);}
+            .bp-sidebar-divider {
+                height: 1px;
+                background: var(--border);
+                margin: 0.5rem 0.65rem;
+            }
 
-        /* ── ROLE CARD ── */
-        .role-card{
-            border:2px solid var(--border); border-radius:var(--radius-xl);
-            background:var(--white); text-decoration:none; color:inherit;
-            display:block; padding:2.5rem; transition:var(--transition);
-            cursor:pointer; text-align:center; box-shadow:var(--shadow-sm);
-        }
-        .role-card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg);border-color:var(--primary);color:inherit;}
-        .role-card .icon-wrap{
-            width:76px;height:76px;border-radius:var(--radius-xl);
-            display:inline-flex;align-items:center;justify-content:center;
-            font-size:2rem;margin-bottom:1.25rem;transition:var(--transition);
-            color:#fff; box-shadow:0 10px 24px rgba(17,24,68,.22);
-        }
-        .role-card:hover .icon-wrap{transform:scale(1.08) rotate(-5deg);}
-        .icon-admin{background:linear-gradient(135deg,var(--primary-dark),#222a5e);}
-        .icon-user{background:linear-gradient(135deg,var(--primary-mid),var(--primary));}
+            /* ── SIDEBAR BOTTOM (user info) ── */
+            .bp-sidebar-footer {
+                padding: 0.75rem 0.9rem;
+                border-top: 1px solid var(--border);
+                flex-shrink: 0;
+            }
 
-        /* ── PAGINATION ── */
-        .pagination .page-link{
-            color:var(--primary);background-color:var(--white);border-color:var(--border);
-            font-weight:600;border-radius:var(--radius-md);margin:0 3px;
-            padding:.5rem .95rem;transition:var(--transition);
-        }
-        .pagination .page-link:hover{background-color:var(--primary-light);border-color:var(--primary-mid);}
-        .pagination .page-item.active .page-link{background:var(--primary);border-color:var(--primary);color:#fff!important;}
-        .pagination .page-item.disabled .page-link{color:var(--muted);opacity:.5;}
+            .bp-sidebar-user {
+                display: flex;
+                align-items: center;
+                gap: 0.6rem;
+                padding: 0.5rem 0.6rem;
+                border-radius: var(--radius-lg);
+                cursor: pointer;
+                text-decoration: none;
+                color: var(--text);
+                transition: var(--transition);
+            }
 
-        /* ── SCROLLBAR ── */
-        ::-webkit-scrollbar{width:8px;height:8px;}
-        ::-webkit-scrollbar-track{background:var(--bg);}
-        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
-        ::-webkit-scrollbar-thumb:hover{background:var(--muted);}
+                .bp-sidebar-user:hover {
+                    background: var(--primary-light);
+                    color: var(--primary);
+                }
 
-        /* ── FOOTER ── */
-        .nx-footer{
-            background:var(--white);border-top:1px solid var(--border);
-            padding:1.25rem 0;color:var(--muted);font-size:.85rem;
-        }
-        .nx-footer a{color:var(--primary);text-decoration:none;font-weight:600;}
+            .bp-sidebar-user-name {
+                font-size: 0.83rem;
+                font-weight: 700;
+                flex: 1;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
 
-        /* ── ANIMATION ── */
-        @@keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
-        .fade-up{animation:fadeUp .5s cubic-bezier(.4,0,.2,1) both;}
+            .bp-sidebar-user-role {
+                font-size: 0.7rem;
+                color: var(--muted);
+            }
 
-        /* ── SIDEBAR COLLAPSED (desktop toggle) ── */
-        .bp-sidebar.collapsed {
-            transform: translateX(-100%);
-        }
-        .bp-main.sidebar-collapsed {
-            margin-left: 0 !important;
-        }
-        @@media (min-width: 769px) {
-            .bp-topbar-hamburger { display: inline-flex; }
-        }
+            .nav-avatar {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 2px solid var(--border);
+                flex-shrink: 0;
+            }
 
-        /* ── GUEST NAVBAR ── */
-        .bp-guest-nav {
-            background: var(--white);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border);
-            padding: .8rem 0;
-            position: sticky; top: 0; z-index: 200;
-            transition: background .3s ease;
-        }
+            .nav-avatar-default {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: var(--primary-light);
+                color: var(--primary);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: .9rem;
+                font-weight: 700;
+                border: 2px solid var(--border);
+                flex-shrink: 0;
+            }
 
-        /* ── AUTH PAGE BRAND MARK ── */
-        .nx-brand-icon {
-            width: 42px; height: 42px;
-            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-            border-radius: var(--radius-lg);
-            display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 1.2rem; flex-shrink: 0;
-            box-shadow: 0 6px 16px rgba(17,24,68,.22);
-        }
-        .nx-brand-name {
-            font-size: 1.1rem; font-weight: 800; letter-spacing: -.4px;
-            color: var(--primary-dark);
-        }
-        [data-theme="dark"] .nx-brand-name { color: var(--text); }
+            /* ── TOPBAR ── */
+            .bp-topbar {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                background: rgba(var(--white-rgb, 255,255,255),.85);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border-bottom: 1px solid var(--border);
+                height: var(--topbar-h);
+                display: flex;
+                align-items: center;
+                padding: 0 1.25rem;
+                gap: 0.75rem;
+            }
 
-        /* ── CHIP ── */
-        .chip{
-            display:inline-flex;align-items:center;gap:6px;
-            background:var(--primary-light);color:var(--primary);
-            border-radius:999px;padding:.25rem .7rem;font-size:.78rem;font-weight:600;
-        }
+            [data-theme="dark"] .bp-topbar {
+                background: rgba(19,24,58,.85);
+            }
 
-        /* ── STAT / SUMMARY CARD ── */
-        .stat-card{
-            border-radius:var(--radius-xl)!important; box-shadow:var(--shadow-sm);
-            transition:var(--transition); border-color:var(--border)!important;
-        }
-        .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-3px);}
-        .text-primary{color:var(--primary)!important;}
-        .text-muted{color:var(--muted)!important;}
-        .bg-primary{background-color:var(--primary)!important;}
-        .bg-secondary{background-color:var(--primary-mid)!important;}
-        .bg-info{background-color:var(--primary-mid)!important;}
-        .border-primary{border-color:var(--primary)!important;}
+            .bp-topbar-hamburger {
+                display: none;
+                background: none;
+                border: none;
+                color: var(--muted);
+                font-size: 1.3rem;
+                cursor: pointer;
+                padding: 6px;
+                border-radius: var(--radius-md);
+                transition: var(--transition);
+            }
 
-        .btn-primary{
-            --bs-btn-color:#fff;--bs-btn-bg:var(--primary);--bs-btn-border-color:var(--primary);
-            --bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--primary-dark);--bs-btn-hover-border-color:var(--primary-dark);
-            --bs-btn-focus-shadow-rgb:75,86,148;--bs-btn-active-color:#fff;
-            --bs-btn-active-bg:var(--primary-dark);--bs-btn-active-border-color:var(--primary-dark);
-            --bs-btn-disabled-bg:var(--primary);--bs-btn-disabled-border-color:var(--primary);
-        }
-        .btn-outline-primary{
-            --bs-btn-color:var(--primary);--bs-btn-border-color:var(--primary);
-            --bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--primary);--bs-btn-hover-border-color:var(--primary);
-            --bs-btn-focus-shadow-rgb:75,86,148;--bs-btn-active-color:#fff;
-            --bs-btn-active-bg:var(--primary);--bs-btn-active-border-color:var(--primary);
-            --bs-btn-disabled-color:var(--primary);--bs-btn-disabled-border-color:var(--primary);
-        }
-        .btn-secondary{
-            --bs-btn-bg:var(--primary-mid);--bs-btn-border-color:var(--primary-mid);
-            --bs-btn-hover-bg:var(--primary);--bs-btn-hover-border-color:var(--primary);
-            --bs-btn-active-bg:var(--primary);--bs-btn-active-border-color:var(--primary);
-            --bs-btn-disabled-bg:var(--primary-mid);--bs-btn-disabled-border-color:var(--primary-mid);
-        }
-        .btn-outline-secondary{
-            --bs-btn-color:var(--muted);--bs-btn-border-color:var(--border);
-            --bs-btn-hover-bg:var(--muted);--bs-btn-hover-border-color:var(--muted);
-        }
-        .btn-info{
-            --bs-btn-color:#fff;--bs-btn-bg:var(--primary-mid);--bs-btn-border-color:var(--primary-mid);
-            --bs-btn-hover-color:#fff;--bs-btn-hover-bg:var(--primary);--bs-btn-hover-border-color:var(--primary);
-        }
-        .btn-success{--bs-btn-bg:var(--success);--bs-btn-border-color:var(--success);--bs-btn-hover-bg:#059669;--bs-btn-hover-border-color:#059669;}
-        .btn-outline-success{--bs-btn-color:var(--success);--bs-btn-border-color:var(--success);--bs-btn-hover-bg:var(--success);--bs-btn-hover-border-color:var(--success);}
-        .btn-danger{--bs-btn-bg:var(--danger);--bs-btn-border-color:var(--danger);--bs-btn-hover-bg:#dc2626;--bs-btn-hover-border-color:#dc2626;}
-        .btn-outline-danger{--bs-btn-color:var(--danger);--bs-btn-border-color:var(--danger);--bs-btn-hover-bg:var(--danger);--bs-btn-hover-border-color:var(--danger);}
-        .btn-warning{--bs-btn-bg:var(--warning);--bs-btn-border-color:var(--warning);--bs-btn-hover-bg:#d97706;--bs-btn-hover-border-color:#d97706;}
+                .bp-topbar-hamburger:hover {
+                    background: var(--primary-light);
+                    color: var(--primary);
+                }
 
-        .alert{border-radius:var(--radius-md);}
-        .alert-info{background-color:var(--primary-light);border-color:rgba(var(--primary-rgb),.25);color:var(--primary-dark);}
-        [data-theme="dark"] .alert-info{color:var(--primary-mid);}
-        .alert-link{font-weight:700;}
+            .bp-topbar-right {
+                margin-left: auto;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
 
-        .table{--bs-table-color:var(--text);--bs-table-border-color:var(--border);}
-        .table-light{--bs-table-bg:var(--bg);--bs-table-color:var(--text);}
-        [data-theme="dark"] .table-light{--bs-table-bg:rgba(255,255,255,.04);--bs-table-color:var(--text);}
-        [data-theme="dark"] .table{--bs-table-bg:transparent;}
+            .theme-pill-btn {
+                background: transparent;
+                border: none;
+                color: var(--muted);
+                width: 36px;
+                height: 36px;
+                border-radius: var(--radius-md);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                transition: var(--transition);
+            }
 
-        .card{background:var(--white);border-color:var(--border);color:var(--text);}
-        .modal-content{background:var(--white);color:var(--text);}
-        .dropdown-menu{background:var(--white);color:var(--text);border-color:var(--border);}
-        .dropdown-item{color:var(--text);}
-        .dropdown-item:hover,.dropdown-item:focus{background:var(--primary-light);color:var(--primary-dark);}
+                .theme-pill-btn:hover {
+                    background: var(--primary-light);
+                    color: var(--primary);
+                }
+
+            /* mode pill in topbar */
+            .mode-pill {
+                background: var(--primary-light);
+                color: var(--primary);
+                border-radius: 999px;
+                padding: .35rem .9rem;
+                font-size: .82rem;
+                font-weight: 600;
+                display: inline-flex;
+                align-items: center;
+                gap: .4rem;
+                border: 1px solid transparent;
+                cursor: pointer;
+                transition: var(--transition);
+                text-decoration: none;
+            }
+
+                .mode-pill:hover {
+                    border-color: var(--primary-mid);
+                    color: var(--primary-dark);
+                }
+
+            /* ── MAIN CONTENT AREA ── */
+            .bp-main {
+                margin-left: var(--sidebar-w);
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .bp-content {
+                flex: 1;
+            }
+
+            /* ── MOBILE OVERLAY ── */
+            .bp-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,.4);
+                z-index: 199;
+            }
+
+                .bp-overlay.show {
+                    display: block;
+                }
+
+            @@media (max-width: 768px) {
+                .bp-sidebar {
+                    transform: translateX(-100%);
+                }
+
+                    .bp-sidebar.open {
+                        transform: translateX(0);
+                    }
+
+                .bp-main {
+                    margin-left: 0;
+                }
+
+                .bp-topbar-hamburger {
+                    display: inline-flex;
+                }
+            }
+
+            /* ── BUTTONS ── */
+            .btn-auth, .btn-nx, .btn-hero {
+                position: relative;
+                overflow: hidden;
+            }
+
+            .btn-auth {
+                width: 100%;
+                height: 52px;
+                border: none;
+                border-radius: var(--radius-lg);
+                background: var(--primary);
+                color: #fff;
+                font-family: var(--font-base);
+                font-weight: 700;
+                font-size: 15px;
+                cursor: pointer;
+                transition: var(--transition);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                text-decoration: none;
+            }
+
+                .btn-auth:hover {
+                    background: var(--primary-dark);
+                    color: #fff;
+                    transform: translateY(-2px);
+                    box-shadow: 0 6px 20px rgba(var(--primary-rgb),.3);
+                }
+
+                .btn-auth.outline {
+                    background: var(--white);
+                    color: var(--primary);
+                    border: 2px solid var(--border);
+                }
+
+                    .btn-auth.outline:hover {
+                        border-color: var(--primary);
+                        background: var(--primary-light);
+                        color: var(--primary-dark);
+                        box-shadow: none;
+                    }
+
+                .btn-auth.success {
+                    background: var(--success);
+                }
+
+                    .btn-auth.success:hover {
+                        background: #059669;
+                        box-shadow: 0 6px 20px rgba(16,185,129,.25);
+                    }
+
+                .btn-auth.danger {
+                    background: var(--danger);
+                }
+
+                    .btn-auth.danger:hover {
+                        background: #dc2626;
+                        box-shadow: 0 6px 20px rgba(239,68,68,.25);
+                    }
+
+            .btn-nx {
+                height: 38px;
+                padding: 0 18px;
+                border: none;
+                border-radius: var(--radius-md);
+                background: var(--primary);
+                color: #fff;
+                font-family: var(--font-base);
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                transition: var(--transition);
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                text-decoration: none;
+            }
+
+                .btn-nx:hover {
+                    background: var(--primary-dark);
+                    color: #fff;
+                    transform: translateY(-1px);
+                }
+
+                .btn-nx.outline {
+                    background: var(--white);
+                    color: var(--text);
+                    border: 1px solid var(--border);
+                }
+
+                    .btn-nx.outline:hover {
+                        background: var(--primary-light);
+                        color: var(--primary);
+                        border-color: var(--primary);
+                    }
+
+                .btn-nx.outline-danger {
+                    background: var(--white);
+                    color: var(--danger);
+                    border: 1px solid var(--border);
+                }
+
+                    .btn-nx.outline-danger:hover {
+                        background: var(--danger-light);
+                        border-color: var(--danger);
+                    }
+
+                .btn-nx.success {
+                    background: var(--success);
+                }
+
+                    .btn-nx.success:hover {
+                        background: #059669;
+                        color: #fff;
+                    }
+
+                .btn-nx.warning {
+                    background: var(--warning);
+                }
+
+                    .btn-nx.warning:hover {
+                        background: #d97706;
+                        color: #fff;
+                    }
+
+                .btn-nx.danger {
+                    background: var(--danger);
+                }
+
+                    .btn-nx.danger:hover {
+                        background: #dc2626;
+                        color: #fff;
+                    }
+
+                .btn-nx.sm {
+                    height: 32px;
+                    padding: 0 12px;
+                    font-size: 12px;
+                }
+
+            .auth-link {
+                color: var(--primary);
+                font-weight: 600;
+                text-decoration: none;
+                transition: var(--transition);
+            }
+
+                .auth-link:hover {
+                    color: var(--primary-dark);
+                    text-decoration: underline;
+                }
+
+            /* ── CARDS ── */
+            .nx-card {
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-xl);
+                box-shadow: var(--shadow-sm);
+                transition: var(--transition);
+                overflow: hidden;
+                position: relative;
+            }
+
+                .nx-card:hover {
+                    box-shadow: var(--shadow-md);
+                    transform: translateY(-6px);
+                    border-color: var(--primary-mid);
+                }
+
+            /* ── ALERTS ── */
+            .nx-alert {
+                border: 1px solid;
+                border-radius: var(--radius-md);
+                padding: 1rem 1.25rem;
+                font-size: .92rem;
+                display: flex;
+                align-items: center;
+                gap: .6rem;
+                box-shadow: var(--shadow-sm);
+                transition: var(--transition);
+            }
+
+            .nx-alert-success {
+                background: var(--success-light);
+                border-color: rgba(16,185,129,.2);
+                color: #047857;
+            }
+
+            .nx-alert-danger {
+                background: var(--danger-light);
+                border-color: rgba(239,68,68,.2);
+                color: #b91c1c;
+            }
+
+            .nx-alert-warning {
+                background: var(--warning-light);
+                border-color: rgba(245,158,11,.2);
+                color: #b45309;
+            }
+
+            .nx-alert-info {
+                background: var(--primary-light);
+                border-color: rgba(var(--primary-rgb),.25);
+                color: var(--primary-dark);
+            }
+
+            [data-theme="dark"] .nx-alert-success {
+                color: #34d399;
+            }
+
+            [data-theme="dark"] .nx-alert-danger {
+                color: #f87171;
+            }
+
+            [data-theme="dark"] .nx-alert-warning {
+                color: #fbbf24;
+            }
+
+            [data-theme="dark"] .nx-alert-info {
+                color: var(--primary-mid);
+            }
+
+            .nx-alert .btn-close {
+                padding: .6rem;
+                color: var(--text);
+            }
+
+            /* ── BADGES ── */
+            .nx-badge {
+                display: inline-block;
+                background: var(--danger);
+                color: #fff;
+                border-radius: 999px;
+                padding: .15rem .5rem;
+                font-size: .72rem;
+                font-weight: 700;
+            }
+
+            .nx-badge-warning {
+                background: var(--warning);
+                color: #000;
+            }
+
+            [data-theme="dark"] .nx-badge-warning {
+                color: #fff;
+            }
+
+            .badge-pending {
+                background: var(--warning-light);
+                color: #b45309;
+                border: 1px solid rgba(245,158,11,.15);
+                padding: .25rem .75rem;
+                border-radius: 999px;
+                font-size: .75rem;
+                font-weight: 600;
+            }
+
+            .badge-approved {
+                background: var(--success-light);
+                color: #047857;
+                border: 1px solid rgba(16,185,129,.15);
+                padding: .25rem .75rem;
+                border-radius: 999px;
+                font-size: .75rem;
+                font-weight: 600;
+            }
+
+            [data-theme="dark"] .badge-pending {
+                color: #fbbf24;
+            }
+
+            [data-theme="dark"] .badge-approved {
+                color: #34d399;
+            }
+
+            /* ── FORM ── */
+            .form-control, .form-select {
+                font-family: var(--font-base);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-lg);
+                padding: .7rem 1.1rem;
+                font-size: .93rem;
+                height: 52px;
+                background-color: var(--white);
+                color: var(--text);
+                transition: var(--transition);
+            }
+
+                .form-control:focus, .form-select:focus {
+                    border-color: var(--primary);
+                    box-shadow: var(--shadow-glow);
+                    background-color: var(--white);
+                    color: var(--text);
+                    outline: none;
+                }
+
+                .form-control::placeholder {
+                    color: var(--muted);
+                    opacity: .65;
+                }
+
+            textarea.form-control {
+                height: auto;
+                min-height: 90px;
+            }
+
+            .form-label {
+                font-size: .85rem;
+                font-weight: 600;
+                color: var(--text);
+                margin-bottom: .45rem;
+            }
+
+            /* ── AUTH CARD ── */
+            .auth-card {
+                max-width: 520px;
+                margin: 3rem auto;
+                background: var(--white);
+                border: 1px solid var(--border);
+                border-radius: var(--radius-2xl);
+                padding: 40px;
+                box-shadow: var(--shadow-lg);
+            }
+
+            /* ── HERO ── */
+            .nx-hero {
+                background: linear-gradient(135deg,#111844 0%,#1A2150 50%,#4B5694 100%);
+                color: #fff;
+                padding: 5rem 1.5rem;
+                border-radius: var(--radius-2xl);
+                margin: 1.5rem 0 3rem;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+                box-shadow: 0 20px 40px rgba(17,24,68,.3);
+            }
+
+            [data-theme="dark"] .nx-hero {
+                background: linear-gradient(135deg,#05060f 0%,#0A0D22 50%,#1A2150 100%);
+                border: 1px solid rgba(255,255,255,.05);
+            }
+
+            .nx-hero::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                background: radial-gradient(ellipse 70% 80% at 50% -10%,rgba(234,224,207,.18),transparent);
+                pointer-events: none;
+            }
+
+            .nx-hero > * {
+                position: relative;
+                z-index: 1;
+            }
+
+            .nx-hero h1 {
+                font-weight: 800;
+                letter-spacing: -.8px;
+                margin-bottom: .8rem;
+            }
+
+            .nx-hero .lead {
+                opacity: .88;
+                font-weight: 400;
+                max-width: 600px;
+                margin: 0 auto;
+            }
+
+            .btn-hero {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                background: #fff;
+                color: var(--primary-dark);
+                font-weight: 700;
+                font-size: 15px;
+                padding: 14px 34px;
+                border-radius: var(--radius-lg);
+                border: none;
+                text-decoration: none;
+                transition: var(--transition);
+                box-shadow: 0 4px 15px rgba(0,0,0,.1);
+            }
+
+                .btn-hero:hover {
+                    color: var(--primary);
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(255,255,255,.25);
+                }
+
+            /* ── ROLE CARD ── */
+            .role-card {
+                border: 2px solid var(--border);
+                border-radius: var(--radius-xl);
+                background: var(--white);
+                text-decoration: none;
+                color: inherit;
+                display: block;
+                padding: 2.5rem;
+                transition: var(--transition);
+                cursor: pointer;
+                text-align: center;
+                box-shadow: var(--shadow-sm);
+            }
+
+                .role-card:hover {
+                    transform: translateY(-5px);
+                    box-shadow: var(--shadow-lg);
+                    border-color: var(--primary);
+                    color: inherit;
+                }
+
+                .role-card .icon-wrap {
+                    width: 76px;
+                    height: 76px;
+                    border-radius: var(--radius-xl);
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 2rem;
+                    margin-bottom: 1.25rem;
+                    transition: var(--transition);
+                    color: #fff;
+                    box-shadow: 0 10px 24px rgba(17,24,68,.22);
+                }
+
+                .role-card:hover .icon-wrap {
+                    transform: scale(1.08) rotate(-5deg);
+                }
+
+            .icon-admin {
+                background: linear-gradient(135deg,var(--primary-dark),#222a5e);
+            }
+
+            .icon-user {
+                background: linear-gradient(135deg,var(--primary-mid),var(--primary));
+            }
+
+            /* ── PAGINATION ── */
+            .pagination .page-link {
+                color: var(--primary);
+                background-color: var(--white);
+                border-color: var(--border);
+                font-weight: 600;
+                border-radius: var(--radius-md);
+                margin: 0 3px;
+                padding: .5rem .95rem;
+                transition: var(--transition);
+            }
+
+                .pagination .page-link:hover {
+                    background-color: var(--primary-light);
+                    border-color: var(--primary-mid);
+                }
+
+            .pagination .page-item.active .page-link {
+                background: var(--primary);
+                border-color: var(--primary);
+                color: #fff !important;
+            }
+
+            .pagination .page-item.disabled .page-link {
+                color: var(--muted);
+                opacity: .5;
+            }
+
+            /* ── SCROLLBAR ── */
+            ::-webkit-scrollbar {
+                width: 8px;
+                height: 8px;
+            }
+
+            ::-webkit-scrollbar-track {
+                background: var(--bg);
+            }
+
+            ::-webkit-scrollbar-thumb {
+                background: var(--border);
+                border-radius: 99px;
+            }
+
+                ::-webkit-scrollbar-thumb:hover {
+                    background: var(--muted);
+                }
+
+            /* ── FOOTER ── */
+            .nx-footer {
+                background: var(--white);
+                border-top: 1px solid var(--border);
+                padding: 1.25rem 0;
+                color: var(--muted);
+                font-size: .85rem;
+            }
+
+                .nx-footer a {
+                    color: var(--primary);
+                    text-decoration: none;
+                    font-weight: 600;
+                }
+
+            /* ── ANIMATION ── */
+            @@keyframes fadeUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(12px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .fade-up {
+                animation: fadeUp .5s cubic-bezier(.4,0,.2,1) both;
+            }
+
+            /* ── SIDEBAR COLLAPSED (desktop toggle) ── */
+            .bp-sidebar.collapsed {
+                transform: translateX(-100%);
+            }
+
+            .bp-main.sidebar-collapsed {
+                margin-left: 0 !important;
+            }
+
+            @@media (min-width: 769px) {
+                .bp-topbar-hamburger {
+                    display: inline-flex;
+                }
+            }
+
+            /* ── GUEST NAVBAR ── */
+            .bp-guest-nav {
+                background: var(--white);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border-bottom: 1px solid var(--border);
+                padding: .8rem 0;
+                position: sticky;
+                top: 0;
+                z-index: 200;
+                transition: background .3s ease;
+            }
+
+            /* ── AUTH PAGE BRAND MARK ── */
+            .nx-brand-icon {
+                width: 42px;
+                height: 42px;
+                background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+                border-radius: var(--radius-lg);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #fff;
+                font-size: 1.2rem;
+                flex-shrink: 0;
+                box-shadow: 0 6px 16px rgba(17,24,68,.22);
+            }
+
+            .nx-brand-name {
+                font-size: 1.1rem;
+                font-weight: 800;
+                letter-spacing: -.4px;
+                color: var(--primary-dark);
+            }
+
+            [data-theme="dark"] .nx-brand-name {
+                color: var(--text);
+            }
+
+            /* ── CHIP ── */
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: var(--primary-light);
+                color: var(--primary);
+                border-radius: 999px;
+                padding: .25rem .7rem;
+                font-size: .78rem;
+                font-weight: 600;
+            }
+
+            /* ── STAT / SUMMARY CARD ── */
+            .stat-card {
+                border-radius: var(--radius-xl) !important;
+                box-shadow: var(--shadow-sm);
+                transition: var(--transition);
+                border-color: var(--border) !important;
+            }
+
+                .stat-card:hover {
+                    box-shadow: var(--shadow-md);
+                    transform: translateY(-3px);
+                }
+
+            .text-primary {
+                color: var(--primary) !important;
+            }
+
+            .text-muted {
+                color: var(--muted) !important;
+            }
+
+            .bg-primary {
+                background-color: var(--primary) !important;
+            }
+
+            .bg-secondary {
+                background-color: var(--primary-mid) !important;
+            }
+
+            .bg-info {
+                background-color: var(--primary-mid) !important;
+            }
+
+            .border-primary {
+                border-color: var(--primary) !important;
+            }
+
+            .btn-primary {
+                --bs-btn-color: #fff;
+                --bs-btn-bg: var(--primary);
+                --bs-btn-border-color: var(--primary);
+                --bs-btn-hover-color: #fff;
+                --bs-btn-hover-bg: var(--primary-dark);
+                --bs-btn-hover-border-color: var(--primary-dark);
+                --bs-btn-focus-shadow-rgb: 75,86,148;
+                --bs-btn-active-color: #fff;
+                --bs-btn-active-bg: var(--primary-dark);
+                --bs-btn-active-border-color: var(--primary-dark);
+                --bs-btn-disabled-bg: var(--primary);
+                --bs-btn-disabled-border-color: var(--primary);
+            }
+
+            .btn-outline-primary {
+                --bs-btn-color: var(--primary);
+                --bs-btn-border-color: var(--primary);
+                --bs-btn-hover-color: #fff;
+                --bs-btn-hover-bg: var(--primary);
+                --bs-btn-hover-border-color: var(--primary);
+                --bs-btn-focus-shadow-rgb: 75,86,148;
+                --bs-btn-active-color: #fff;
+                --bs-btn-active-bg: var(--primary);
+                --bs-btn-active-border-color: var(--primary);
+                --bs-btn-disabled-color: var(--primary);
+                --bs-btn-disabled-border-color: var(--primary);
+            }
+
+            .btn-secondary {
+                --bs-btn-bg: var(--primary-mid);
+                --bs-btn-border-color: var(--primary-mid);
+                --bs-btn-hover-bg: var(--primary);
+                --bs-btn-hover-border-color: var(--primary);
+                --bs-btn-active-bg: var(--primary);
+                --bs-btn-active-border-color: var(--primary);
+                --bs-btn-disabled-bg: var(--primary-mid);
+                --bs-btn-disabled-border-color: var(--primary-mid);
+            }
+
+            .btn-outline-secondary {
+                --bs-btn-color: var(--muted);
+                --bs-btn-border-color: var(--border);
+                --bs-btn-hover-bg: var(--muted);
+                --bs-btn-hover-border-color: var(--muted);
+            }
+
+            .btn-info {
+                --bs-btn-color: #fff;
+                --bs-btn-bg: var(--primary-mid);
+                --bs-btn-border-color: var(--primary-mid);
+                --bs-btn-hover-color: #fff;
+                --bs-btn-hover-bg: var(--primary);
+                --bs-btn-hover-border-color: var(--primary);
+            }
+
+            .btn-success {
+                --bs-btn-bg: var(--success);
+                --bs-btn-border-color: var(--success);
+                --bs-btn-hover-bg: #059669;
+                --bs-btn-hover-border-color: #059669;
+            }
+
+            .btn-outline-success {
+                --bs-btn-color: var(--success);
+                --bs-btn-border-color: var(--success);
+                --bs-btn-hover-bg: var(--success);
+                --bs-btn-hover-border-color: var(--success);
+            }
+
+            .btn-danger {
+                --bs-btn-bg: var(--danger);
+                --bs-btn-border-color: var(--danger);
+                --bs-btn-hover-bg: #dc2626;
+                --bs-btn-hover-border-color: #dc2626;
+            }
+
+            .btn-outline-danger {
+                --bs-btn-color: var(--danger);
+                --bs-btn-border-color: var(--danger);
+                --bs-btn-hover-bg: var(--danger);
+                --bs-btn-hover-border-color: var(--danger);
+            }
+
+            .btn-warning {
+                --bs-btn-bg: var(--warning);
+                --bs-btn-border-color: var(--warning);
+                --bs-btn-hover-bg: #d97706;
+                --bs-btn-hover-border-color: #d97706;
+            }
+
+            .alert {
+                border-radius: var(--radius-md);
+            }
+
+            .alert-info {
+                background-color: var(--primary-light);
+                border-color: rgba(var(--primary-rgb),.25);
+                color: var(--primary-dark);
+            }
+
+            [data-theme="dark"] .alert-info {
+                color: var(--primary-mid);
+            }
+
+            .alert-link {
+                font-weight: 700;
+            }
+
+            .table {
+                --bs-table-color: var(--text);
+                --bs-table-border-color: var(--border);
+            }
+
+            .table-light {
+                --bs-table-bg: var(--bg);
+                --bs-table-color: var(--text);
+            }
+
+            [data-theme="dark"] .table-light {
+                --bs-table-bg: rgba(255,255,255,.04);
+                --bs-table-color: var(--text);
+            }
+
+            [data-theme="dark"] .table {
+                --bs-table-bg: transparent;
+            }
+
+            .card {
+                background: var(--white);
+                border-color: var(--border);
+                color: var(--text);
+            }
+
+            .modal-content {
+                background: var(--white);
+                color: var(--text);
+            }
+
+            .dropdown-menu {
+                background: var(--white);
+                color: var(--text);
+                border-color: var(--border);
+            }
+
+            .dropdown-item {
+                color: var(--text);
+            }
+
+                .dropdown-item:hover, .dropdown-item:focus {
+                    background: var(--primary-light);
+                    color: var(--primary-dark);
+                }
+
+            /* ── SMART SIDEBAR MODE SWITCH + STATUS ── */
+            .bp-sidebar-mode-wrap {
+                margin: .25rem 0 .45rem;
+            }
+
+            .bp-mode-switch-card {
+                width: 100%;
+                border: 1px solid var(--border);
+                background: rgba(234,224,207,.42);
+                border-radius: var(--radius-lg);
+                padding: .45rem;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+            }
+
+            .bp-mode-switch-trigger {
+                width: 100%;
+                border: 0;
+                background: transparent;
+                color: var(--text);
+                border-radius: var(--radius-md);
+                padding: .5rem .6rem;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: .5rem;
+                font-size: .86rem;
+                font-weight: 800;
+                cursor: pointer;
+                transition: var(--transition);
+            }
+
+                .bp-mode-switch-trigger:hover {
+                    background: var(--white);
+                    box-shadow: var(--shadow-sm);
+                    color: var(--primary-dark);
+                }
+
+            .bp-mode-switch-left {
+                display: inline-flex;
+                align-items: center;
+                gap: .55rem;
+                min-width: 0;
+            }
+
+            .bp-mode-switch-icon {
+                width: 30px;
+                height: 30px;
+                border-radius: 10px;
+                background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+                color: #fff;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                box-shadow: 0 8px 18px rgba(17,24,68,.20);
+            }
+
+            .bp-mode-dropdown {
+                border-radius: var(--radius-lg);
+                border: 1px solid var(--border);
+                padding: .45rem;
+                min-width: 205px;
+                box-shadow: var(--shadow-lg);
+            }
+
+                .bp-mode-dropdown .dropdown-item {
+                    border-radius: var(--radius-md);
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    gap: .55rem;
+                    padding: .55rem .7rem;
+                }
+
+                    .bp-mode-dropdown .dropdown-item.active,
+                    .bp-mode-dropdown .dropdown-item:active {
+                        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+                        color: #fff;
+                    }
+
+            .bp-sidebar-status-panel {
+                margin: .55rem 0 .35rem;
+                display: grid;
+                gap: .38rem;
+            }
+
+            .bp-status-mini {
+                display: flex;
+                align-items: center;
+                gap: .55rem;
+                padding: .48rem .6rem;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-md);
+                background: rgba(255,255,255,.56);
+                color: var(--muted);
+                font-size: .76rem;
+                font-weight: 700;
+                text-decoration: none;
+                transition: var(--transition);
+            }
+
+                .bp-status-mini:hover {
+                    background: var(--primary-light);
+                    color: var(--primary-dark);
+                    border-color: rgba(var(--primary-rgb),.22);
+                    transform: translateX(2px);
+                }
+
+                .bp-status-mini i {
+                    width: 18px;
+                    text-align: center;
+                    font-size: .95rem;
+                }
+
+                .bp-status-mini .bp-status-pill {
+                    margin-left: auto;
+                    border-radius: 999px;
+                    padding: .12rem .42rem;
+                    font-size: .62rem;
+                    line-height: 1.3;
+                    font-weight: 800;
+                    background: var(--primary-light);
+                    color: var(--primary);
+                    white-space: nowrap;
+                }
+
+                .bp-status-mini.danger .bp-status-pill,
+                .bp-status-mini.danger i {
+                    color: var(--danger);
+                }
+
+                .bp-status-mini.danger .bp-status-pill {
+                    background: var(--danger-light);
+                }
+
+                .bp-status-mini.warning .bp-status-pill,
+                .bp-status-mini.warning i {
+                    color: var(--warning);
+                }
+
+                .bp-status-mini.warning .bp-status-pill {
+                    background: var(--warning-light);
+                }
+
+                .bp-status-mini.success .bp-status-pill,
+                .bp-status-mini.success i {
+                    color: var(--success);
+                }
+
+                .bp-status-mini.success .bp-status-pill {
+                    background: var(--success-light);
+                }
+
+            [data-theme="dark"] .bp-mode-switch-card {
+                background: rgba(255,255,255,.045);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+            }
+
+            [data-theme="dark"] .bp-mode-switch-trigger:hover,
+            [data-theme="dark"] .bp-status-mini {
+                background: rgba(255,255,255,.045);
+            }
+
+                [data-theme="dark"] .bp-status-mini:hover {
+                    background: rgba(141,160,201,.12);
+                    color: var(--text);
+                }
+
     </style>
 </head>
 <body>
 
-@if (isAuthed)
-{
-    <!-- Mobile overlay -->
-    <div class="bp-overlay" id="sidebarOverlay"></div>
+    @if (isAuthed)
+    {
+        <!-- Mobile overlay -->
+        <div class="bp-overlay" id="sidebarOverlay"></div>
 
-    <!-- ── SIDEBAR ── -->
-    <aside class="bp-sidebar" id="sidebar">
+        <!-- ── SIDEBAR ── -->
+        <aside class="bp-sidebar" id="sidebar">
 
-        <!-- Brand -->
-        <a class="bp-brand" asp-controller="Home" asp-action="Index">
-            <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
-            <span class="bp-brand-name">Bachelor's Point</span>
-        </a>
-
-        <div class="bp-sidenav">
-
-            <!-- Common links -->
-            <a class="bp-nav-item @(IsActive("/home") || currentPath=="/" ? "active" : "")"
-               asp-controller="Home" asp-action="Index">
-                <i class="bi bi-grid-1x2-fill"></i> Home
+            <!-- Brand -->
+            <a class="bp-brand" asp-controller="Home" asp-action="Index">
+                <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
+                <span class="bp-brand-name">Bachelor's Point</span>
             </a>
 
-            <a class="bp-nav-item @(IsActive("/room/index") || currentPath=="/room" ? "active" : "")"
-               asp-controller="Room" asp-action="Index">
-                <i class="bi bi-search"></i> Browse Rooms
-            </a>
+            <div class="bp-sidenav">
 
-            <a class="bp-nav-item @(IsActive("/chat") ? "active" : "")"
-               asp-controller="Chat" asp-action="Index">
-                <i class="bi bi-chat-dots-fill"></i> Messages
-                @if (unreadCount > 0)
-                {
-                    <span class="bp-nav-badge pulse">@unreadCount</span>
-                }
-            </a>
-
-            @if (!isAdminUser && isAuthed)
-            {
-                <a class="bp-nav-item" asp-controller="Chat" asp-action="ContactSupport"
-                   style="font-size:.83rem;padding-left:2.5rem;color:var(--muted);">
-                    <i class="bi bi-headset"></i> Contact Support
-                </a>
-            }
-
-            @if (isAdminUser)
-            {
-                <div class="bp-sidebar-divider"></div>
-                <div class="bp-nav-section">Admin</div>
-
-                <a class="bp-nav-item @(IsActive("/user") ? "active" : "")"
-                   asp-controller="User" asp-action="Index">
-                    <i class="bi bi-people-fill"></i> Users
+                <!-- Common links -->
+                <a class="bp-nav-item @(IsActive("/home") || currentPath == "/" ? "active" : "")"
+                   asp-controller="Home" asp-action="Index">
+                    <i class="bi bi-grid-1x2-fill"></i> Home
                 </a>
 
-                <a class="bp-nav-item @(IsActive("/admin") ? "active" : "")"
-                   asp-controller="Admin" asp-action="Index">
-                    <i class="bi bi-shield-lock-fill"></i> Admin Accounts
+                <a class="bp-nav-item @(IsActive("/room/index") || currentPath == "/room" ? "active" : "")"
+                   asp-controller="Room" asp-action="Index">
+                    <i class="bi bi-search"></i> Browse Rooms
                 </a>
 
-                <a class="bp-nav-item @(IsActive("/kyc") ? "active" : "")"
-                   asp-controller="Kyc" asp-action="Pending">
-                    <i class="bi bi-person-vcard-fill"></i> Verifications
-                    @if (pendingKycCount > 0)
-                    {
-                        <span class="bp-nav-badge warning pulse">@pendingKycCount</span>
-                    }
-                </a>
-
-                <a class="bp-nav-item @(IsActive("/kyc/loginactivity") ? "active" : "")"
-                   asp-controller="Kyc" asp-action="LoginActivity">
-                    <i class="bi bi-activity"></i> Login Activity
-                </a>
-            }
-            else
-            {
-                <div class="bp-sidebar-divider"></div>
-                <div class="bp-nav-section">@(ownerMode ? "Owner" : "Seeker")</div>
-
-                @if (ownerMode)
-                {
-                    <a class="bp-nav-item @(IsActive("/room/create") ? "active" : "")"
-                       asp-controller="Room" asp-action="Create">
-                        <i class="bi bi-plus-square-fill"></i> Post a Room
-                    </a>
-                    <a class="bp-nav-item @(IsActive("/room/mylistings") ? "active" : "")"
-                       asp-controller="Room" asp-action="MyListings">
-                        <i class="bi bi-house-fill"></i> My Listings
-                        @if (dueRoomPaymentCount > 0)
-                        {
-                            <span class="bp-nav-badge warning pulse">@dueRoomPaymentCount</span>
-                        }
-                    </a>
-                }
-                else
-                {
-                    <a class="bp-nav-item @(IsActive("/auth/profile") ? "active" : "")"
-                       asp-controller="Auth" asp-action="Profile">
-                        <i class="bi bi-bookmark-check-fill"></i> My Bookings
-                    </a>
-                }
-
-                <a class="bp-nav-item @(IsActive("/kyc/status") || IsActive("/kyc/submit") ? "active" : "")"
-                   asp-controller="Kyc" asp-action="Status">
-                    <i class="bi bi-person-badge-fill"></i> KYC Verification
-                </a>
-
-                <a class="bp-nav-item @(IsActive("/payment/registrationfee") ? "active" : "")"
-                   asp-controller="Payment" asp-action="RegistrationFee">
-                    <i class="bi bi-cash-coin"></i> My Payment
-                </a>
-            }
-        </div>
-
-        <!-- Footer: user info + logout -->
-        <div class="bp-sidebar-footer">
-            <a class="bp-sidebar-user" asp-controller="Auth" asp-action="Profile">
-                @if (!string.IsNullOrEmpty(currentUserPic))
-                {
-                    <img src="@currentUserPic" alt="Profile" class="nav-avatar" />
-                }
-                else
-                {
-                    <span class="nav-avatar-default"><i class="bi bi-person-fill"></i></span>
-                }
-                <div style="overflow:hidden;">
-                    <div class="bp-sidebar-user-name">@(currentUserName ?? User.Identity?.Name)</div>
-                    <div class="bp-sidebar-user-role">@(isAdminUser ? "Admin" : (ownerMode ? "Owner" : "Seeker"))</div>
-                </div>
-            </a>
-            <form asp-controller="Auth" asp-action="Logout" method="post" class="mt-2">
-                @Html.AntiForgeryToken()
-                <button type="submit" class="btn-nx outline-danger sm" style="width:100%;">
-                    <i class="bi bi-box-arrow-right"></i> Sign Out
-                </button>
-            </form>
-        </div>
-    </aside>
-
-    <!-- ── MAIN ── -->
-    <div class="bp-main" id="mainWrap">
-
-        <!-- Top bar -->
-        <header class="bp-topbar">
-            <button class="bp-topbar-hamburger" id="sidebarToggle">
-                <i class="bi bi-list"></i>
-            </button>
-
-            <span style="font-size:.9rem;font-weight:700;color:var(--muted);">
-                @(ViewData["Title"] ?? "Bachelor's Point")
-            </span>
-
-            <div class="bp-topbar-right">
-                <!-- Mode switcher (non-admin only) -->
                 @if (!isAdminUser)
                 {
-                    <div class="dropdown">
-                        <a class="mode-pill" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-search")"></i>
-                            @(ownerMode ? "Owner" : "Seeker")
-                            <i class="bi bi-caret-down-fill" style="font-size:.6rem;"></i>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm"
-                            style="border-color:var(--border);border-radius:var(--radius-lg);padding:.5rem;">
+                    <div class="bp-sidebar-mode-wrap dropdown">
+                        <div class="bp-mode-switch-card">
+                            <button class="bp-mode-switch-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="bp-mode-switch-left">
+                                    <span class="bp-mode-switch-icon">
+                                        <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-person-walking")"></i>
+                                    </span>
+                                    <span>@(ownerMode ? "Owner Mode" : "Seeker Mode")</span>
+                                </span>
+                                <i class="bi bi-chevron-down" style="font-size:.8rem;"></i>
+                            </button>
+                        </div>
+                        <ul class="dropdown-menu bp-mode-dropdown">
                             <li>
                                 <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="mode" value="owner" />
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
-                                        <i class="bi bi-house-add-fill me-1"></i> Owner Mode
+                                    <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")">
+                                        <i class="bi bi-house-add-fill"></i> Owner Mode
                                     </button>
                                 </form>
                             </li>
@@ -807,8 +1518,8 @@
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="mode" value="seeker" />
                                     <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")" style="border-radius:var(--radius-md);">
-                                        <i class="bi bi-search me-1"></i> Seeker Mode
+                                    <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")">
+                                        <i class="bi bi-search"></i> Seeker Mode
                                     </button>
                                 </form>
                             </li>
@@ -816,37 +1527,270 @@
                     </div>
                 }
 
-                <!-- Theme toggle -->
-                <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
-                    <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
-                </button>
+                <a class="bp-nav-item @(IsActive("/chat") ? "active" : "")"
+                   asp-controller="Chat" asp-action="Index">
+                    <i class="bi bi-chat-dots-fill"></i> Messages
+                    @if (unreadCount > 0)
+                    {
+                        <span class="bp-nav-badge pulse">@unreadCount</span>
+                    }
+                </a>
+
+                @if (!isAdminUser && isAuthed)
+                {
+                    <a class="bp-nav-item" asp-controller="Chat" asp-action="ContactSupport"
+                       style="font-size:.83rem;padding-left:2.5rem;color:var(--muted);">
+                        <i class="bi bi-headset"></i> Contact Support
+                    </a>
+
+                    <div class="bp-sidebar-status-panel">
+                        @if (currentUserKycStatus == "Verified")
+                        {
+                            <a class="bp-status-mini success" asp-controller="Kyc" asp-action="Status">
+                                <i class="bi bi-person-check-fill"></i>
+                                <span>KYC verified</span>
+                                <span class="bp-status-pill">OK</span>
+                            </a>
+                        }
+                        else if (currentUserKycStatus == "Pending")
+                        {
+                            <a class="bp-status-mini warning" asp-controller="Kyc" asp-action="Status">
+                                <i class="bi bi-hourglass-split"></i>
+                                <span>KYC pending</span>
+                                <span class="bp-status-pill">Review</span>
+                            </a>
+                        }
+                        else if (currentUserKycStatus == "Rejected")
+                        {
+                            <a class="bp-status-mini danger" asp-controller="Kyc" asp-action="Status">
+                                <i class="bi bi-person-x-fill"></i>
+                                <span>KYC rejected</span>
+                                <span class="bp-status-pill">Fix</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a class="bp-status-mini warning" asp-controller="Kyc" asp-action="Status">
+                                <i class="bi bi-person-vcard-fill"></i>
+                                <span>KYC needed</span>
+                                <span class="bp-status-pill">Start</span>
+                            </a>
+                        }
+
+                        @if (currentUserPaymentVerified)
+                        {
+                            <a class="bp-status-mini success" asp-controller="Payment" asp-action="RegistrationFee">
+                                <i class="bi bi-patch-check-fill"></i>
+                                <span>Payment verified</span>
+                                <span class="bp-status-pill">OK</span>
+                            </a>
+                        }
+                        else
+                        {
+                            <a class="bp-status-mini danger" asp-controller="Payment" asp-action="RegistrationFee">
+                                <i class="bi bi-cash-coin"></i>
+                                <span>Payment due</span>
+                                <span class="bp-status-pill">Pay</span>
+                            </a>
+                        }
+
+                        <a class="bp-status-mini @(unreadCount > 0 ? "warning" : "")" asp-controller="Chat" asp-action="Index">
+                            <i class="bi bi-chat-left-text-fill"></i>
+                            <span>Messages</span>
+                            <span class="bp-status-pill">@unreadCount</span>
+                        </a>
+                    </div>
+                }
+
+                @if (isAdminUser)
+                {
+                    <div class="bp-sidebar-divider"></div>
+                    <div class="bp-nav-section">Admin</div>
+
+                    <a class="bp-nav-item @(IsActive("/user") ? "active" : "")"
+                       asp-controller="User" asp-action="Index">
+                        <i class="bi bi-people-fill"></i> Users
+                    </a>
+
+                    <a class="bp-nav-item @(IsActive("/admin") ? "active" : "")"
+                       asp-controller="Admin" asp-action="Index">
+                        <i class="bi bi-shield-lock-fill"></i> Admin Accounts
+                    </a>
+
+                    <a class="bp-nav-item @(IsActive("/kyc") ? "active" : "")"
+                       asp-controller="Kyc" asp-action="Pending">
+                        <i class="bi bi-person-vcard-fill"></i> Verifications
+                        @if (pendingKycCount > 0)
+                        {
+                            <span class="bp-nav-badge warning pulse">@pendingKycCount</span>
+                        }
+                    </a>
+
+                    <a class="bp-nav-item @(IsActive("/kyc/loginactivity") ? "active" : "")"
+                       asp-controller="Kyc" asp-action="LoginActivity">
+                        <i class="bi bi-activity"></i> Login Activity
+                    </a>
+                }
+                else
+                {
+                    <div class="bp-sidebar-divider"></div>
+                    <div class="bp-nav-section">@(ownerMode ? "Owner" : "Seeker")</div>
+
+                    @if (ownerMode)
+                    {
+                        <a class="bp-nav-item @(IsActive("/room/create") ? "active" : "")"
+                           asp-controller="Room" asp-action="Create">
+                            <i class="bi bi-plus-square-fill"></i> Post a Room
+                        </a>
+                        <a class="bp-nav-item @(IsActive("/room/mylistings") ? "active" : "")"
+                           asp-controller="Room" asp-action="MyListings">
+                            <i class="bi bi-house-fill"></i> My Listings
+                            @if (dueRoomPaymentCount > 0)
+                            {
+                                <span class="bp-nav-badge warning pulse">@dueRoomPaymentCount</span>
+                            }
+                        </a>
+                    }
+                    else
+                    {
+                        <a class="bp-nav-item @(IsActive("/auth/profile") ? "active" : "")"
+                           asp-controller="Auth" asp-action="Profile">
+                            <i class="bi bi-bookmark-check-fill"></i> My Bookings
+                        </a>
+                    }
+
+                    <a class="bp-nav-item @(IsActive("/kyc/status") || IsActive("/kyc/submit") ? "active" : "")"
+                       asp-controller="Kyc" asp-action="Status">
+                        <i class="bi bi-person-badge-fill"></i> KYC Verification
+                    </a>
+
+                    <a class="bp-nav-item @(IsActive("/payment/registrationfee") ? "active" : "")"
+                       asp-controller="Payment" asp-action="RegistrationFee">
+                        <i class="bi bi-cash-coin"></i> My Payment
+                    </a>
+                }
             </div>
-        </header>
 
-        <!-- Alerts -->
-        <div class="container-fluid px-4 pt-3">
-            @if (TempData["Success"] != null)
-            {
-                <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
-                    <i class="bi bi-check-circle-fill"></i>
-                    <span class="flex-grow-1">@TempData["Success"]</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <!-- Footer: user info + logout -->
+            <div class="bp-sidebar-footer">
+                <a class="bp-sidebar-user" asp-controller="Auth" asp-action="Profile">
+                    @if (!string.IsNullOrEmpty(currentUserPic))
+                    {
+                        <img src="@currentUserPic" alt="Profile" class="nav-avatar" />
+                    }
+                    else
+                    {
+                        <span class="nav-avatar-default"><i class="bi bi-person-fill"></i></span>
+                    }
+                    <div style="overflow:hidden;">
+                        <div class="bp-sidebar-user-name">@(currentUserName ?? User.Identity?.Name)</div>
+                        <div class="bp-sidebar-user-role">@(isAdminUser ? "Admin" : (ownerMode ? "Owner" : "Seeker"))</div>
+                    </div>
+                </a>
+                <form asp-controller="Auth" asp-action="Logout" method="post" class="mt-2">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn-nx outline-danger sm" style="width:100%;">
+                        <i class="bi bi-box-arrow-right"></i> Sign Out
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- ── MAIN ── -->
+        <div class="bp-main" id="mainWrap">
+
+            <!-- Top bar -->
+            <header class="bp-topbar">
+                <button class="bp-topbar-hamburger" id="sidebarToggle">
+                    <i class="bi bi-list"></i>
+                </button>
+
+                <span style="font-size:.9rem;font-weight:700;color:var(--muted);">
+                    @(ViewData["Title"] ?? "Bachelor's Point")
+                </span>
+
+                <div class="bp-topbar-right">
+                    <!-- Theme toggle -->
+                    <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                        <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
+                    </button>
                 </div>
-            }
-            @if (TempData["Error"] != null)
-            {
-                <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <span class="flex-grow-1">@TempData["Error"]</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </header>
+
+            <!-- Alerts -->
+            <div class="container-fluid px-4 pt-3">
+                @if (TempData["Success"] != null)
+                {
+                    <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span class="flex-grow-1">@TempData["Success"]</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                @if (TempData["Error"] != null)
+                {
+                    <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span class="flex-grow-1">@TempData["Error"]</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+            </div>
+
+            <!-- Page content -->
+            <div class="bp-content">
+                @RenderBody()
+            </div>
+
+            <footer class="nx-footer">
+                <div class="container text-center">
+                    &copy; 2026 <strong>Bachelor's Point</strong> &middot;
+                    <a asp-controller="Home" asp-action="Privacy">Privacy</a>
                 </div>
-            }
+            </footer>
         </div>
+    }
+    else
+    {
+        <!-- NOT AUTHENTICATED: minimal top navbar -->
+        <nav class="bp-guest-nav">
+            <div class="container d-flex align-items-center justify-content-between">
+                <a class="bp-brand" asp-controller="Home" asp-action="Index">
+                    <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
+                    <span class="bp-brand-name">Bachelor's Point</span>
+                </a>
+                <div class="d-flex align-items-center gap-2">
+                    <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
+                        <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
+                    </button>
+                    <a class="btn-nx sm outline" asp-controller="Auth" asp-action="RoleSelect">
+                        <i class="bi bi-box-arrow-in-right"></i> Sign In
+                    </a>
+                </div>
+            </div>
+        </nav>
 
-        <!-- Page content -->
-        <div class="bp-content">
+        <main role="main">
+            <div class="container mt-3">
+                @if (TempData["Success"] != null)
+                {
+                    <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
+                        <i class="bi bi-check-circle-fill"></i>
+                        <span class="flex-grow-1">@TempData["Success"]</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                @if (TempData["Error"] != null)
+                {
+                    <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span class="flex-grow-1">@TempData["Error"]</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+            </div>
             @RenderBody()
-        </div>
+        </main>
 
         <footer class="nx-footer">
             <div class="container text-center">
@@ -854,81 +1798,31 @@
                 <a asp-controller="Home" asp-action="Privacy">Privacy</a>
             </div>
         </footer>
-    </div>
-}
-else
-{
-    <!-- NOT AUTHENTICATED: minimal top navbar -->
-    <nav class="bp-guest-nav">
-        <div class="container d-flex align-items-center justify-content-between">
-            <a class="bp-brand" asp-controller="Home" asp-action="Index">
-                <div class="bp-brand-icon"><i class="bi bi-house-heart-fill"></i></div>
-                <span class="bp-brand-name">Bachelor's Point</span>
-            </a>
-            <div class="d-flex align-items-center gap-2">
-                <button id="theme-toggle" class="theme-pill-btn" title="Toggle theme">
-                    <i class="bi bi-moon-stars-fill" id="theme-icon" style="font-size:1.1rem;"></i>
-                </button>
-                <a class="btn-nx sm outline" asp-controller="Auth" asp-action="RoleSelect">
-                    <i class="bi bi-box-arrow-in-right"></i> Sign In
-                </a>
-            </div>
-        </div>
-    </nav>
+    }
 
-    <main role="main">
-        <div class="container mt-3">
-            @if (TempData["Success"] != null)
-            {
-                <div class="nx-alert nx-alert-success alert-dismissible fade show fade-up mb-3" role="alert">
-                    <i class="bi bi-check-circle-fill"></i>
-                    <span class="flex-grow-1">@TempData["Success"]</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            }
-            @if (TempData["Error"] != null)
-            {
-                <div class="nx-alert nx-alert-danger alert-dismissible fade show fade-up mb-3" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    <span class="flex-grow-1">@TempData["Error"]</span>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            }
-        </div>
-        @RenderBody()
-    </main>
-
-    <footer class="nx-footer">
-        <div class="container text-center">
-            &copy; 2026 <strong>Bachelor's Point</strong> &middot;
-            <a asp-controller="Home" asp-action="Privacy">Privacy</a>
-        </div>
-    </footer>
-}
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    // Theme toggle
-    document.addEventListener('DOMContentLoaded', () => {
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Theme toggle
+        document.addEventListener('DOMContentLoaded', () => {
         const toggleBtns = document.querySelectorAll('#theme-toggle');
         function updateIcon(theme) {
-            document.querySelectorAll('#theme-icon').forEach(i => {
-                if (theme === 'dark') {
-                    i.classList.replace('bi-moon-stars-fill','bi-sun-fill');
-                    i.style.color = '#fbbf24';
-                } else {
-                    i.classList.replace('bi-sun-fill','bi-moon-stars-fill');
-                    i.style.color = '';
-                }
-            });
+        document.querySelectorAll('#theme-icon').forEach(i => {
+        if (theme === 'dark') {
+        i.classList.replace('bi-moon-stars-fill','bi-sun-fill');
+        i.style.color = '#fbbf24';
+        } else {
+        i.classList.replace('bi-sun-fill','bi-moon-stars-fill');
+        i.style.color = '';
+        }
+        });
         }
         const cur = document.documentElement.getAttribute('data-theme') || 'light';
         updateIcon(cur);
         toggleBtns.forEach(btn => btn.addEventListener('click', () => {
-            const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', t);
-            localStorage.setItem('bp-theme', t);
-            updateIcon(t);
+        const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        localStorage.setItem('bp-theme', t);
+        updateIcon(t);
         }));
 
         // Sidebar toggle (desktop collapse + mobile overlay)
@@ -941,28 +1835,28 @@ else
 
         // Restore desktop collapsed state
         if (!isMobile() && localStorage.getItem('sidebar-collapsed') === '1') {
-            sidebar && sidebar.classList.add('collapsed');
-            mainWrap && mainWrap.classList.add('sidebar-collapsed');
+        sidebar && sidebar.classList.add('collapsed');
+        mainWrap && mainWrap.classList.add('sidebar-collapsed');
         }
 
         if (hamburger && sidebar) {
-            hamburger.addEventListener('click', () => {
-                if (isMobile()) {
-                    sidebar.classList.toggle('open');
-                    overlay && overlay.classList.toggle('show');
-                } else {
-                    const isCollapsed = sidebar.classList.toggle('collapsed');
-                    mainWrap && mainWrap.classList.toggle('sidebar-collapsed', isCollapsed);
-                    localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
-                }
-            });
+        hamburger.addEventListener('click', () => {
+        if (isMobile()) {
+        sidebar.classList.toggle('open');
+        overlay && overlay.classList.toggle('show');
+        } else {
+        const isCollapsed = sidebar.classList.toggle('collapsed');
+        mainWrap && mainWrap.classList.toggle('sidebar-collapsed', isCollapsed);
+        localStorage.setItem('sidebar-collapsed', isCollapsed ? '1' : '0');
+        }
+        });
         }
         overlay && overlay.addEventListener('click', () => {
-            sidebar && sidebar.classList.remove('open');
-            overlay.classList.remove('show');
+        sidebar && sidebar.classList.remove('open');
+        overlay.classList.remove('show');
         });
-    });
-</script>
-@await RenderSectionAsync("Scripts", required: false)
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

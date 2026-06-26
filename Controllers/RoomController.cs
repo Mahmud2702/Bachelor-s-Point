@@ -9,26 +9,26 @@ namespace Bachelor_s_Point.Controllers
 {
     public class RoomController : Controller
     {
-        private const int  PageSize      = 9;
+        private const int PageSize = 9;
         private const long MaxImageBytes = 5 * 1024 * 1024;
-        private const int  MaxImageCount = 10;
+        private const int MaxImageCount = 10;
         private static readonly string[] AllowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
 
-        private readonly IRoomService        _roomService;
-        private readonly IKycService         _kycService;
-        private readonly IPaymentService     _paymentService;
+        private readonly IRoomService _roomService;
+        private readonly IKycService _kycService;
+        private readonly IPaymentService _paymentService;
         private readonly IWebHostEnvironment _env;
 
         public RoomController(
-            IRoomService        roomService,
-            IKycService         kycService,
-            IPaymentService     paymentService,
+            IRoomService roomService,
+            IKycService kycService,
+            IPaymentService paymentService,
             IWebHostEnvironment env)
         {
-            _roomService    = roomService;
-            _kycService     = kycService;
+            _roomService = roomService;
+            _kycService = kycService;
             _paymentService = paymentService;
-            _env            = env;
+            _env = env;
         }
 
         private async Task<IActionResult?> RequireKycAsync(string actionLabel)
@@ -50,18 +50,26 @@ namespace Bachelor_s_Point.Controllers
             string? searchText, string? division, string? district,
             int? minPrice, int? maxPrice,
             bool hasWifi = false, bool hasMeal = false, bool hasMaid = false,
-            bool availableOnly = false, string? sortBy = null, int page = 1)
+            bool availableOnly = false, string? sortBy = null, bool showFilters = false, int page = 1)
         {
             var filter = new RoomFilterDto
             {
-                SearchText    = searchText, Division = division,
-                District      = district, MinPrice = minPrice, MaxPrice = maxPrice,
-                HasWifi       = hasWifi, HasMeal = hasMeal, HasMaid = hasMaid,
-                AvailableOnly = availableOnly, SortBy = sortBy, Page = page
+                SearchText = searchText,
+                Division = division,
+                District = district,
+                MinPrice = minPrice,
+                MaxPrice = maxPrice,
+                HasWifi = hasWifi,
+                HasMeal = hasMeal,
+                HasMaid = hasMaid,
+                AvailableOnly = availableOnly,
+                SortBy = sortBy,
+                Page = page
             };
             var paged = await _roomService.GetFilteredPagedAsync(filter, PageSize);
-            ViewBag.Filter     = filter;
+            ViewBag.Filter = filter;
             ViewBag.SearchText = searchText;
+            ViewBag.ShowFilters = showFilters;
             return View(paged);
         }
 
@@ -109,8 +117,8 @@ namespace Bachelor_s_Point.Controllers
             if (gate != null) return gate;
             if (!ModelState.IsValid) return View(dto);
 
-            int  currentUserId = GetCurrentUserId();
-            bool isAdmin       = User.IsInRole("Admin");
+            int currentUserId = GetCurrentUserId();
+            bool isAdmin = User.IsInRole("Admin");
 
             var (result, roomId) = await _roomService.CreateRoomAsync(dto, currentUserId, autoApprove: isAdmin);
             if (result != "Success") { ModelState.AddModelError("", result); return View(dto); }
@@ -118,7 +126,7 @@ namespace Bachelor_s_Point.Controllers
             if (roomImages != null && roomImages.Count > 0)
             {
                 var valid = roomImages.Where(f => f != null && f.Length > 0).Take(MaxImageCount).ToList();
-                string webRoot      = !string.IsNullOrEmpty(_env.WebRootPath) ? _env.WebRootPath : Path.Combine(_env.ContentRootPath, "wwwroot");
+                string webRoot = !string.IsNullOrEmpty(_env.WebRootPath) ? _env.WebRootPath : Path.Combine(_env.ContentRootPath, "wwwroot");
                 string uploadFolder = Path.Combine(webRoot, "uploads", "rooms");
                 Directory.CreateDirectory(uploadFolder);
                 int order = 0;

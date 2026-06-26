@@ -5,98 +5,838 @@
     string? pic = ViewBag.ProfilePicturePath as string;
 }
 
-<div class="auth-card fade-up" style="max-width: 640px;">
-    <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
-        <div class="d-flex align-items-center gap-3">
-            @if (!string.IsNullOrEmpty(pic))
-            {
-                <img src="@pic" alt="Profile" style="width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+<style>
+    /*
+            Compact Edit Profile UI
+            Palette:
+            #111844 - Deep navy
+            #4B5694 - Soft indigo
+            #7288AE - Muted blue
+            #EAE0CF - Warm beige
+
+            Goal:
+            - Keep the previous centered-card feeling.
+            - Fit all options on one normal desktop/laptop screen.
+            - Do not change functionality.
+        */
+
+    :root {
+        --ep-navy: #111844;
+        --ep-indigo: #4B5694;
+        --ep-bluegray: #7288AE;
+        --ep-beige: #EAE0CF;
+        --ep-white: #ffffff;
+        --ep-border: rgba(17, 24, 68, .13);
+        --ep-shadow: 0 24px 70px rgba(17, 24, 68, .14);
+    }
+
+    body:has(.ep-page) {
+        overflow: hidden;
+        background: radial-gradient(circle at 8% 18%, rgba(75, 86, 148, .12), transparent 30%), radial-gradient(circle at 92% 84%, rgba(234, 224, 207, .70), transparent 34%), linear-gradient(135deg, #fbfbfd 0%, #f4f0e8 48%, #eef2f8 100%);
+    }
+
+    [data-theme="dark"] body:has(.ep-page) {
+        background: radial-gradient(circle at 8% 18%, rgba(114, 136, 174, .13), transparent 30%), radial-gradient(circle at 92% 84%, rgba(75, 86, 148, .24), transparent 34%), linear-gradient(135deg, #070b18 0%, #111844 58%, #151b33 100%);
+    }
+
+    body:has(.ep-page) .nx-footer {
+        display: none !important;
+    }
+
+    body:has(.ep-page) .bp-content {
+        min-height: calc(100dvh - var(--topbar-h));
+        padding: 0 !important;
+    }
+
+    .ep-page {
+        position: relative;
+        min-height: calc(100dvh - var(--topbar-h));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: .85rem 1rem;
+        overflow: hidden;
+    }
+
+        .ep-page::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(17, 24, 68, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 24, 68, .035) 1px, transparent 1px);
+            background-size: 46px 46px;
+            mask-image: radial-gradient(circle at center, black, transparent 78%);
+            pointer-events: none;
+        }
+
+    [data-theme="dark"] .ep-page::before {
+        background-image: linear-gradient(rgba(234, 224, 207, .045) 1px, transparent 1px), linear-gradient(90deg, rgba(234, 224, 207, .045) 1px, transparent 1px);
+    }
+
+    .ep-card {
+        position: relative;
+        z-index: 1;
+        width: min(100%, 940px);
+        border-radius: 30px;
+        overflow: hidden;
+        background: radial-gradient(circle at 96% 0%, rgba(234, 224, 207, .48), transparent 28%), radial-gradient(circle at 0% 100%, rgba(114, 136, 174, .16), transparent 32%), rgba(255, 255, 255, .92);
+        border: 1px solid var(--ep-border);
+        box-shadow: var(--ep-shadow);
+        backdrop-filter: blur(18px);
+    }
+
+    [data-theme="dark"] .ep-card {
+        background: radial-gradient(circle at 96% 0%, rgba(234, 224, 207, .08), transparent 28%), radial-gradient(circle at 0% 100%, rgba(114, 136, 174, .16), transparent 32%), rgba(17, 24, 68, .90);
+        border-color: rgba(234, 224, 207, .12);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, .42);
+    }
+
+    .ep-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.15rem 1.35rem .9rem;
+        border-bottom: 1px solid rgba(17, 24, 68, .09);
+    }
+
+    [data-theme="dark"] .ep-top {
+        border-bottom-color: rgba(234, 224, 207, .10);
+    }
+
+    .ep-heading {
+        display: flex;
+        align-items: center;
+        gap: .9rem;
+        min-width: 0;
+    }
+
+    .ep-avatar {
+        position: relative;
+        width: 62px;
+        height: 62px;
+        min-width: 62px;
+        border-radius: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--ep-navy), var(--ep-indigo));
+        box-shadow: 0 16px 34px rgba(17, 24, 68, .24), 0 0 0 6px rgba(234, 224, 207, .55);
+    }
+
+        .ep-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .ep-avatar i {
+            font-size: 1.55rem;
+        }
+
+    [data-theme="dark"] .ep-avatar {
+        box-shadow: 0 16px 36px rgba(0, 0, 0, .36), 0 0 0 6px rgba(234, 224, 207, .12);
+    }
+
+    .ep-title {
+        margin: 0;
+        color: var(--ep-navy);
+        font-size: clamp(1.55rem, 2.4vw, 2rem);
+        font-weight: 950;
+        letter-spacing: -.8px;
+        line-height: 1.05;
+    }
+
+    .ep-subtitle {
+        margin: .18rem 0 0;
+        color: var(--ep-indigo);
+        font-size: .9rem;
+        font-weight: 650;
+    }
+
+    [data-theme="dark"] .ep-title {
+        color: #ffffff;
+    }
+
+    [data-theme="dark"] .ep-subtitle {
+        color: #cbd5e1;
+    }
+
+    .ep-back {
+        min-height: 40px;
+        padding: .62rem .95rem;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+        text-decoration: none;
+        color: var(--ep-navy);
+        background: rgba(255, 255, 255, .72);
+        border: 1px solid rgba(17, 24, 68, .12);
+        font-weight: 850;
+        box-shadow: 0 10px 22px rgba(17, 24, 68, .06);
+        transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+        .ep-back:hover {
+            color: var(--ep-navy);
+            background: rgba(234, 224, 207, .54);
+            transform: translateY(-1px);
+            box-shadow: 0 14px 30px rgba(17, 24, 68, .10), 0 0 0 5px rgba(234, 224, 207, .35);
+        }
+
+    [data-theme="dark"] .ep-back {
+        color: #f8fafc;
+        background: rgba(234, 224, 207, .07);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+        [data-theme="dark"] .ep-back:hover {
+            color: var(--ep-beige);
+            background: rgba(234, 224, 207, .12);
+        }
+
+    .ep-body {
+        padding: 1rem 1.35rem 1.15rem;
+    }
+
+    .ep-validation {
+        margin-bottom: .65rem;
+        font-size: .82rem;
+    }
+
+    .ep-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .68rem .85rem;
+    }
+
+    .ep-field.full {
+        grid-column: 1 / -1;
+    }
+
+    .ep-label {
+        display: flex;
+        align-items: center;
+        gap: .42rem;
+        margin-bottom: .25rem;
+        color: var(--ep-navy);
+        font-size: .78rem;
+        font-weight: 900;
+    }
+
+        .ep-label i {
+            color: var(--ep-indigo);
+            font-size: .78rem;
+        }
+
+        .ep-label span {
+            color: var(--ep-bluegray);
+            font-weight: 700;
+        }
+
+    [data-theme="dark"] .ep-label {
+        color: #f8fafc;
+    }
+
+        [data-theme="dark"] .ep-label i {
+            color: var(--ep-beige);
+        }
+
+    .ep-control {
+        width: 100%;
+        height: 42px;
+        padding: .58rem .82rem;
+        border-radius: 14px;
+        border: 1px solid rgba(17, 24, 68, .13);
+        background: rgba(255, 255, 255, .78);
+        color: var(--ep-navy);
+        font-size: .9rem;
+        font-weight: 650;
+        box-shadow: none;
+        transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+    }
+
+        .ep-control:focus {
+            border-color: var(--ep-bluegray);
+            background: rgba(255, 255, 255, .96);
+            box-shadow: 0 0 0 4px rgba(114, 136, 174, .18), 0 10px 24px rgba(17, 24, 68, .08);
+            outline: none;
+        }
+
+    textarea.ep-control {
+        height: 44px;
+        min-height: 44px;
+        resize: none;
+        overflow: hidden;
+    }
+
+    .ep-control::placeholder {
+        color: rgba(75, 86, 148, .50);
+    }
+
+    [data-theme="dark"] .ep-control {
+        background: rgba(234, 224, 207, .075);
+        color: #f8fafc;
+        border-color: rgba(234, 224, 207, .13);
+    }
+
+        [data-theme="dark"] .ep-control:focus {
+            background: rgba(17, 24, 68, .94);
+            border-color: var(--ep-beige);
+            box-shadow: 0 0 0 4px rgba(234, 224, 207, .12), 0 10px 24px rgba(0, 0, 0, .22);
+        }
+
+    .ep-email-box {
+        height: 42px;
+        padding: .55rem .72rem;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+        background: rgba(234, 224, 207, .38);
+        border: 1px solid rgba(17, 24, 68, .11);
+    }
+
+        .ep-email-box i {
+            color: var(--ep-indigo);
+        }
+
+    .ep-email-text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--ep-navy);
+        font-size: .9rem;
+        font-weight: 750;
+    }
+
+    .ep-verified {
+        margin-left: auto;
+        padding: .34rem .58rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        color: #047857;
+        background: rgba(16, 185, 129, .12);
+        border: 1px solid rgba(16, 185, 129, .18);
+        font-size: .72rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    [data-theme="dark"] .ep-email-box {
+        background: rgba(234, 224, 207, .075);
+        border-color: rgba(234, 224, 207, .12);
+    }
+
+    [data-theme="dark"] .ep-email-text {
+        color: #f8fafc;
+    }
+
+    .ep-hint {
+        display: block;
+        margin-top: .18rem;
+        color: var(--ep-bluegray);
+        font-size: .72rem;
+        font-weight: 650;
+    }
+
+    .ep-error {
+        display: block;
+        min-height: 12px;
+        margin-top: .12rem;
+        font-size: .68rem;
+        line-height: 1.05;
+    }
+
+    .ep-actions {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .75rem;
+        margin-top: .18rem;
+    }
+
+    .ep-btn {
+        min-height: 44px;
+        border-radius: 15px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .55rem;
+        text-decoration: none;
+        border: none;
+        font-size: .92rem;
+        font-weight: 950;
+        transition: transform .2s ease, box-shadow .2s ease, filter .2s ease, background .2s ease;
+    }
+
+    .ep-btn-primary {
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--ep-navy), var(--ep-indigo));
+        box-shadow: 0 13px 28px rgba(17, 24, 68, .22);
+    }
+
+        .ep-btn-primary:hover {
+            color: #ffffff;
+            filter: brightness(1.07);
+            transform: translateY(-1px);
+            box-shadow: 0 16px 34px rgba(17, 24, 68, .28), 0 0 0 5px rgba(234, 224, 207, .80), 0 0 0 9px rgba(114, 136, 174, .25);
+        }
+
+    .ep-btn-outline {
+        color: var(--ep-navy);
+        background: rgba(255, 255, 255, .68);
+        border: 1px solid rgba(17, 24, 68, .12);
+    }
+
+        .ep-btn-outline:hover {
+            color: var(--ep-navy);
+            background: rgba(234, 224, 207, .48);
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px rgba(17, 24, 68, .08);
+        }
+
+    [data-theme="dark"] .ep-btn-outline {
+        color: #f8fafc;
+        background: rgba(234, 224, 207, .07);
+        border-color: rgba(234, 224, 207, .13);
+    }
+
+        [data-theme="dark"] .ep-btn-outline:hover {
+            color: var(--ep-beige);
+            background: rgba(234, 224, 207, .12);
+        }
+
+    .ep-password-strip {
+        margin-top: .75rem;
+        padding: .72rem .85rem;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: rgba(255, 255, 255, .56);
+        border: 1px solid rgba(17, 24, 68, .10);
+    }
+
+    .ep-password-left {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        min-width: 0;
+    }
+
+    .ep-password-icon {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--ep-navy), var(--ep-indigo));
+        box-shadow: 0 12px 24px rgba(17, 24, 68, .18);
+    }
+
+    .ep-password-title {
+        margin: 0;
+        color: var(--ep-navy);
+        font-size: .9rem;
+        font-weight: 950;
+    }
+
+    .ep-password-text {
+        margin: .05rem 0 0;
+        color: var(--ep-indigo);
+        font-size: .75rem;
+        font-weight: 650;
+    }
+
+    .ep-password-link {
+        min-height: 38px;
+        padding: .55rem .85rem;
+        border-radius: 14px;
+        color: var(--ep-navy);
+        background: rgba(255, 255, 255, .72);
+        border: 1px solid rgba(17, 24, 68, .12);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: .45rem;
+        text-decoration: none;
+        font-size: .82rem;
+        font-weight: 900;
+        white-space: nowrap;
+        transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+    }
+
+        .ep-password-link:hover {
+            color: var(--ep-navy);
+            background: rgba(234, 224, 207, .52);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(17, 24, 68, .08);
+        }
+
+    [data-theme="dark"] .ep-password-strip {
+        background: rgba(255, 255, 255, .045);
+        border-color: rgba(234, 224, 207, .10);
+    }
+
+    [data-theme="dark"] .ep-password-title {
+        color: #f8fafc;
+    }
+
+    [data-theme="dark"] .ep-password-text {
+        color: #cbd5e1;
+    }
+
+    [data-theme="dark"] .ep-password-link {
+        color: #f8fafc;
+        background: rgba(234, 224, 207, .07);
+        border-color: rgba(234, 224, 207, .13);
+    }
+
+        [data-theme="dark"] .ep-password-link:hover {
+            color: var(--ep-beige);
+            background: rgba(234, 224, 207, .12);
+        }
+
+    @@media (max-width: 991.98px) {
+        body:has(.ep-page) {
+            overflow: auto;
+        }
+
+            body:has(.ep-page) .nx-footer {
+                display: block !important;
             }
-            else
-            {
-                <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--primary-light); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-size: 1.6rem;">
-                    <i class="bi bi-person-fill"></i>
+
+        .ep-page {
+            min-height: auto;
+            padding: 1rem .85rem;
+            align-items: flex-start;
+            overflow: visible;
+        }
+
+        .ep-card {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .ep-page {
+            padding: .85rem .65rem;
+        }
+
+        .ep-card {
+            border-radius: 24px;
+        }
+
+        .ep-top {
+            padding: 1rem;
+            align-items: flex-start;
+        }
+
+        .ep-heading {
+            align-items: flex-start;
+        }
+
+        .ep-avatar {
+            width: 54px;
+            height: 54px;
+            min-width: 54px;
+            border-radius: 18px;
+        }
+
+        .ep-title {
+            font-size: 1.45rem;
+        }
+
+        .ep-subtitle {
+            font-size: .82rem;
+        }
+
+        .ep-body {
+            padding: 1rem;
+        }
+
+        .ep-grid {
+            grid-template-columns: 1fr;
+            gap: .6rem;
+        }
+
+        .ep-actions {
+            grid-template-columns: 1fr;
+            gap: .55rem;
+        }
+
+        .ep-password-strip {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .ep-password-link {
+            width: 100%;
+        }
+
+        .ep-email-box {
+            height: auto;
+            min-height: 46px;
+            flex-wrap: wrap;
+        }
+
+        .ep-verified {
+            margin-left: 0;
+        }
+    }
+
+    @@media (max-height: 760px) and (min-width: 992px) {
+        .ep-page {
+            padding: .55rem 1rem;
+        }
+
+        .ep-card {
+            width: min(100%, 900px);
+            border-radius: 26px;
+        }
+
+        .ep-top {
+            padding: .85rem 1.15rem .65rem;
+        }
+
+        .ep-avatar {
+            width: 52px;
+            height: 52px;
+            min-width: 52px;
+            border-radius: 18px;
+        }
+
+        .ep-title {
+            font-size: 1.45rem;
+        }
+
+        .ep-subtitle {
+            font-size: .78rem;
+        }
+
+        .ep-body {
+            padding: .8rem 1.15rem .9rem;
+        }
+
+        .ep-grid {
+            gap: .45rem .7rem;
+        }
+
+        .ep-label {
+            font-size: .72rem;
+            margin-bottom: .16rem;
+        }
+
+        .ep-control,
+        .ep-email-box {
+            height: 36px;
+            border-radius: 12px;
+            font-size: .82rem;
+        }
+
+        textarea.ep-control {
+            height: 36px;
+            min-height: 36px;
+        }
+
+        .ep-hint {
+            display: none;
+        }
+
+        .ep-error {
+            min-height: 10px;
+            font-size: .62rem;
+        }
+
+        .ep-btn {
+            min-height: 38px;
+            border-radius: 13px;
+            font-size: .86rem;
+        }
+
+        .ep-password-strip {
+            margin-top: .55rem;
+            padding: .56rem .7rem;
+            border-radius: 15px;
+        }
+
+        .ep-password-icon {
+            width: 34px;
+            height: 34px;
+            min-width: 34px;
+            border-radius: 12px;
+        }
+
+        .ep-password-title {
+            font-size: .82rem;
+        }
+
+        .ep-password-text {
+            font-size: .68rem;
+        }
+
+        .ep-password-link {
+            min-height: 34px;
+            font-size: .76rem;
+        }
+    }
+
+    @@media (max-height: 620px) and (min-width: 992px) {
+        body:has(.ep-page) {
+            overflow: auto;
+        }
+
+        .ep-page {
+            min-height: auto;
+            align-items: flex-start;
+        }
+    }
+</style>
+
+<section class="ep-page">
+    <div class="ep-card fade-up">
+        <div class="ep-top">
+            <div class="ep-heading">
+                <div class="ep-avatar">
+                    @if (!string.IsNullOrEmpty(pic))
+                    {
+                        <img src="@pic" alt="Profile" />
+                    }
+                    else
+                    {
+                        <i class="fa-solid fa-user"></i>
+                    }
                 </div>
-            }
-            <div>
-                <h2 style="font-size: 1.45rem; font-weight: 800; margin: 0;">Edit Profile</h2>
-                <p style="color: var(--muted); font-size: 0.85rem; margin: 0;">Update your personal information.</p>
-            </div>
-        </div>
-        <a asp-action="Profile" class="btn-nx outline sm">
-            <i class="bi bi-arrow-left"></i> Back
-        </a>
-    </div>
 
-    <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
-
-    <form asp-action="EditProfile" method="post" autocomplete="off">
-        @Html.AntiForgeryToken()
-
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label asp-for="FullName" class="form-label">Full Name</label>
-                <input asp-for="FullName" class="form-control" placeholder="Your full name" />
-                <span asp-validation-for="FullName" class="text-danger small"></span>
-            </div>
-
-            <div class="col-md-6">
-                <label asp-for="UserName" class="form-label">User Name</label>
-                <input asp-for="UserName" class="form-control" placeholder="e.g. sajid007" />
-                <span asp-validation-for="UserName" class="text-danger small"></span>
-            </div>
-
-            <div class="col-md-6">
-                <label asp-for="DateOfBirth" class="form-label">Date of Birth</label>
-                <input asp-for="DateOfBirth" type="date" class="form-control" />
-                <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
-            </div>
-
-            <div class="col-md-6">
-                <label asp-for="PhoneNumber" class="form-label">Phone Number <span style="color: var(--muted); font-weight: 400;">(optional)</span></label>
-                <input asp-for="PhoneNumber" class="form-control" placeholder="01XXXXXXXXX" />
-                <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
-            </div>
-
-            <div class="col-12">
-                <label class="form-label">Email address <span style="color: var(--muted); font-weight: 400;">(can't change)</span></label>
-                <div class="d-flex align-items-center gap-2 p-2 ps-3" style="background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); height: 50px;">
-                    <i class="bi bi-envelope" style="color: var(--muted);"></i>
-                    <span style="color: var(--text); font-size: 0.93rem;">@email</span>
-                    <span class="badge-approved ms-auto"><i class="bi bi-check-circle-fill me-1"></i>Verified</span>
+                <div>
+                    <h1 class="ep-title">Edit Profile</h1>
+                    <p class="ep-subtitle">Update your personal information without changing account security.</p>
                 </div>
-                <small style="color: var(--muted); font-size: 0.78rem;">Email is locked for security. Contact support to change it.</small>
             </div>
 
-            <div class="col-12">
-                <label asp-for="Address" class="form-label">Address</label>
-                <textarea asp-for="Address" class="form-control" rows="2" placeholder="Your address"></textarea>
-                <span asp-validation-for="Address" class="text-danger small"></span>
-            </div>
-        </div>
-
-        <div class="d-flex gap-2 mt-4">
-            <button type="submit" class="btn-auth" style="flex: 1;">
-                <i class="bi bi-check-circle"></i> Save Changes
-            </button>
-            <a asp-action="Profile" class="btn-auth outline" style="flex: 1;">
-                <i class="bi bi-x-circle"></i> Cancel
+            <a asp-action="Profile" class="ep-back">
+                <i class="fa-solid fa-arrow-left"></i>
+                Back
             </a>
         </div>
-    </form>
 
-    <hr style="border-color: var(--border); margin: 1.75rem 0 1.25rem;" />
+        <div class="ep-body">
+            <div asp-validation-summary="ModelOnly" class="text-danger ep-validation"></div>
 
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div>
-            <h5 style="font-size: 0.95rem; font-weight: 700; margin: 0;">Want to change your password?</h5>
-            <p style="color: var(--muted); font-size: 0.82rem; margin: 0;">Verify your current password and set a new one.</p>
+            <form asp-action="EditProfile" method="post" autocomplete="off">
+                @Html.AntiForgeryToken()
+
+                <div class="ep-grid">
+                    <div class="ep-field">
+                        <label asp-for="FullName" class="ep-label">
+                            <i class="fa-solid fa-id-card"></i>
+                            Full Name
+                        </label>
+                        <input asp-for="FullName" class="ep-control" placeholder="Your full name" />
+                        <span asp-validation-for="FullName" class="text-danger ep-error"></span>
+                    </div>
+
+                    <div class="ep-field">
+                        <label asp-for="UserName" class="ep-label">
+                            <i class="fa-solid fa-user-pen"></i>
+                            User Name
+                        </label>
+                        <input asp-for="UserName" class="ep-control" placeholder="e.g. sajid007" />
+                        <span asp-validation-for="UserName" class="text-danger ep-error"></span>
+                    </div>
+
+                    <div class="ep-field">
+                        <label asp-for="DateOfBirth" class="ep-label">
+                            <i class="fa-solid fa-calendar-days"></i>
+                            Date of Birth
+                        </label>
+                        <input asp-for="DateOfBirth" type="date" class="ep-control" />
+                        <span asp-validation-for="DateOfBirth" class="text-danger ep-error"></span>
+                    </div>
+
+                    <div class="ep-field">
+                        <label asp-for="PhoneNumber" class="ep-label">
+                            <i class="fa-solid fa-phone"></i>
+                            Phone Number <span>(optional)</span>
+                        </label>
+                        <input asp-for="PhoneNumber" class="ep-control" placeholder="01XXXXXXXXX" />
+                        <span asp-validation-for="PhoneNumber" class="text-danger ep-error"></span>
+                    </div>
+
+                    <div class="ep-field full">
+                        <label class="ep-label">
+                            <i class="fa-solid fa-envelope-circle-check"></i>
+                            Email address <span>(can't change)</span>
+                        </label>
+
+                        <div class="ep-email-box">
+                            <i class="fa-regular fa-envelope"></i>
+                            <span class="ep-email-text">@email</span>
+                            <span class="ep-verified">
+                                <i class="fa-solid fa-circle-check"></i>
+                                Verified
+                            </span>
+                        </div>
+
+                        <span class="ep-hint">Email is locked for security. Contact support to change it.</span>
+                    </div>
+
+                    <div class="ep-field full">
+                        <label asp-for="Address" class="ep-label">
+                            <i class="fa-solid fa-location-dot"></i>
+                            Address
+                        </label>
+                        <textarea asp-for="Address" class="ep-control" rows="1" placeholder="Your current address"></textarea>
+                        <span asp-validation-for="Address" class="text-danger ep-error"></span>
+                    </div>
+
+                    <div class="ep-actions">
+                        <button type="submit" class="ep-btn ep-btn-primary">
+                            <i class="fa-solid fa-circle-check"></i>
+                            Save Changes
+                        </button>
+
+                        <a asp-action="Profile" class="ep-btn ep-btn-outline">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </form>
+
+            <div class="ep-password-strip">
+                <div class="ep-password-left">
+                    <span class="ep-password-icon">
+                        <i class="fa-solid fa-key"></i>
+                    </span>
+                    <div>
+                        <h2 class="ep-password-title">Want to change your password?</h2>
+                        <p class="ep-password-text">Verify your current password and set a new one.</p>
+                    </div>
+                </div>
+
+                <a asp-action="ChangePassword" class="ep-password-link">
+                    <i class="fa-solid fa-lock"></i>
+                    Change Password
+                </a>
+            </div>
         </div>
-        <a asp-action="ChangePassword" class="btn-nx outline">
-            <i class="bi bi-key"></i> Change Password
-        </a>
     </div>
-</div>
+</section>
 
 @section Scripts {
     @{

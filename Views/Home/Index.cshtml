@@ -55,15 +55,17 @@
     }
 }
 
+<link href="~/css/bp-ui-system.css" rel="stylesheet" asp-append-version="true" />
+
 <style>
     /*
-            Admin Home Dashboard UI
-            Palette:
-            #111844 - Deep navy
-            #4B5694 - Soft indigo
-            #7288AE - Muted blue
-            #EAE0CF - Warm beige
-        */
+                    Admin Home Dashboard UI
+                    Palette:
+                    #111844 - Deep navy
+                    #4B5694 - Soft indigo
+                    #7288AE - Muted blue
+                    #EAE0CF - Warm beige
+                */
 
     :root {
         --ah-navy: #111844;
@@ -1168,99 +1170,176 @@
 }
 else
 {
-    <section class="public-home-page">
-        <div class="public-home-shell">
+    <section class="bpz-home-page">
+        <div class="bpz-home-shell">
 
-            <div class="public-hero">
-                <h1>Find Your Perfect Bachelor Room</h1>
-                <p>
-                    Discover verified bachelor rooms, mess seats, sublets, and flatmates in your preferred area.
-                </p>
+            <section class="bpz-hero" aria-label="Bachelor room search hero">
+                <div class="bpz-hero-shade"></div>
 
-                <form asp-controller="Room" asp-action="Index" method="get" class="public-search">
-                    <i class="bi bi-search"></i>
-                    <input type="text"
-                           name="searchText"
-                           placeholder="Enter city, area, flat name or keywords..." />
-                    <button type="submit">
-                        <i class="bi bi-arrow-right me-1"></i>
-                        Search Space
-                    </button>
-                </form>
-            </div>
+                <div class="bpz-hero-content">
+                    <h1>Find your fresh start</h1>
+                    <p class="bpz-hero-subtitle">
+                        Discover verified bachelor rooms, mess seats, sublets, and flatmates for rent.
+                    </p>
 
-            <div class="admin-section">
-                <div class="admin-section-head">
+                    <form asp-controller="Room" asp-action="Index" method="get" class="bpz-search-form">
+                        <div class="bpz-search-box">
+                            <span class="bpz-search-icon">
+                                <i class="bi bi-search"></i>
+                            </span>
+
+                            <input type="text"
+                                   name="searchText"
+                                   value="@Context.Request.Query["searchText"]"
+                                   placeholder="Search by location or property name"
+                                   aria-label="Search rooms by location or property name" />
+
+                            <button type="submit" class="bpz-search-btn">
+                                Search
+                                <i class="bi bi-arrow-right"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <section class="bpz-popular" aria-label="Popular bachelor-room areas">
+                <div class="bpz-popular-title">
+                    <i class="bi bi-geo-alt-fill"></i>
+                    <span>Popular areas</span>
+                </div>
+
+                <div class="bpz-popular-list">
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Dhaka">Dhaka</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Mirpur">Mirpur</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Dhanmondi">Dhanmondi</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Uttara">Uttara</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Badda">Badda</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Bashundhara">Bashundhara</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Mohammadpur">Mohammadpur</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Banani">Banani</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Gulshan">Gulshan</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Farmgate">Farmgate</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Khilgaon">Khilgaon</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Chittagong">Chittagong</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-searchText="Sylhet">Sylhet</a>
+                    <a asp-controller="Room" asp-action="Index" asp-route-showFilters="true" class="bpz-filter-chip">
+                        <i class="bi bi-sliders"></i>
+                        Filter rooms
+                    </a>
+                </div>
+            </section>
+
+            <section class="bpz-rooms-section">
+                <div class="bpz-section-head">
                     <div>
-                        <h2 class="admin-section-title">
+                        <p class="bpz-section-eyebrow">
                             <i class="bi bi-house-check-fill"></i>
-                            Latest Available Rooms
-                        </h2>
-                        <p class="admin-section-subtitle">Recently approved rooms available for users.</p>
+                            Latest listings
+                        </p>
+                        <h2>Latest Available Rooms</h2>
+                        <p>Recently approved rooms ready for browsing.</p>
                     </div>
+
+                    <a asp-controller="Room" asp-action="Index" class="bpz-view-all">
+                        Browse all
+                        <i class="bi bi-arrow-right"></i>
+                    </a>
                 </div>
 
                 @if (!Model.Items.Any())
                 {
-                    <div class="admin-empty">
-                        <i class="bi bi-info-circle-fill"></i>
-                        <span>No rooms have been posted yet. Check back soon.</span>
+                    <div class="bpz-empty-state">
+                        <div class="bpz-empty-icon">
+                            <i class="bi bi-house-slash"></i>
+                        </div>
+                        <h3>No rooms available yet</h3>
+                        <p>Approved listings will appear here when owners post rooms.</p>
                     </div>
                 }
                 else
                 {
-                    <div class="public-room-grid">
+                    <div class="bpz-room-grid">
                         @foreach (var room in Model.Items)
                         {
                             string cover = GetCoverImage(room);
 
-                            <article class="public-room-card">
-                                <div class="public-room-img">
+                            <article class="bpz-room-card">
+                                <a asp-controller="Room"
+                                   asp-action="Details"
+                                   asp-route-id="@room.Id"
+                                   class="bpz-room-image">
                                     @if (!string.IsNullOrEmpty(cover))
                                     {
                                         <img src="@cover" alt="@room.Title" />
                                     }
                                     else
                                     {
-                                        <i class="bi bi-image"></i>
+                                        <div class="bpz-room-image-empty">
+                                            <i class="bi bi-image"></i>
+                                        </div>
                                     }
-                                </div>
 
-                                <div class="public-room-body">
-                                    <h3 class="admin-room-title">@room.Title</h3>
-                                    <p class="admin-room-meta">
-                                        <i class="bi bi-geo-alt-fill me-1"></i>
+                                    <span class="bpz-room-status">
+                                        <i class="bi bi-patch-check-fill"></i>
+                                        Verified
+                                    </span>
+                                </a>
+
+                                <div class="bpz-room-body">
+                                    <div class="bpz-room-price-row">
+                                        <strong>BDT @room.Price.ToString("N0")</strong>
+                                        <span>/ month</span>
+                                    </div>
+
+                                    <h3>
+                                        <a asp-controller="Room" asp-action="Details" asp-route-id="@room.Id">
+                                            @room.Title
+                                        </a>
+                                    </h3>
+
+                                    <p class="bpz-room-location">
+                                        <i class="bi bi-geo-alt-fill"></i>
                                         @room.Location
                                     </p>
 
-                                    <p class="admin-section-subtitle" style="margin:.5rem 0 .8rem;">
-                                        @GetShortText(room.Description, 85)
+                                    <p class="bpz-room-desc">
+                                        @GetShortText(room.Description, 86)
                                     </p>
 
-                                    <div class="d-flex align-items-center justify-content-between gap-2">
-                                        <strong style="color:var(--ah-navy);">
-                                            BDT @room.Price.ToString("N0")
-                                        </strong>
-
-                                        <a asp-controller="Room"
-                                           asp-action="Details"
-                                           asp-route-id="@room.Id"
-                                           class="admin-btn admin-btn-soft"
-                                           style="background: rgba(17, 24, 68, .08); color: var(--ah-navy); border: 1px solid rgba(17, 24, 68, .10); min-height: 38px;">
-                                            View
-                                            <i class="bi bi-chevron-right"></i>
-                                        </a>
+                                    <div class="bpz-room-tags">
+                                        @if (room.WifiCost.HasValue)
+                                        {
+                                            <span><i class="bi bi-wifi"></i> WiFi</span>
+                                        }
+                                        @if (room.MealCostPerMonth.HasValue)
+                                        {
+                                            <span><i class="bi bi-egg-fried"></i> Meal</span>
+                                        }
+                                        @if (room.MaidCostPerMonth.HasValue)
+                                        {
+                                            <span><i class="bi bi-stars"></i> Maid</span>
+                                        }
+                                        <span><i class="bi bi-clock-history"></i> @GetRoomAge(room.CreatedAt)</span>
                                     </div>
+
+                                    <a asp-controller="Room"
+                                       asp-action="Details"
+                                       asp-route-id="@room.Id"
+                                       class="bpz-room-action">
+                                        View details
+                                        <i class="bi bi-arrow-right"></i>
+                                    </a>
                                 </div>
                             </article>
                         }
                     </div>
                 }
-            </div>
+            </section>
 
             @if (Model.TotalPages > 1)
             {
-                <nav class="mt-4">
+                <nav class="bpz-pagination-wrap" aria-label="Room listing pages">
                     <ul class="pagination justify-content-center">
                         <li class="page-item @(Model.HasPrevious ? "" : "disabled")">
                             <a class="page-link" asp-action="Index" asp-route-page="@(Model.Page - 1)">

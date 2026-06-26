@@ -58,7 +58,9 @@ namespace Bachelor_s_Point.Repositories
                 .Where(r => r.IsAvailable && r.IsApproved && (
                     (r.Title != null && r.Title.Contains(searchText)) ||
                     (r.Description != null && r.Description.Contains(searchText)) ||
-                    (r.Location != null && r.Location.Contains(searchText))))
+                    (r.Location != null && r.Location.Contains(searchText)) ||
+                    (r.Division != null && r.Division.Contains(searchText)) ||
+                    (r.District != null && r.District.Contains(searchText))))
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
         }
@@ -78,7 +80,9 @@ namespace Bachelor_s_Point.Repositories
                 query = query.Where(r =>
                     (r.Title != null && r.Title.Contains(searchText)) ||
                     (r.Description != null && r.Description.Contains(searchText)) ||
-                    (r.Location != null && r.Location.Contains(searchText)));
+                    (r.Location != null && r.Location.Contains(searchText)) ||
+                    (r.Division != null && r.Division.Contains(searchText)) ||
+                    (r.District != null && r.District.Contains(searchText)));
             }
 
             int total = await query.CountAsync();
@@ -114,7 +118,9 @@ namespace Bachelor_s_Point.Repositories
                 query = query.Where(r =>
                     (r.Title != null && r.Title.Contains(s)) ||
                     (r.Description != null && r.Description.Contains(s)) ||
-                    (r.Location != null && r.Location.Contains(s)));
+                    (r.Location != null && r.Location.Contains(s)) ||
+                    (r.Division != null && r.Division.Contains(s)) ||
+                    (r.District != null && r.District.Contains(s)));
             }
 
             // Division / District (structured)

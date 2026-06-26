@@ -4,8 +4,24 @@
     ViewData["Title"] = "Browse Rooms";
     var filter = ViewBag.Filter as Bachelor_s_Point.Application.DTOs.RoomFilterDto
                  ?? new Bachelor_s_Point.Application.DTOs.RoomFilterDto();
-    bool isAdmin  = User.IsInRole("Admin");
-    bool panelOpen = filter.HasAnyFilter;
+    bool isAdmin = User.IsInRole("Admin");
+
+    // Keep simple city/search clicks focused on results.
+    // Open the advanced filter panel only when the user clicks Filter rooms
+    // or when actual advanced filters are active.
+    bool showFiltersFromLink = ViewBag.ShowFilters is bool sf && sf;
+    bool hasAdvancedFilters =
+        !string.IsNullOrWhiteSpace(filter.Division) ||
+        !string.IsNullOrWhiteSpace(filter.District) ||
+        filter.MinPrice.HasValue ||
+        filter.MaxPrice.HasValue ||
+        filter.HasWifi ||
+        filter.HasMeal ||
+        filter.HasMaid ||
+        filter.AvailableOnly ||
+        (!string.IsNullOrWhiteSpace(filter.SortBy) && filter.SortBy != "newest");
+
+    bool panelOpen = showFiltersFromLink || hasAdvancedFilters;
 
     // Blur logic:
     //   - Admin → always full view
@@ -28,14 +44,29 @@
         overflow: hidden;
         transition: max-height 0.3s ease;
     }
-    .filter-panel.collapsed { max-height: 0; }
-    .filter-panel.expanded  { max-height: 1200px; }
-    .filter-toggle-btn { cursor: pointer; }
+
+        .filter-panel.collapsed {
+            max-height: 0;
+        }
+
+        .filter-panel.expanded {
+            max-height: 1200px;
+        }
+
+    .filter-toggle-btn {
+        cursor: pointer;
+    }
+
     .chip {
-        display: inline-flex; align-items: center; gap: 6px;
-        background: var(--primary-light); color: var(--primary);
-        border-radius: 999px; padding: 0.25rem 0.7rem;
-        font-size: 0.78rem; font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--primary-light);
+        color: var(--primary);
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 600;
     }
 
     /* ── Paywall blur styles ── */
@@ -44,11 +75,13 @@
         border-radius: var(--radius-xl);
         overflow: hidden;
     }
+
     .room-blurred {
         filter: blur(6px);
         pointer-events: none;
         user-select: none;
     }
+
     .room-paywall-overlay {
         position: absolute;
         inset: 0;
@@ -64,30 +97,46 @@
         text-align: center;
         padding: 1.25rem;
     }
-    .room-paywall-overlay .lock-icon {
-        width: 52px; height: 52px;
-        background: rgba(255,255,255,0.15);
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.5rem; color: #fff;
-    }
-    .room-paywall-overlay p { color: #fff; font-size: 0.82rem; margin: 0; opacity: 0.9; }
-    .room-paywall-overlay .unlock-btn {
-        background: var(--primary);
-        color: #fff;
-        border: none;
-        border-radius: var(--radius-md);
-        padding: 0.45rem 1.1rem;
-        font-size: 0.82rem;
-        font-weight: 700;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        transition: background 0.2s;
-    }
-    .room-paywall-overlay .unlock-btn:hover { background: var(--primary-dark); color: #fff; }
+
+        .room-paywall-overlay .lock-icon {
+            width: 52px;
+            height: 52px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #fff;
+        }
+
+        .room-paywall-overlay p {
+            color: #fff;
+            font-size: 0.82rem;
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        .room-paywall-overlay .unlock-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            padding: 0.45rem 1.1rem;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+            .room-paywall-overlay .unlock-btn:hover {
+                background: var(--primary-dark);
+                color: #fff;
+            }
 </style>
 
 <div class="container py-3">
@@ -158,9 +207,13 @@
                             @foreach (var div in BangladeshLocations.Divisions)
                             {
                                 if (filter.Division == div)
-                                { <option value="@div" selected>@div</option> }
+                                {
+                                    <option value="@div" selected>@div</option>
+                                }
                                 else
-                                { <option value="@div">@div</option> }
+                                {
+                                    <option value="@div">@div</option>
+                                }
                             }
                         </select>
                     </div>
@@ -171,9 +224,13 @@
                             @foreach (var dist in BangladeshLocations.GetDistricts(filter.Division))
                             {
                                 if (filter.District == dist)
-                                { <option value="@dist" selected>@dist</option> }
+                                {
+                                    <option value="@dist" selected>@dist</option>
+                                }
                                 else
-                                { <option value="@dist">@dist</option> }
+                                {
+                                    <option value="@dist">@dist</option>
+                                }
                             }
                         </select>
                     </div>
@@ -202,9 +259,13 @@
                             @foreach (var s in sorts)
                             {
                                 if ((filter.SortBy ?? "newest") == s.val)
-                                { <option value="@s.val" selected>@s.label</option> }
+                                {
+                                    <option value="@s.val" selected>@s.label</option>
+                                }
                                 else
-                                { <option value="@s.val">@s.label</option> }
+                                {
+                                    <option value="@s.val">@s.label</option>
+                                }
                             }
                         </select>
                     </div>
@@ -297,7 +358,11 @@
                                     {
                                         <span>@room.District@(string.IsNullOrWhiteSpace(room.Division) ? "" : ", " + room.Division)</span>
                                     }
-                                    else { <span>@room.Location</span> }
+                                    else
+                                    {
+
+                                        <span>@room.Location</span>
+                                    }
                                     <a href="https://www.google.com/maps/search/?api=1&query=@(System.Net.WebUtility.UrlEncode((room.Location ?? room.District ?? "") + ", Bangladesh"))"
                                        target="_blank" rel="noopener" class="auth-link" style="margin-left:0.3rem;">
                                         <i class="bi bi-map"></i>
@@ -315,7 +380,10 @@
                                 @if (amenities.Any())
                                 {
                                     <div class="d-flex flex-wrap gap-1 mt-1">
-                                        @foreach (var a in amenities) { <span class="chip">@a</span> }
+                                        @foreach (var a in amenities)
+                                        {
+                                            <span class="chip">@a</span>
+                                        }
                                     </div>
                                 }
                                 <p style="font-size:0.78rem;color:var(--muted);margin:0.5rem 0 0;">
@@ -355,8 +423,14 @@
                                     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.55rem;">
                                         <i class="bi bi-geo-alt"></i>
                                         @if (!string.IsNullOrWhiteSpace(room.District))
-                                        { <span>@room.District</span> }
-                                        else { <span>@room.Location</span> }
+                                        {
+                                            <span>@room.District</span>
+                                        }
+                                        else
+                                        {
+
+                                            <span>@room.Location</span>
+                                        }
                                     </p>
                                     <p style="font-size:0.88rem;color:var(--muted);">████████ ██████ ████</p>
                                     <div style="font-size:1.1rem;font-weight:800;color:var(--success);margin-top:1rem;">BDT ████</div>
@@ -447,7 +521,7 @@
 @section Scripts {
     <script>
         const divisionDistricts = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-            Bachelor_s_Point.Application.Common.BangladeshLocations.DivisionDistricts));
+                    Bachelor_s_Point.Application.Common.BangladeshLocations.DivisionDistricts));
         const divisionSelect  = document.getElementById('divisionSelect');
         const districtSelect  = document.getElementById('districtSelect');
         const currentDistrict = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(filter.District ?? ""));
@@ -478,7 +552,10 @@
                 chevron.classList.replace('bi-chevron-up','bi-chevron-down');
             }
         });
-        @if (panelOpen) { <text>chevron.classList.replace('bi-chevron-down','bi-chevron-up');</text> }
+        @if (panelOpen)
+        {
+            <text>chevron.classList.replace('bi-chevron-down','bi-chevron-up');</text>
+        }
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('openFilters') === '1' && panel.classList.contains('collapsed'))
