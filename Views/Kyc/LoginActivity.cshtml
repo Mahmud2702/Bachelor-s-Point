@@ -14,8 +14,6 @@
     var recentLogin = Model.OrderByDescending(x => x.LoginAt).FirstOrDefault();
     string latestLoginText = recentLogin == null ? "No activity yet" : recentLogin.LoginAt.ToString("dd MMM yyyy, hh:mm tt");
 
-    int adminLogins = Model.Count(x => string.Equals(x.User?.Role?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase));
-    int userLogins = Math.Max(0, totalLogins - adminLogins);
 
     var busiestUser = Model
         .GroupBy(x => x.User?.UserName ?? x.Email ?? "Unknown")
@@ -767,12 +765,12 @@
 
                     <div class="la-side-mini">
                         <div>
-                            <b>@adminLogins</b>
-                            <small>Admin logins</small>
+                            <b>@todayLogins</b>
+                            <small>Today</small>
                         </div>
                         <div>
-                            <b>@userLogins</b>
-                            <small>User logins</small>
+                            <b>@totalRecords</b>
+                            <small>Total records</small>
                         </div>
                     </div>
                 </aside>

@@ -240,6 +240,22 @@ namespace Bachelor_s_Point.Controllers
             return RedirectToAction("Index", "Home");
         }
 
+        [HttpGet]
+        [Authorize]
+        public IActionResult SetModeGet(string mode, string? returnUrl = null)
+        {
+            if (mode != "owner" && mode != "seeker") mode = "owner";
+            Response.Cookies.Append("UserMode", mode, new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddHours(8),
+                HttpOnly = false,
+                SameSite = SameSiteMode.Lax
+            });
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
+            return RedirectToAction("Index", "Home");
+        }
+
         // ── PROFILE ─────────────────────────────────────────────
 
         [HttpGet]

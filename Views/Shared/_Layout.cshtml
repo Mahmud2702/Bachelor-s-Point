@@ -1488,44 +1488,6 @@
                     <i class="bi bi-search"></i> Browse Rooms
                 </a>
 
-                @if (!isAdminUser)
-                {
-                    <div class="bp-sidebar-mode-wrap dropdown">
-                        <div class="bp-mode-switch-card">
-                            <button class="bp-mode-switch-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span class="bp-mode-switch-left">
-                                    <span class="bp-mode-switch-icon">
-                                        <i class="bi @(ownerMode ? "bi-house-add-fill" : "bi-person-walking")"></i>
-                                    </span>
-                                    <span>@(ownerMode ? "Owner Mode" : "Seeker Mode")</span>
-                                </span>
-                                <i class="bi bi-chevron-down" style="font-size:.8rem;"></i>
-                            </button>
-                        </div>
-                        <ul class="dropdown-menu bp-mode-dropdown">
-                            <li>
-                                <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="mode" value="owner" />
-                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="dropdown-item @(ownerMode ? "active" : "")">
-                                        <i class="bi bi-house-add-fill"></i> Owner Mode
-                                    </button>
-                                </form>
-                            </li>
-                            <li>
-                                <form asp-controller="Auth" asp-action="SetMode" method="post" class="m-0">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="mode" value="seeker" />
-                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                    <button type="submit" class="dropdown-item @(!ownerMode ? "active" : "")">
-                                        <i class="bi bi-search"></i> Seeker Mode
-                                    </button>
-                                </form>
-                            </li>
-                        </ul>
-                    </div>
-                }
 
                 <a class="bp-nav-item @(IsActive("/chat") ? "active" : "")"
                    asp-controller="Chat" asp-action="Index">
@@ -1535,72 +1497,6 @@
                         <span class="bp-nav-badge pulse">@unreadCount</span>
                     }
                 </a>
-
-                @if (!isAdminUser && isAuthed)
-                {
-                    <a class="bp-nav-item" asp-controller="Chat" asp-action="ContactSupport"
-                       style="font-size:.83rem;padding-left:2.5rem;color:var(--muted);">
-                        <i class="bi bi-headset"></i> Contact Support
-                    </a>
-
-                    <div class="bp-sidebar-status-panel">
-                        @if (currentUserKycStatus == "Verified")
-                        {
-                            <a class="bp-status-mini success" asp-controller="Kyc" asp-action="Status">
-                                <i class="bi bi-person-check-fill"></i>
-                                <span>KYC verified</span>
-                                <span class="bp-status-pill">OK</span>
-                            </a>
-                        }
-                        else if (currentUserKycStatus == "Pending")
-                        {
-                            <a class="bp-status-mini warning" asp-controller="Kyc" asp-action="Status">
-                                <i class="bi bi-hourglass-split"></i>
-                                <span>KYC pending</span>
-                                <span class="bp-status-pill">Review</span>
-                            </a>
-                        }
-                        else if (currentUserKycStatus == "Rejected")
-                        {
-                            <a class="bp-status-mini danger" asp-controller="Kyc" asp-action="Status">
-                                <i class="bi bi-person-x-fill"></i>
-                                <span>KYC rejected</span>
-                                <span class="bp-status-pill">Fix</span>
-                            </a>
-                        }
-                        else
-                        {
-                            <a class="bp-status-mini warning" asp-controller="Kyc" asp-action="Status">
-                                <i class="bi bi-person-vcard-fill"></i>
-                                <span>KYC needed</span>
-                                <span class="bp-status-pill">Start</span>
-                            </a>
-                        }
-
-                        @if (currentUserPaymentVerified)
-                        {
-                            <a class="bp-status-mini success" asp-controller="Payment" asp-action="RegistrationFee">
-                                <i class="bi bi-patch-check-fill"></i>
-                                <span>Payment verified</span>
-                                <span class="bp-status-pill">OK</span>
-                            </a>
-                        }
-                        else
-                        {
-                            <a class="bp-status-mini danger" asp-controller="Payment" asp-action="RegistrationFee">
-                                <i class="bi bi-cash-coin"></i>
-                                <span>Payment due</span>
-                                <span class="bp-status-pill">Pay</span>
-                            </a>
-                        }
-
-                        <a class="bp-status-mini @(unreadCount > 0 ? "warning" : "")" asp-controller="Chat" asp-action="Index">
-                            <i class="bi bi-chat-left-text-fill"></i>
-                            <span>Messages</span>
-                            <span class="bp-status-pill">@unreadCount</span>
-                        </a>
-                    </div>
-                }
 
                 @if (isAdminUser)
                 {
@@ -1634,10 +1530,30 @@
                 else
                 {
                     <div class="bp-sidebar-divider"></div>
-                    <div class="bp-nav-section">@(ownerMode ? "Owner" : "Seeker")</div>
+
+                    
+                    <div style="display:flex;gap:6px;padding:0 4px;margin-bottom:4px;">
+                        <a asp-controller="Auth" asp-action="SetModeGet"
+                           asp-route-mode="owner"
+                           asp-route-returnUrl="@Context.Request.Path@Context.Request.QueryString"
+                           style="flex:1;text-align:center;padding:6px 0;border-radius:8px;font-size:.78rem;font-weight:700;border:1.5px solid var(--border);text-decoration:none;transition:all .2s;
+                               background:@(ownerMode ? "var(--primary)" : "transparent");
+                               color:@(ownerMode ? "#fff" : "var(--muted)");">
+                            <i class="bi bi-house-add-fill me-1"></i>Owner
+                        </a>
+                        <a asp-controller="Auth" asp-action="SetModeGet"
+                           asp-route-mode="seeker"
+                           asp-route-returnUrl="@Context.Request.Path@Context.Request.QueryString"
+                           style="flex:1;text-align:center;padding:6px 0;border-radius:8px;font-size:.78rem;font-weight:700;border:1.5px solid var(--border);text-decoration:none;transition:all .2s;
+                               background:@(!ownerMode ? "var(--primary)" : "transparent");
+                               color:@(!ownerMode ? "#fff" : "var(--muted)");">
+                            <i class="bi bi-search me-1"></i>Seeker
+                        </a>
+                    </div>
 
                     @if (ownerMode)
                     {
+                        <div class="bp-nav-section">Owner</div>
                         <a class="bp-nav-item @(IsActive("/room/create") ? "active" : "")"
                            asp-controller="Room" asp-action="Create">
                             <i class="bi bi-plus-square-fill"></i> Post a Room
@@ -1650,23 +1566,30 @@
                                 <span class="bp-nav-badge warning pulse">@dueRoomPaymentCount</span>
                             }
                         </a>
+                        <a class="bp-nav-item @(IsActive("/kyc/status") || IsActive("/kyc/submit") ? "active" : "")"
+                           asp-controller="Kyc" asp-action="Status">
+                            <i class="bi bi-person-badge-fill"></i> KYC Verification
+                        </a>
+                        <a class="bp-nav-item @(IsActive("/payment/registrationfee") ? "active" : "")"
+                           asp-controller="Payment" asp-action="RegistrationFee">
+                            <i class="bi bi-cash-coin"></i> My Payment
+                        </a>
                     }
                     else
                     {
+                        <div class="bp-nav-section">Seeker</div>
+                        <a class="bp-nav-item @(IsActive("/room") && !IsActive("/room/create") && !IsActive("/room/mylistings") ? "active" : "")"
+                           asp-controller="Room" asp-action="Index">
+                            <i class="bi bi-search"></i> Browse Rooms
+                        </a>
                         <a class="bp-nav-item @(IsActive("/auth/profile") ? "active" : "")"
                            asp-controller="Auth" asp-action="Profile">
                             <i class="bi bi-bookmark-check-fill"></i> My Bookings
                         </a>
                     }
 
-                    <a class="bp-nav-item @(IsActive("/kyc/status") || IsActive("/kyc/submit") ? "active" : "")"
-                       asp-controller="Kyc" asp-action="Status">
-                        <i class="bi bi-person-badge-fill"></i> KYC Verification
-                    </a>
-
-                    <a class="bp-nav-item @(IsActive("/payment/registrationfee") ? "active" : "")"
-                       asp-controller="Payment" asp-action="RegistrationFee">
-                        <i class="bi bi-cash-coin"></i> My Payment
+                    <a class="bp-nav-item" asp-controller="Chat" asp-action="ContactSupport">
+                        <i class="bi bi-headset"></i> Contact Support
                     </a>
                 }
             </div>
@@ -1684,7 +1607,7 @@
                     }
                     <div style="overflow:hidden;">
                         <div class="bp-sidebar-user-name">@(currentUserName ?? User.Identity?.Name)</div>
-                        <div class="bp-sidebar-user-role">@(isAdminUser ? "Admin" : (ownerMode ? "Owner" : "Seeker"))</div>
+                        <div class="bp-sidebar-user-role">@(isAdminUser ? "Admin" : "User")</div>
                     </div>
                 </a>
                 <form asp-controller="Auth" asp-action="Logout" method="post" class="mt-2">
